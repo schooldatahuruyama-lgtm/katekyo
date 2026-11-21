@@ -19,6 +19,26 @@ python -m http.server 8000 --bind 127.0.0.1
 その場合はブラウザで `http://localhost:8000/` を開きます。
 サーバーは `Ctrl+C` で終了します。Python のない環境では、既存の静的サーバーや HTTPS の公開先を使ってください。
 
+### 公開版
+
+- **タブレットやスマホで開く:** https://schooldatahuruyama-lgtm.github.io/katekyo/ を Safari・Chrome・Edge で開く。一度開けば、通信がなくても使えます。
+- 盤を直接開く: `…/katekyo/?board=reflect`（`straight`・`reflect`・`mirror-image`・`refract`・`lens`・`lens-image`）。
+- 公開版はリポジトリ https://github.com/schooldatahuruyama-lgtm/katekyo の `pages` ブランチ（アプリに必要なファイルだけ）から配信されます。
+- 更新の手順: `sw.js` の `VERSION` を上げて master にコミットしたあと、このフォルダで次を実行する。1〜2 分で公開版が入れ替わります。
+  ```
+  powershell -NoProfile -ExecutionPolicy Bypass -File tools/pages-branch.ps1
+  git push origin master
+  git push origin pages
+  ```
+
+### 公開後の確認の記録
+
+| 日付 | 版 | 確かめたこと | 結果 |
+|---|---|---|---|
+| 2026-11-22 | `2026-11-21-6` | 公開された 14 ファイルが `pages` ブランチと同じ中身か（SHA-256） | 14 件とも同じ |
+| 2026-11-22 | `2026-11-21-6` | 公開版をヘッドレスの Edge で開き、ホームと 6 種類の盤が描かれるか、不正な `?board=` で知らせが出るか | すべて描かれ、知らせも出た |
+| 2026-11-22 | `2026-11-21-6` | 公開版で盤を指・マウスで動かす、通信を切って開く | **未確認**（Claude Code のブラウザでは公開先を開けなかった。同じ中身を `localhost` で動かした確認は済み） |
+
 ## 6 種類の盤
 
 | 盤 | 動かせるもの・確かめられること | 直接開く指定 |
