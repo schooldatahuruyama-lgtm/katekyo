@@ -1,0 +1,9 @@
+{
+  "name": "hikari-board",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Hikari Board: movable optics whiteboards for junior high science (stage 1)",
+  "scripts": {
+    "test": "node --test \"tests/*.test.js\""
+  }
+}

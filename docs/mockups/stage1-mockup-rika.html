@@ -1,0 +1,398 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>段階 1 モックアップ（第 3 案）— AI 理科ホワイトボード（仮称）</title>
+<style>
+  :root {
+    --paper: #fffcf4; --ink: #1f2a44; --sub: #5d6780; --line: #e8e0cc; --card: #ffffff;
+    --yellow: #ffd24d; --yellow-soft: #fff1c2;
+    --blue: #176aa3; --red: #b23a36; --green: #216e43; --ray: #b45c00;
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+            "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); font-family: var(--body); line-height: 1.65;
+    background-color: var(--paper);
+    background-image: radial-gradient(#e9dfc6 1.2px, transparent 1.2px); background-size: 22px 22px; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-family: var(--hand); font-size: 26px; margin: 0 0 4px; }
+  h2 { font-family: var(--hand); font-size: 20px; margin: 44px 0 4px; }
+  p.note { color: var(--sub); margin: 0 0 14px; font-size: 14px; }
+  .mark { background: linear-gradient(transparent 58%, var(--yellow) 58%); padding: 0 .15em; }
+  .hand { font-family: var(--hand); }
+
+  .frame { background: var(--paper); border: 1.5px solid var(--ink); border-radius: 20px; overflow: hidden;
+    box-shadow: 0 5px 0 rgba(31,42,68,.14);
+    background-image: radial-gradient(#e9dfc6 1.2px, transparent 1.2px); background-size: 22px 22px; }
+  .frame.phone { width: 375px; max-width: 100%; }
+
+  /* 上の帯 */
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; flex-wrap: wrap;
+    background: rgba(255,252,244,.92); border-bottom: 1.5px dashed var(--line); }
+  .brand { font-family: var(--hand); font-size: 20px; font-weight: 700; }
+  .back { border: 0; background: transparent; font: inherit; font-family: var(--hand); font-size: 16px;
+    color: var(--ink); min-height: 44px; padding: 0 6px; cursor: pointer; }
+  .seg { display: inline-flex; gap: 6px; }
+  .seg button { font: inherit; font-size: 14px; min-height: 44px; padding: 0 16px; border-radius: 12px; cursor: pointer;
+    border: 1px solid var(--line); background: #fff; color: var(--sub); }
+  .seg button.on { background: var(--yellow); border-color: var(--yellow); color: var(--ink); font-weight: 700; }
+  .chip { font-size: 13px; padding: 5px 12px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff;
+    color: var(--sub); display: inline-flex; align-items: center; gap: 6px; min-height: 32px; }
+  .chip.ok { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+  .spacer { flex: 1; }
+
+  /* 学習画面 */
+  .learn { display: grid; grid-template-columns: 64fr 36fr; }
+  .board svg { display: block; width: 100%; height: auto; touch-action: none; }
+  .board text { font-family: var(--hand); }
+  .panel { padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    border-left: 1.5px dashed var(--line); background: rgba(255,255,255,.55); }
+  .crumb { font-family: var(--hand); font-size: 15px; color: var(--sub); display: flex; align-items: center; gap: 10px; }
+  .steps { display: flex; gap: 5px; flex: 1; }
+  .steps i { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+  .steps i.on { background: var(--ink); }
+  .say { display: flex; gap: 10px; align-items: flex-start; }
+  .say svg { flex: 0 0 48px; }
+  .say p { margin: 0; font-size: 15px; }
+  .say b { background: linear-gradient(transparent 58%, var(--yellow) 58%); }
+  .task { border: 1.5px solid var(--ink); border-radius: 14px; padding: 10px 14px; background: var(--yellow-soft);
+    box-shadow: 0 3px 0 var(--ink); }
+  .task b { display: block; font-family: var(--hand); font-size: 16px; }
+  .task.done { background: #dff3e6; }
+  .task.done b { color: var(--green); }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 15px; padding: 8px 2px;
+    border-bottom: 1.5px dashed var(--line); }
+  .try .box { font-family: var(--hand); font-weight: 700; flex: 0 0 auto; }
+  .try.done { color: var(--green); }
+  .try.done span:last-child { background: linear-gradient(transparent 58%, #cdebd8 58%); }
+  .me { align-self: flex-end; background: var(--yellow-soft); border-radius: 14px 14px 4px 14px; padding: 6px 14px;
+    font-size: 14px; }
+  .me small { color: var(--sub); margin-right: 6px; }
+  .hint { display: none; }
+  .hint.show { display: flex; }
+  .ask { display: flex; align-items: center; gap: 8px; border: 1.5px dashed var(--line); border-radius: 14px;
+    padding: 8px 12px; color: var(--sub); font-size: 13px; background: #fff; }
+  .btns { display: flex; gap: 8px; margin-top: auto; }
+  .btn { flex: 1; min-height: 48px; border-radius: 999px; border: 1px solid var(--line); background: #fff;
+    font: inherit; font-size: 15px; color: var(--ink); cursor: pointer; padding: 0 18px;
+    box-shadow: 0 1px 3px rgba(31,42,68,.06); }
+  .btn.main { background: var(--ink); border-color: var(--ink); color: #fff; font-weight: 700; }
+  .choice { min-height: 48px; border-radius: 14px; border: 1px solid var(--line); background: #fff; font: inherit;
+    font-size: 15px; color: var(--ink); text-align: left; padding: 0 14px; cursor: pointer;
+    box-shadow: 0 1px 3px rgba(31,42,68,.06); }
+  .choice.miss { border-color: var(--yellow-soft); background: var(--yellow-soft); box-shadow: none; }
+
+  .phone .learn { grid-template-columns: 1fr; }
+  .phone .panel { border-left: 0; border-top: 1.5px dashed var(--line); }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-family: var(--hand); font-size: 30px; font-weight: 700; text-align: center; margin: 0 0 6px; line-height: 1.4; }
+  .lead { text-align: center; color: var(--sub); margin: 0 0 20px; font-size: 15px; }
+  .modes { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; max-width: 640px; margin: 0 auto 12px; }
+  .mode { min-height: 52px; border-radius: 14px; border: 1px solid var(--line); background: #fff; font: inherit;
+    font-size: 15px; font-weight: 600; color: var(--ink); cursor: pointer; box-shadow: 0 1px 3px rgba(31,42,68,.06); }
+  .mode.on { background: var(--yellow); border-color: var(--yellow); }
+  .next { max-width: 640px; margin: 0 auto; background: #fff; border: 1.5px solid var(--line); border-radius: 18px;
+    padding: 16px 18px; box-shadow: 0 6px 18px rgba(31,42,68,.07); display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .next small { display: block; color: var(--sub); font-size: 13px; }
+  .next strong { font-size: 17px; }
+  .next .btn { flex: 0 0 auto; }
+  .list { max-width: 640px; margin: 26px auto 0; }
+  .list h4 { font-family: var(--hand); font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .row { display: grid; grid-template-columns: 96px 1fr auto; gap: 10px; align-items: center; min-height: 52px;
+    border-top: 1.5px dashed var(--line); padding: 6px 2px; cursor: pointer; }
+  .row:last-child { border-bottom: 1.5px dashed var(--line); }
+  .row .k { font-family: var(--hand); font-size: 17px; color: var(--sub); }
+  .row .q { font-size: 15px; }
+  .tags { display: flex; gap: 6px; flex-wrap: wrap; justify-content: flex-end; }
+  .tag { font-size: 12px; padding: 2px 10px; border-radius: 999px; border: 1.5px solid var(--line); background: #fff; color: var(--sub); white-space: nowrap; }
+  .tag.done { border-color: var(--green); color: var(--green); }
+  .tag.mid { border-color: var(--ink); color: var(--ink); background: var(--yellow-soft); }
+  .tag.unchecked { border-style: dashed; border-color: var(--red); color: var(--red); }
+  .links { max-width: 640px; margin: 18px auto 0; display: flex; gap: 8px; }
+  .foot { max-width: 640px; margin: 12px auto 0; font-size: 12px; color: var(--sub); text-align: center; }
+
+  @media (max-width: 720px) {
+    .learn { grid-template-columns: 1fr; }
+    .panel { border-left: 0; border-top: 1.5px dashed var(--line); }
+    .hero { font-size: 24px; }
+    .row { grid-template-columns: 78px 1fr; }
+    .tags { grid-column: 2; justify-content: flex-start; }
+  }
+  /* ===== 第 3 案: 枠は理科クエストに合わせる（青・白い角丸カード）。盤の中だけホワイトボード ===== */
+  :root { --paper: #EEF3FF; --ink: #1B2430; --sub: #5B6676; --line: #C9D5F0; --yellow: #1A5CFF; --yellow-soft: #DCE6FF; }
+  body { background: #EEF3FF; background-image: none; }
+  h1, h2, .brand, .hero, .crumb, .back, .list h4, .row .k, .try .box, .bar .hand { font-family: var(--body); }
+  .mark, .say b { background: linear-gradient(transparent 60%, #DCE6FF 60%); }
+  .frame { background: #EEF3FF; background-image: none; border: 0; box-shadow: 0 2px 10px rgba(26,60,140,.16); }
+  .bar { background: #fff; border-bottom: 1px solid var(--line); }
+  .learn { gap: 12px; padding: 12px; }
+  .board { background-color: #fffcf4; background-image: radial-gradient(#e9dfc6 1.2px, transparent 1.2px);
+    background-size: 22px 22px; border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px rgba(26,60,140,.12); }
+  .panel, .phone .panel { background: #fff; border: 0; border-radius: 16px; box-shadow: 0 2px 10px rgba(26,60,140,.12); }
+  .seg button.on, .mode.on { background: #1A5CFF; border-color: #1A5CFF; color: #fff; }
+  .btn.main { background: #1A5CFF; border-color: #1A5CFF; }
+  .btn { border-radius: 14px; }
+  .hero { font-size: 26px; }
+  .list { background: #fff; border-radius: 16px; padding: 14px 18px 6px; box-shadow: 0 2px 10px rgba(26,60,140,.12); }
+  .row { border-top: 1px solid var(--line); }
+  .row:last-child { border-bottom: 0; }
+  .row .k { color: #1A5CFF; font-weight: 700; font-size: 16px; }
+  .try { border-bottom: 1px solid var(--line); }
+  .ask { border: 1px dashed var(--line); }
+  /* ===== Codex（gpt-6-astra）の評価（.ai-review/20261121-211022_mockup-design_round1.md）を受けた直し ===== */
+  :root { --blue: #176aa3; --red: #b23a36; --green: #216e43; --ray: #b45c00; }
+  .board { background-color: #FAF7EE; background-image: radial-gradient(#EEE7D7 1px, transparent 1px); background-size: 28px 28px; }
+  .board svg line, .board svg path { vector-effect: non-scaling-stroke; }
+  .say p, .try { font-size: 16px; }
+  .seg button { font-size: 16px; background: #DCE6FF; border-color: #DCE6FF; color: #1B2430; font-weight: 600; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; justify-content: space-between; align-items: center;
+    padding: 10px 16px 12px; font-size: 16px; line-height: 24px; color: var(--sub); border-top: 1px dashed #E3DBC8; }
+  .cap .rd { display: inline-flex; gap: 10px; font-size: 18px; color: var(--ink); }
+  .chip { font-size: 14px; }
+  .btn { background: #DCE6FF; border-color: #DCE6FF; font-weight: 700; box-shadow: none; }
+  .btn.main { background: #1A5CFF; border-color: #1A5CFF; color: #fff; }
+  .ask { background: #F4F6FA; font-size: 14px; }
+  .try.done span:last-child { background: none; font-weight: 700; }
+  @media (max-width: 900px) { .learn { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<!-- 手描き風のゆらぎと、先生の絵（どちらもこのアプリ用に描いたもの） -->
+<svg width="0" height="0" style="position:absolute">
+  <defs>
+    <filter id="sketch" x="-5%" y="-5%" width="110%" height="110%">
+      <feTurbulence type="fractalNoise" baseFrequency="0.035" numOctaves="2" seed="4" result="n"/>
+      <feDisplacementMap in="SourceGraphic" in2="n" scale="1.4"/>
+    </filter>
+    <!-- 理科クエストのキューブ先生（光の担当。理科アプリ/assets/mascots/mascot_E.svg と同じ絵） -->
+    <symbol id="tutor" viewBox="588 661 350 350">
+      <circle cx="763" cy="836" r="175" fill="#E9F2FF"/><circle cx="626" cy="733" r="14" fill="#88B8FF" opacity=".42"/><circle cx="896" cy="905" r="10" fill="#88B8FF" opacity=".55"/><g transform="translate(763,840)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#88B8FF" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><rect x="-120" y="-128" width="240" height="253" rx="64"/></g><ellipse cx="-47" cy="-96" rx="35" ry="9" transform="rotate(-18 -47 -96)" fill="white" opacity=".24"/><path d="M -54 -123 Q -14 -171 17 -126 Q 37 -154 65 -124 Q 12 -141 -19 -114 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -25 29 Q 0 56 25 29 Z" fill="#2A3A55"/><path d="M -14 35 Q 0 41 14 35" stroke="white" stroke-width="3" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 116 -105 L 122 -120 M 133 -86 L 148 -90 M 124 -64 L 135 -54" stroke="#F3B84C" stroke-width="8" stroke-linecap="round"/></g>
+    </symbol>
+  </defs>
+</svg>
+
+<main>
+  <h1>段階 1 モックアップ <span class="mark">第 3 案</span></h1>
+  <p class="note">枠（上の帯・ボタン・カード・色・文字）は理科クエストに合わせ、盤の中だけホワイトボード（クリーム色の紙、点の方眼、手描きの線と書きこみ）にした見本です。1 つ目の画面は、光源（オレンジの丸）を動かせます。</p>
+
+  <h2>1. 盤の画面（iPad 横向き・パソコン）</h2>
+  <p class="note">盤に、手書きのペンで図と書きこみが出ます。右は先生の短い案内と「ためしてみよう」。解説の教材や確認問題は理科クエストに任せ、こちらには置きません。</p>
+  <div class="frame">
+    <div class="bar">
+      <button class="back">← ボード一覧</button>
+      <span class="hand" style="font-size:17px; font-weight:700">反射</span>
+      <span class="spacer"></span>
+      <span class="chip ok"><span class="dot"></span>オンライン</span>
+      <span class="chip wait">AI は準備中</span>
+    </div>
+    <div class="learn">
+      <div class="board">
+        <svg id="b1" viewBox="0 0 600 420" aria-label="反射のホワイトボード">
+          <text x="26" y="44" font-size="26" font-weight="700" fill="#1f2a44">反射のきまり</text>
+          <path d="M24 54 q70 8 150 0" fill="none" stroke="#ffd24d" stroke-width="7" stroke-linecap="round" opacity=".9"/>
+          <g filter="url(#sketch)">
+            <line x1="300" y1="78" x2="300" y2="330" stroke="#67748b" stroke-width="2.5" stroke-dasharray="8 7"/>
+            <line x1="60" y1="332" x2="540" y2="332" stroke="#1f2a44" stroke-width="4" stroke-linecap="round"/>
+            <g stroke="#1f2a44" stroke-width="2" stroke-linecap="round">
+              <line x1="84" y1="336" x2="72" y2="350"/><line x1="144" y1="336" x2="132" y2="350"/>
+              <line x1="204" y1="336" x2="192" y2="350"/><line x1="264" y1="336" x2="252" y2="350"/>
+              <line x1="324" y1="336" x2="312" y2="350"/><line x1="384" y1="336" x2="372" y2="350"/>
+              <line x1="444" y1="336" x2="432" y2="350"/><line x1="504" y1="336" x2="492" y2="350"/>
+            </g>
+          </g>
+          <text id="lNormal" x="308" y="92" font-size="16" fill="#5d6780">法線</text>
+          <text id="lMirror" x="60" y="318" font-size="17" fill="#1f2a44">鏡</text><g id="mKnob"><circle cx="540" cy="332" r="13" fill="#fff" stroke="#1f2a44" stroke-width="2"/><path d="M534 332 a6 6 0 1 1 3 5.2" fill="none" stroke="#1f2a44" stroke-width="2" stroke-linecap="round"/></g><text id="lTilt" x="540" y="372" font-size="15" fill="#5d6780" text-anchor="end">かたむける</text>
+          <g filter="url(#sketch)">
+            <path id="arcIn" fill="rgba(23,106,163,.12)" stroke="#176aa3" stroke-width="2.5"/>
+            <path id="arcOut" fill="rgba(178,58,54,.12)" stroke="#b23a36" stroke-width="2.5"/>
+            <line id="rayIn" stroke="#b45c00" stroke-width="4.5" stroke-linecap="round"/>
+            <line id="rayOut" stroke="#b45c00" stroke-width="4.5" stroke-linecap="round"/>
+          </g>
+          <polygon id="arrIn" fill="#b45c00"/><polygon id="arrOut" fill="#b45c00"/>
+          <text id="tIn" font-size="21" font-weight="700" fill="#176aa3" text-anchor="middle"></text>
+          <text id="tOut" font-size="21" font-weight="700" fill="#b23a36" text-anchor="middle"></text>
+          <text id="lIn" font-size="16" fill="#176aa3" text-anchor="middle"></text>
+          <text id="lOut" font-size="16" fill="#b23a36" text-anchor="middle"></text>
+          <g id="src" style="cursor:grab">
+            <circle id="srcHit" r="30" fill="rgba(180,92,0,.16)"/>
+            <circle id="srcKnob" r="14" fill="#b45c00" stroke="#1f2a44" stroke-width="2"/>
+          </g>
+        </svg>
+        <div class="cap"><span class="rd"><b id="rdIn" style="color:var(--blue)"></b><span>＝</span><b id="rdOut" style="color:var(--red)"></b></span><span>オレンジの丸（光源）は指で動かせるよ</span></div>
+      </div>
+      <div class="panel">
+        <div class="say"><svg width="48" height="48"><use href="#tutor"/></svg>
+          <p>光源を動かすと、<b>入射角</b>と<b>反射角</b>がどう変わるかな。2 つの角をくらべてみよう。</p></div>
+        <div class="crumb">ためしてみよう</div>
+        <div class="try" id="task"><span class="box" id="taskHead">□</span><span id="taskText">入射角を 60° にしてみよう。</span></div>
+        <div class="try"><span class="box">□</span><span>入射角を 0° にすると、光はどこへ進む？</span></div>
+        <div class="try"><span class="box">□</span><span>鏡をかたむけて、光を右上のすみに当てよう。</span></div>
+        <div class="ask">先生への質問は準備中です（今は使えません）</div>
+        <div class="btns">
+          <button class="btn">はじめの配置にもどす</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <h2>2. ホーム</h2>
+  <p class="note">大きな手書きの見出しと、点線で区切った 6 種類の盤。押すとその盤が開きます。進み具合や履歴は、この段階では持ちません。</p>
+  <div class="frame">
+    <div class="bar">
+      <span class="brand">ひかりボード<small style="font-size:12px; color:var(--sub); font-weight:400">（仮称）</small></span>
+      <span class="spacer"></span>
+      <span class="chip ok"><span class="dot"></span>オンライン</span>
+      <span class="chip wait">AI は準備中</span>
+    </div>
+    <div class="home">
+      <p class="hero">つまずいたら、<span class="mark">動かして確かめよう。</span></p>
+      <p class="lead">光源・鏡・レンズを指で動かすと、光の道すじがその場で変わります。</p>
+      <div class="list">
+        <h4>中 1 光の世界 ― ボードをえらぶ ↷</h4>
+        <div class="row"><span class="k">直進</span><span class="q">光はどう進む？ 影はなぜできる？</span><span class="tags">→</span></div>
+        <div class="row"><span class="k">反射</span><span class="q">鏡ではね返る光のきまりは？</span><span class="tags">→</span></div>
+        <div class="row"><span class="k">鏡の像</span><span class="q">鏡の奥に見えるものは、どこにある？</span><span class="tags">→</span></div>
+        <div class="row"><span class="k">屈折・全反射</span><span class="q">水に入ると、光はなぜ曲がる？ 出られなくなるのはいつ？</span><span class="tags">→</span></div>
+        <div class="row"><span class="k">凸レンズ</span><span class="q">虫めがねは、なぜ光を集める？</span><span class="tags">→</span></div>
+        <div class="row"><span class="k">実像と虚像</span><span class="q">スクリーンに映る像と、映らない像のちがいは？</span><span class="tags">→</span></div>
+      </div>
+      <p class="foot">一度開けば、通信がなくても使えます。</p>
+    </div>
+  </div>
+
+  <h2>3. 盤の画面（スマートフォン・iPad 縦向き）と切り替え</h2>
+  <p class="note">盤が上、パネルが下。屈折・全反射の盤には、光の進む向きと物質の切り替えがあります。</p>
+  <div class="frame phone">
+    <div class="bar">
+      <button class="back">←</button>
+      <span class="hand" style="font-size:17px; font-weight:700">屈折・全反射</span>
+      <span class="spacer"></span>
+      <span class="chip"><span class="dot"></span>オフライン</span>
+    </div>
+    <div class="learn">
+      <div class="board">
+        <svg viewBox="0 0 600 460">
+          <text x="22" y="50" font-size="34" font-weight="700" fill="#1f2a44">全反射</text>
+          <path d="M20 62 q52 8 108 0" fill="none" stroke="#ffd24d" stroke-width="7" stroke-linecap="round" opacity=".9"/>
+          <rect x="0" y="230" width="600" height="230" fill="rgba(23,106,163,.10)"/>
+          <path d="M300 230 L300 300 A70 70 0 0 0 353.6 275 Z" fill="rgba(23,106,163,.12)" stroke="#176aa3" stroke-width="2.5"/>
+          <path d="M300 230 L300 300 A70 70 0 0 1 246.4 275 Z" fill="rgba(178,58,54,.12)" stroke="#b23a36" stroke-width="2.5"/>
+          <g filter="url(#sketch)">
+            <line x1="0" y1="230" x2="600" y2="230" stroke="#176aa3" stroke-width="3"/>
+            <line x1="300" y1="80" x2="300" y2="440" stroke="#67748b" stroke-width="2.5" stroke-dasharray="8 7"/>
+            <line x1="300" y1="230" x2="465" y2="368" stroke="#b45c00" stroke-width="4.5" stroke-linecap="round"/>
+            <line x1="300" y1="230" x2="135" y2="368" stroke="#b45c00" stroke-width="4.5" stroke-linecap="round"/>
+          </g>
+          <polygon points="372,290.6 393.9,297.2 382.3,311" fill="#b45c00"/>
+          <polygon points="191,321.2 212.9,314.6 201.3,300.8" fill="#b45c00"/>
+          <text x="14" y="214" font-size="30" fill="#5d6780">空気</text>
+          <text x="14" y="270" font-size="30" fill="#176aa3">水</text>
+          <circle cx="465" cy="368" r="46" fill="rgba(180,92,0,.16)"/>
+          <circle cx="465" cy="368" r="24" fill="#b45c00" stroke="#1f2a44" stroke-width="2"/>
+          <text x="352" y="356" font-size="34" font-weight="700" fill="#176aa3" text-anchor="middle">50°</text>
+          <text x="248" y="356" font-size="34" font-weight="700" fill="#b23a36" text-anchor="middle">50°</text>
+          <text x="312" y="412" font-size="30" fill="#176aa3">入射角</text>
+          <text x="288" y="412" font-size="30" fill="#b23a36" text-anchor="end">反射角</text>
+          <text x="334" y="116" font-size="30" font-weight="700" fill="#b23a36">空気に出ていく</text>
+          <text x="334" y="154" font-size="30" font-weight="700" fill="#b23a36">光がない！</text>
+          <path d="M328 160 q-16 22 -20 54" fill="none" stroke="#b23a36" stroke-width="2.5" stroke-linecap="round" filter="url(#sketch)"/>
+        </svg>
+      </div>
+      <div class="panel">
+        <div class="seg"><button>空気 → 水</button><button class="on">水 → 空気</button></div>
+        <div class="seg"><button class="on">水</button><button>ガラス</button></div>
+        <div class="say"><svg width="48" height="48"><use href="#tutor"/></svg>
+          <p>水の中から空気へ出る光は、入射角が大きくなると<b>全部はね返る</b>よ。これが全反射。</p></div>
+        <div class="crumb">ためしてみよう</div>
+        <div class="try done"><span class="box">✓</span><span>空気に出ていく光が消える所をさがそう。 できた！</span></div>
+        <div class="try"><span class="box">□</span><span>ガラスにかえると、消える角度はどう変わる？</span></div>
+        <div class="ask">先生への質問は準備中です（今は使えません）</div>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var P = { x: 300, y: 332 }, R = 225, deg = 40, done = false;
+  var svg = document.getElementById('b1');
+  function $(id) { return document.getElementById(id); }
+  function pt(r, d, side) { var a = d * Math.PI / 180; return { x: P.x + side * r * Math.sin(a), y: P.y - r * Math.cos(a) }; }
+  // 盤が画面で何 px の幅かから、SVG の 1 単位あたりの倍率を出す（文字とつかむ所を、縮んでも同じ大きさに保つ）
+  function unitPerPx() { var w = svg.getBoundingClientRect().width; return w > 0 ? 600 / w : 1; }
+  function arrow(el, from, to, t, s) {
+    var mx = from.x + (to.x - from.x) * t, my = from.y + (to.y - from.y) * t;
+    var a = Math.atan2(to.y - from.y, to.x - from.x);
+    function q(da, r) { return (mx + r * Math.cos(a + da)).toFixed(1) + ',' + (my + r * Math.sin(a + da)).toFixed(1); }
+    el.setAttribute('points', q(0, s) + ' ' + q(2.5, s) + ' ' + q(-2.5, s));
+  }
+  function put(el, x, y, anchor, size, text) {
+    el.setAttribute('x', x.toFixed(1)); el.setAttribute('y', y.toFixed(1));
+    el.setAttribute('text-anchor', anchor); el.setAttribute('font-size', size.toFixed(1));
+    el.textContent = text;
+  }
+  function draw() {
+    var k = unitPerPx();
+    var fsL = Math.max(16, 16 * k), fsA = Math.max(21, 19 * k), f = fsL / 16;
+    var hit = Math.max(30, 24 * k), knob = Math.max(14, 13 * k);
+    var s = pt(R, deg, -1), o = pt(R, deg, 1), ar = 54 * Math.min(f, 1.5);
+    var ai = pt(ar, deg, -1), ao = pt(ar, deg, 1);
+    $('rayIn').setAttribute('x1', s.x); $('rayIn').setAttribute('y1', s.y);
+    $('rayIn').setAttribute('x2', P.x); $('rayIn').setAttribute('y2', P.y);
+    $('rayOut').setAttribute('x1', P.x); $('rayOut').setAttribute('y1', P.y);
+    $('rayOut').setAttribute('x2', o.x); $('rayOut').setAttribute('y2', o.y);
+    arrow($('arrIn'), s, P, 0.45, 12 * Math.min(f, 1.6)); arrow($('arrOut'), P, o, 0.7, 12 * Math.min(f, 1.6));
+    $('arcIn').setAttribute('d', 'M' + P.x + ' ' + P.y + ' L' + P.x + ' ' + (P.y - ar) + ' A' + ar + ' ' + ar + ' 0 0 0 ' + ai.x + ' ' + ai.y + ' Z');
+    $('arcOut').setAttribute('d', 'M' + P.x + ' ' + P.y + ' L' + P.x + ' ' + (P.y - ar) + ' A' + ar + ' ' + ar + ' 0 0 1 ' + ao.x + ' ' + ao.y + ' Z');
+    var n = Math.round(deg);
+    // 角度の数字と名前。角が広いときは角の中、せまいときは光線の外側に置く（0° でも左右の文字が重ならない）
+    [-1, 1].forEach(function (side) {
+      var t = side < 0 ? $('tIn') : $('tOut'), l = side < 0 ? $('lIn') : $('lOut'), p, anchor;
+      if (deg >= 45) { p = pt(92 * f, deg / 2, side); anchor = 'middle'; }
+      else { p = pt(100 * f, deg + 14, side); anchor = side < 0 ? 'end' : 'start'; }
+      put(t, p.x, p.y, anchor, fsA, n + '°');
+      // 盤の幅が 360px より狭いときは、名前を盤の中に出さない（端で切れるため。名前は盤の下の行に出ている）
+      put(l, p.x, p.y - fsA * 1.05, anchor, fsL, 600 / k < 360 ? '' : (side < 0 ? '入射角' : '反射角'));
+    });
+    // 今の値は盤の下の行（HTML）に出す。盤の中の固定の文字とつまみも、縮んだ分だけ大きくする
+    $('rdIn').textContent = '入射角 ' + n + '°'; $('rdOut').textContent = '反射角 ' + n + '°';
+    $('lNormal').setAttribute('font-size', fsL); $('lMirror').setAttribute('font-size', fsL);
+    $('lMirror').setAttribute('y', 332 - 10 * f);
+    var ks = Math.max(1, k);
+    $('mKnob').setAttribute('transform', 'translate(540 332) scale(' + ks + ') translate(-540 -332)');
+    put($('lTilt'), 556, 332 + 13 * ks + fsL * 1.1, 'end', fsL, 'かたむける');
+    $('src').setAttribute('transform', 'translate(' + s.x + ',' + s.y + ')');
+    $('srcHit').setAttribute('r', hit); $('srcKnob').setAttribute('r', knob);
+    if (!done && Math.abs(deg - 60) <= 2) {
+      done = true;
+      $('task').classList.add('done'); $('taskHead').textContent = '✓';
+      $('taskText').textContent = '入射角を 60° にしてみよう。 できた！';
+    }
+  }
+  var dragging = false;
+  function move(e) {
+    if (!dragging) return;
+    var r = svg.getBoundingClientRect();
+    var x = (e.clientX - r.left) * 600 / r.width, y = (e.clientY - r.top) * 420 / r.height;
+    var d = Math.atan2(P.x - x, P.y - y) * 180 / Math.PI;
+    deg = Math.min(80, Math.max(0, d));
+    draw();
+  }
+  $('src').addEventListener('pointerdown', function (e) { dragging = true; $('src').setPointerCapture(e.pointerId); });
+  $('src').addEventListener('pointermove', move);
+  $('src').addEventListener('pointerup', function () { dragging = false; });
+  $('src').addEventListener('pointercancel', function () { dragging = false; });
+  window.addEventListener('resize', draw);
+  draw();
+})();
+</script>
+</body>
+</html>
