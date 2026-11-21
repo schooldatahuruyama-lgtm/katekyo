@@ -1,0 +1,9 @@
+{
+  "name": "ひかりボード",
+  "short_name": "ひかりボード",
+  "start_url": "./",
+  "display": "standalone",
+  "lang": "ja",
+  "theme_color": "#1A5CFF",
+  "background_color": "#EEF3FF"
+}
