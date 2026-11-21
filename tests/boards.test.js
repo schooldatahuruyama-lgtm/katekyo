@@ -1,0 +1,268 @@
+// 盤の文・課題・読み出しと、操作で課題を達成できることを確かめる。
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const fs = require('node:fs');
+const path = require('node:path');
+const vm = require('node:vm');
+const boards = require('../js/boards.js');
+const scene = require('../js/scene.js');
+
+const solutions = {
+  straight: [s => scene.moveElement(s, 'blocker', 'move', { x: 200, y: 210 }),
+    s => scene.moveElement(s, 'blocker', 'move', { x: 400, y: 210 })],
+  reflect: [s => scene.moveElement(s, 'src', 'move', { x: 300 - 100 * Math.sqrt(3), y: 170 }),
+    s => scene.moveElement(s, 'src', 'move', { x: 300, y: 60 })],
+  'mirror-image': [s => scene.moveElement(s, 'object', 'move', { x: 260, y: 180 }),
+    s => scene.moveElement(s, 'object', 'move', { x: 100, y: 180 })],
+  refract: [s => scene.moveElement(scene.setOption(s, 'direction', 'medium-to-air'), 'src', 'move',
+    { x: 300 - 100 * Math.sqrt(3), y: 310 }),
+  s => scene.moveElement(s, 'src', 'move', { x: 300, y: 50 }),
+  s => scene.setOption(s, 'medium', 'glass')],
+  lens: [s => scene.moveElement(s, 'lens', 'focus', { x: 440, y: 210 }),
+    s => scene.moveElement(s, 'src', 'move', { x: 60, y: 110 })],
+  'lens-image': [s => scene.moveElement(s, 'object', 'move', { x: 250, y: 210 }),
+    s => scene.moveElement(s, 'object', 'move', { x: 150, y: 210 }),
+    s => scene.moveElement(s, 'screen', 'move', { x: 500, y: 210 })],
+};
+
+test('6 種類が指定の順序・名前・問いかけでそろう', () => {
+  const all = boards.list();
+  assert.deepEqual(all.map(b => b.id), scene.KINDS);
+  assert.deepEqual(all.map(b => b.title), ['直進', '反射', '鏡の像', '屈折・全反射', '凸レンズ', '実像と虚像']);
+  assert.deepEqual(all.map(b => b.question), [
+    '光はどう進む？ 影はなぜできる？', '鏡ではね返る光のきまりは？',
+    '鏡の奥に見えるものは、どこにある？', '水に入ると、光はなぜ曲がる？ 出られなくなるのはいつ？',
+    '虫めがねは、なぜ光を集める？', 'スクリーンに映る像と、映らない像のちがいは？',
+  ]);
+});
+
+for (const id of Object.keys(solutions)) {
+  test(`${id}: 案内・初期配置・課題と、その達成操作`, () => {
+    const board = boards.get(id);
+    assert.ok(board.heading && board.intro);
+    assert.deepEqual(scene.validateScene(board.scene), []);
+    assert.ok(board.prompts.length >= 2 && board.prompts.length <= 3);
+    assert.equal(new Set(board.prompts.map(p => p.id)).size, board.prompts.length);
+    const initial = scene.trace(board.scene).measures;
+    board.prompts.forEach((prompt, i) => {
+      assert.ok(Object.hasOwn(initial, prompt.when.measure));
+      assert.equal(boards.checkPrompt(prompt, initial), false, prompt.text);
+      const solved = solutions[id][i](board.scene);
+      assert.deepEqual(scene.validateScene(solved), []);
+      assert.equal(boards.checkPrompt(prompt, scene.trace(solved).measures), true, prompt.text);
+    });
+    const lines = boards.readout(id, initial, board.scene);
+    assert.ok(lines.length > 0);
+    for (const line of lines) {
+      assert.equal(typeof line.text, 'string');
+      assert.ok(['in', 'out', 'plain'].includes(line.tone));
+      assert.doesNotMatch(line.text, /NaN|undefined|Infinity|null/);
+    }
+  });
+}
+
+for (const tolerance of [2, 6]) {
+  test(`課題の許容 ±${tolerance} ちょうどとその外`, () => {
+    const prompt = { when: { measure: 'value', op: 'near', value: 60, tol: tolerance } };
+    for (const delta of [-tolerance, tolerance]) {
+      assert.equal(boards.checkPrompt(prompt, { value: 60 + delta }), true);
+    }
+    for (const delta of [-tolerance - 0.01, tolerance + 0.01]) {
+      assert.equal(boards.checkPrompt(prompt, { value: 60 + delta }), false);
+    }
+    for (const value of [null, undefined, '60', NaN, Infinity, true, []]) {
+      assert.equal(boards.checkPrompt(prompt, { value }), false);
+    }
+  });
+}
+
+test('課題の gte・lte・is と未計測の値', () => {
+  for (const op of ['gte', 'lte']) {
+    const prompt = { when: { measure: 'v', op, value: 100 } };
+    assert.equal(boards.checkPrompt(prompt, { v: 100 }), true);
+    assert.equal(boards.checkPrompt(prompt, { v: null }), false);
+    assert.equal(boards.checkPrompt(prompt, { v: '100' }), false);
+    assert.equal(boards.checkPrompt(prompt, { v: op === 'gte' ? 99.99 : 100.01 }), false);
+  }
+  for (const value of [true, 'virtual', 100]) {
+    const prompt = { when: { measure: 'v', op: 'is', value } };
+    assert.equal(boards.checkPrompt(prompt, { v: value }), true);
+    assert.equal(boards.checkPrompt(prompt, { v: null }), false);
+    assert.equal(boards.checkPrompt(prompt, {}), false);
+  }
+  assert.equal(boards.checkPrompt(null, {}), false);
+  assert.equal(boards.checkPrompt({ when: { measure: 'x', op: 'nope' } }, {}), false);
+});
+
+test('不正なシーンでは読み出し・切り替え・課題判定を返さず、例外も投げない', () => {
+  for (const { id } of boards.list()) {
+    const board = boards.get(id), measures = scene.trace(board.scene).measures;
+    const malformed = [null, [], {}, 'x', ...[{}, [null], [], null, 'x'].map(elements => ({ ...board.scene, elements }))];
+    if (id === 'refract') malformed.push(...[null, 'x'].map(options => ({ ...board.scene, options })));
+    const prompt = { when: { measure: 'valid', op: 'is', value: true } };
+    for (const current of malformed) {
+      board.scene = current;
+      assert.deepEqual(boards.readout(id, measures, current), []);
+      assert.deepEqual(board.controls, []);
+      assert.equal(boards.checkPrompt(prompt, { valid: true }, current), false);
+    }
+  }
+});
+
+test('不正な measures は読み出しと課題判定に使わない', () => {
+  const prompt = { when: { measure: 'length', op: 'is', value: 1 } };
+  for (const measures of [null, undefined, [], ['x'], 'x', 1, true]) {
+    assert.equal(boards.checkPrompt(prompt, measures), false);
+    for (const { id } of boards.list()) assert.deepEqual(boards.readout(id, measures, boards.get(id).scene), []);
+  }
+  for (const prompt of [null, [], 'x', {}, { when: [] }, { when: null }, { when: { measure: {} } }]) {
+    assert.equal(boards.checkPrompt(prompt, {}), false);
+  }
+});
+
+test('get と list の内容は独立した写し', () => {
+  const expected = boards.get('reflect');
+  const changed = boards.get('reflect');
+  changed.scene.elements[0].x = 999;
+  changed.prompts[0].when.value = -1;
+  changed.intro = '変更';
+  assert.deepEqual(boards.get('reflect'), expected);
+  boards.list()[0].title = '変更';
+  assert.equal(boards.list()[0].title, '直進');
+  assert.equal(boards.get('nope'), null);
+});
+
+test('屈折の切り替えは水・ガラスに合わせたラベルになる', () => {
+  const board = boards.get('refract');
+  assert.deepEqual(board.controls.map(c => c.key), ['direction', 'medium']);
+  assert.deepEqual(board.controls[0].choices.map(c => c.label), ['空気 → 水', '水 → 空気']);
+  assert.deepEqual(board.controls[1].choices.map(c => c.label), ['水', 'ガラス']);
+  board.scene = scene.setOption(board.scene, 'medium', 'glass');
+  assert.deepEqual(board.controls[0].choices.map(c => c.label), ['空気 → ガラス', 'ガラス → 空気']);
+  assert.deepEqual(boards.get('refract').controls[0].choices.map(c => c.label), ['空気 → 水', '水 → 空気']);
+  for (const id of scene.KINDS.filter(id => id !== 'refract')) assert.deepEqual(boards.get(id).controls, []);
+});
+
+test('表示だけで角度を四捨五入する', () => {
+  assert.deepEqual(boards.readout('reflect', { incidenceDeg: 40.49, reflectionDeg: 40.5, mirrorTiltDeg: 0 }).slice(0, 2), [
+    { text: '入射角 40°', tone: 'in' }, { text: '反射角 41°', tone: 'out' },
+  ]);
+  const total = boards.readout('refract', { incidenceDeg: 60, refractionDeg: null,
+    totalReflection: true, direction: 'medium-to-air', medium: 'glass' });
+  assert.ok(total.some(r => r.text === '全反射'));
+  assert.ok(total.some(r => r.text === 'ガラス → 空気'));
+  assert.ok(total.every(r => !r.text.includes('null')));
+  assert.deepEqual(boards.readout('nope', {}), []);
+});
+
+test('直進の読み出しは現在のついたてに対する倍率を小数 1 けたで出す', () => {
+  const board = boards.get('straight');
+  assert.deepEqual(boards.readout(board.id, scene.trace(board.scene).measures, board.scene), [
+    { text: '影の大きさ ついたての 2.4 倍', tone: 'plain' },
+  ]);
+  board.scene.elements.find(e => e.type === 'blocker').height = 50;
+  assert.deepEqual(boards.readout(board.id, { shadowSize: 130 }, board.scene), [
+    { text: '影の大きさ ついたての 2.6 倍', tone: 'plain' },
+  ]);
+});
+
+test('反射の傾きは正負とも絶対値で、0 度も出す', () => {
+  for (const tilt of [-21, 21, 0]) {
+    assert.deepEqual(boards.readout('reflect', { incidenceDeg: 37, reflectionDeg: 37, mirrorTiltDeg: tilt }), [
+      { text: '入射角 37°', tone: 'in' }, { text: '反射角 37°', tone: 'out' },
+      { text: '鏡の傾き ' + Math.abs(tilt) + '°', tone: 'plain' },
+    ]);
+  }
+});
+
+test('鏡の像と凸レンズの読み出しには座標の数を出さない', () => {
+  assert.deepEqual(boards.readout('mirror-image', { objectDistance: 200, imageDistance: 200 }), [
+    { text: '物体から鏡まで ＝ 鏡から像まで', tone: 'plain' },
+    { text: '像は鏡の奥、物体と同じ距離の所にあります', tone: 'plain' },
+  ]);
+  assert.deepEqual(boards.readout('lens', { focalLength: 100, beamOffset: 60 }), [
+    { text: '焦点は、レンズの中心から左右に同じ距離の所にあります', tone: 'plain' },
+  ]);
+});
+
+test('屈折の角度・全反射・物質の読み出しを保つ', () => {
+  assert.deepEqual(boards.readout('refract', { incidenceDeg: 41, refractionDeg: 29,
+    totalReflection: false, direction: 'air-to-medium', medium: 'water' }), [
+    { text: '入射角 41°', tone: 'in' }, { text: '屈折角 29°', tone: 'out' },
+    { text: '空気 → 水', tone: 'plain' },
+  ]);
+  assert.deepEqual(boards.readout('refract', { incidenceDeg: 60, refractionDeg: null,
+    totalReflection: true, direction: 'medium-to-air', medium: 'glass' }), [
+    { text: '入射角 60°', tone: 'in' }, { text: '全反射', tone: 'out' },
+    { text: 'ガラス → 空気', tone: 'plain' },
+  ]);
+});
+
+test('実像は位置と大きさを倍率で出し、スクリーンの合焦を知らせる', () => {
+  const board = boards.get('lens-image');
+  for (const sharp of [false, true]) {
+    const current = sharp ? scene.moveElement(board.scene, 'screen', 'move', { x: 500, y: 210 }) : board.scene;
+    assert.deepEqual(boards.readout(board.id, scene.trace(current).measures, current), [
+      { text: '物体の位置 焦点距離の 2.0 倍', tone: 'plain' },
+      { text: '実像（上下が逆）', tone: 'plain' },
+      { text: '像の大きさ 物体の 1.0 倍', tone: 'plain' },
+      { text: sharp ? 'スクリーンにはっきり映っています ✓' : 'スクリーンを像の所へ動かそう', tone: 'plain' },
+    ]);
+  }
+});
+
+test('虚像と像なしではスクリーンを動かす文を出さない', () => {
+  const board = boards.get('lens-image');
+  const virtual = scene.moveElement(board.scene, 'object', 'move', { x: 250, y: 210 });
+  assert.deepEqual(boards.readout(board.id, scene.trace(virtual).measures, virtual), [
+    { text: '物体の位置 焦点距離の 0.5 倍', tone: 'plain' },
+    { text: '虚像（スクリーンには映りません）', tone: 'plain' },
+    { text: '像の大きさ 物体の 2.0 倍', tone: 'plain' },
+  ]);
+  const none = scene.moveElement(board.scene, 'object', 'move', { x: 200, y: 210 });
+  assert.deepEqual(boards.readout(board.id, scene.trace(none).measures, none), [
+    { text: '物体の位置 焦点距離の 1.0 倍', tone: 'plain' }, { text: '像はできません', tone: 'plain' },
+  ]);
+});
+
+test('高さ・焦点距離が 0 や未計測なら割り算の項目を出さない', () => {
+  for (const value of [0, null, undefined, NaN, Infinity, '100']) {
+    const straight = boards.get('straight'), lens = boards.get('lens-image');
+    straight.scene.elements.find(e => e.type === 'blocker').height = value;
+    lens.scene.elements.find(e => e.type === 'lens').focalLength = value;
+    assert.deepEqual(boards.readout('straight', { shadowSize: 141 }, straight.scene), []);
+    assert.deepEqual(boards.readout('lens-image', { objectDistance: 200 }, lens.scene), []);
+  }
+  for (const id of scene.KINDS) assert.deepEqual(boards.readout(id, null, boards.get(id).scene), []);
+  for (const value of [null, undefined, NaN, Infinity, '200']) {
+    assert.deepEqual(boards.readout('straight', { shadowSize: value }, boards.get('straight').scene), []);
+    assert.deepEqual(boards.readout('reflect', { incidenceDeg: value, reflectionDeg: value, mirrorTiltDeg: value }), []);
+    assert.deepEqual(boards.readout('lens-image', { objectDistance: value, magnification: value, imageKind: 'real',
+      screenSharp: null }, boards.get('lens-image').scene), [{ text: '実像（上下が逆）', tone: 'plain' }]);
+  }
+  assert.deepEqual(boards.readout('straight', { shadowSize: 141 }), []);
+  assert.deepEqual(boards.readout('lens-image', { objectDistance: 200 }), []);
+});
+
+test('像の倍率が 50 倍以上なら上限の文を出す', () => {
+  for (const magnification of [49.9, 50, 50.1, 1000]) {
+    const lines = boards.readout('lens-image', { imageKind: 'real', magnification });
+    assert.equal(lines[1].text, magnification >= 50 ? '像の大きさ 物体の 50 倍以上' : '像の大きさ 物体の 49.9 倍');
+  }
+  const current = scene.moveElement(boards.get('lens-image').scene, 'object', 'move', { x: 198.5, y: 210 });
+  assert.ok(boards.readout('lens-image', scene.trace(current).measures, current)
+    .some(line => line.text === '像の大きさ 物体の 50 倍以上'));
+});
+
+test('DOM なしのブラウザ名前空間でも Node と同じ結果を返す', () => {
+  const context = vm.createContext({ URLSearchParams });
+  for (const file of ['config', 'geometry', 'optics', 'scene', 'boards', 'entry']) {
+    vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', file + '.js'), 'utf8'), context);
+  }
+  assert.deepEqual(JSON.parse(JSON.stringify(context.Hikari.boards.list())), boards.list());
+  for (const id of scene.KINDS) {
+    const actual = context.Hikari.scene.trace(context.Hikari.boards.get(id).scene);
+    assert.deepEqual(JSON.parse(JSON.stringify(actual)), JSON.parse(JSON.stringify(scene.trace(boards.get(id).scene))));
+  }
+});

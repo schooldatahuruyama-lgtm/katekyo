@@ -1,0 +1,617 @@
+// シーンの検査、操作範囲、光線が法則に従うことを確かめる。
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const scene = require('../js/scene.js');
+const boards = require('../js/boards.js');
+const geometry = require('../js/geometry.js');
+const config = require('../js/config.js');
+
+function near(a, b, tolerance = 1e-8) { assert.ok(Math.abs(a - b) <= tolerance, `${a} ≈ ${b}`); }
+function part(s, type) { return s.elements.find(e => e.type === type); }
+function attachedMarks(s, result) {
+  const expected = {
+    straight: ['blocker', 'screen'], reflect: ['normal', 'mirror'], 'mirror-image': ['mirror'],
+    refract: ['normal'], lens: ['focus-left', 'focus-right', 'axis'], 'lens-image': ['focus-left', 'focus-right', 'axis'],
+  };
+  assert.deepEqual(result.marks.filter(mark => mark.away).map(mark => mark.key), expected[s.kind]);
+  for (const mark of result.marks.filter(mark => mark.away)) {
+    near(Math.hypot(mark.away.x, mark.away.y), 1, 1e-9);
+    let point, direction;
+    if (mark.key === 'normal') {
+      const angle = result.angles[0], radians = angle.fromDeg * Math.PI / 180;
+      point = angle.vertex; direction = { x: Math.cos(radians), y: Math.sin(radians) };
+      assert.ok(mark.away.x > 0);
+    } else if (mark.key === 'mirror') {
+      point = part(s, 'mirror');
+      const radians = point.tiltDeg * Math.PI / 180;
+      direction = { x: Math.cos(radians), y: Math.sin(radians) };
+      const back = s.kind === 'reflect' ? { x: -direction.y, y: direction.x } : { x: 1, y: 0 };
+      near(mark.away.x, back.x); near(mark.away.y, back.y);
+    } else if (mark.key === 'screen' || mark.key === 'blocker') {
+      point = part(s, mark.key); direction = { x: 0, y: 1 };
+      assert.deepEqual(mark.away, { x: 1, y: 0 });
+    } else {
+      point = part(s, 'lens'); direction = { x: 1, y: 0 };
+      assert.deepEqual(mark.away, { x: 0, y: 1 });
+    }
+    near(geometry.distancePointToLine(mark, point, { x: point.x + direction.x, y: point.y + direction.y }), 0);
+    near(mark.away.x * direction.x + mark.away.y * direction.y, 0);
+  }
+}
+function finite(value) {
+  if (typeof value === 'number') assert.ok(Number.isFinite(value));
+  else if (value && typeof value === 'object') Object.values(value).forEach(finite);
+}
+function inside(result) {
+  for (const ray of result.rays) {
+    for (const key of ['x1', 'x2']) assert.ok(ray[key] >= 0 && ray[key] <= 600);
+    for (const key of ['y1', 'y2']) assert.ok(ray[key] >= 0 && ray[key] <= 420);
+    assert.ok(['solid', 'dashed'].includes(ray.style));
+    assert.equal(typeof ray.arrow, 'boolean');
+  }
+}
+function valid(s) {
+  assert.deepEqual(scene.validateScene(s), []);
+  const result = scene.trace(s);
+  finite(result);
+  inside(result);
+  assert.ok(result.rays.length > 0);
+  return result;
+}
+function reject(s) {
+  assert.ok(scene.validateScene(s).length > 0);
+  const result = scene.trace(s);
+  for (const key of ['rays', 'angles', 'images', 'marks']) assert.deepEqual(result[key], []);
+  assert.ok(result.notes.includes('この図は表示できません'));
+  assert.deepEqual(scene.handles(s), []);
+  finite(result);
+}
+
+for (const id of ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image']) {
+  test(`${id}: はじめの配置とつかめる所`, () => {
+    const s = boards.get(id).scene;
+    attachedMarks(s, valid(s));
+    assert.ok(scene.handles(s).length >= 1);
+    for (const h of scene.handles(s)) {
+      assert.ok(s.elements.some(e => e.id === h.elementId));
+      assert.equal(typeof h.label, 'string');
+      finite(h);
+    }
+  });
+  test(`${id}: 不正な構造・部品`, () => {
+    for (const change of [
+      s => { s.kind = 'nope'; }, s => { s.kind = ''; },
+      s => { s.elements = {}; }, s => { s.elements = null; },
+      s => { s.elements = []; }, s => { delete s.elements; },
+      s => { s.elements[1].id = s.elements[0].id; },
+      s => { s.elements[0].type = 'nope'; }, s => { s.elements[0] = null; },
+      s => { s.elements[0] = []; }, s => { s.elements[0].id = ''; },
+      s => { s.elements.pop(); },
+      s => { s.elements.push({ ...s.elements[0], id: 'extra' }); },
+    ]) {
+      const s = boards.get(id).scene;
+      change(s);
+      reject(s);
+    }
+  });
+  test(`${id}: 座標の型・有限性・範囲`, () => {
+    for (const key of ['x', 'y']) {
+      for (const value of ['120', null, [], {}, true, NaN, Infinity, -Infinity, 1e308, -1, key === 'x' ? 601 : 421]) {
+        const s = boards.get(id).scene;
+        s.elements[0][key] = value;
+        reject(s);
+      }
+    }
+  });
+  test(`${id}: すべてのつまみを端まで引いても安全で、元を変えない`, () => {
+    const original = boards.get(id).scene;
+    const snapshot = structuredClone(original);
+    for (const h of scene.handles(original)) {
+      let moved = original;
+      for (const point of [{ x: -1000, y: -1000 }, { x: 5000, y: 5000 }]) {
+        moved = scene.moveElement(moved, h.elementId, h.handle, point);
+        valid(moved);
+      }
+      for (const point of [{ x: NaN, y: 20 }, { x: 20, y: NaN }, { x: '20', y: 20 }, { x: Infinity, y: 20 }, null, []]) {
+        assert.deepEqual(scene.moveElement(original, h.elementId, h.handle, point), original);
+      }
+    }
+    assert.deepEqual(original, snapshot);
+    assert.deepEqual(scene.moveElement(original, 'nope', 'move', { x: 40, y: 40 }), original);
+    assert.deepEqual(scene.moveElement(original, original.elements[0].id, 'nope', { x: 40, y: 40 }), original);
+    for (const [key, value] of [['nope', 'nope'], ['medium', 'nope'], ['direction', 'nope']]) {
+      assert.deepEqual(scene.setOption(original, key, value), original);
+    }
+  });
+  test(`${id}: すべてのつまみを四隅へ動かしても marks は盤内に収まる`, () => {
+    let s = boards.get(id).scene;
+    for (const h of scene.handles(s)) for (const x of [-1000, 5000]) for (const y of [-1000, 5000]) {
+      s = scene.moveElement(s, h.elementId, h.handle, { x, y });
+      const result = valid(s);
+      attachedMarks(s, result);
+      assert.ok(result.marks.length > 0);
+      for (const mark of result.marks) {
+        assert.ok(mark.x >= 0 && mark.x <= 600, mark.key + ': x');
+        assert.ok(mark.y >= 0 && mark.y <= 420, mark.key + ': y');
+      }
+    }
+  });
+}
+
+test('シーン自体が空・配列・数などでも例外を投げない', () => {
+  for (const s of [null, undefined, [], {}, '', 1, true]) {
+    reject(s);
+    assert.deepEqual(scene.moveElement(s, 'nope', 'move', { x: 0, y: 0 }), s);
+    assert.deepEqual(scene.setOption(s, 'medium', 'water'), s);
+  }
+});
+
+test('焦点距離と寸法の不正な値を拒む', () => {
+  for (const id of ['lens', 'lens-image']) {
+    for (const focalLength of [0, -1, '100', null, [], true, NaN, Infinity, 1e308]) {
+      const s = boards.get(id).scene;
+      part(s, 'lens').focalLength = focalLength;
+      reject(s);
+    }
+  }
+  for (const [id, type, key] of [['straight', 'blocker', 'height'], ['reflect', 'mirror', 'length'], ['mirror-image', 'object', 'height']]) {
+    const s = boards.get(id).scene;
+    part(s, type)[key] = 0;
+    reject(s);
+  }
+});
+
+test('直進: 両端を通る光線とスクリーンの影', () => {
+  const s = boards.get('straight').scene;
+  const src = part(s, 'source');
+  const blocker = part(s, 'blocker');
+  const screen = part(s, 'screen');
+  const result = valid(s);
+  const ratio = (screen.x - src.x) / (blocker.x - src.x);
+  near(result.measures.shadowTop, src.y + (blocker.y - blocker.height / 2 - src.y) * ratio);
+  near(result.measures.shadowBottom, src.y + (blocker.y + blocker.height / 2 - src.y) * ratio);
+  near(result.measures.shadowSize, blocker.height * ratio);
+  for (const [i, sign] of [-1, 1].entries()) {
+    const ray = result.rays[i];
+    near(geometry.distancePointToLine({ x: blocker.x, y: blocker.y + sign * blocker.height / 2 },
+      { x: ray.x1, y: ray.y1 }, { x: ray.x2, y: ray.y2 }), 0);
+  }
+});
+
+test('反射: 垂直の光は来た道を戻る', () => {
+  const s = boards.get('reflect').scene;
+  const mirror = part(s, 'mirror');
+  const moved = scene.moveElement(s, 'src', 'move', { x: mirror.x, y: 50 });
+  const result = valid(moved);
+  near(result.measures.incidenceDeg, 0);
+  near(result.measures.reflectionDeg, 0);
+  const out = result.rays[1];
+  near(out.x1, mirror.x); near(out.x2, mirror.x);
+  assert.ok(out.y2 < out.y1);
+});
+
+test('鏡を傾けても法線から測った角度と光線が一致する', () => {
+  let s = boards.get('reflect').scene;
+  s = scene.moveElement(s, 'mirror', 'tilt', { x: 450, y: 320 });
+  const result = valid(s);
+  near(result.measures.incidenceDeg, result.measures.reflectionDeg);
+  assert.ok(result.measures.mirrorTiltDeg > 0);
+  for (const angle of result.angles) near(Math.abs(angle.toDeg - angle.fromDeg), angle.valueDeg);
+  assert.notEqual(result.measures.incidenceDeg, Math.round(result.measures.incidenceDeg));
+});
+
+for (const tilt of [-40, 0, 40]) {
+  test(`反射 ${tilt}°: 法線と鏡の文字はそれぞれの端に添え、入射点から離す`, () => {
+    const s = boards.get('reflect').scene, mirror = part(s, 'mirror');
+    mirror.tiltDeg = tilt;
+    const radians = tilt * Math.PI / 180;
+    const normal = { x: Math.sin(radians), y: -Math.cos(radians) };
+    const normalEnd = { x: mirror.x + normal.x * 190, y: mirror.y + normal.y * 190 };
+    const mirrorEnd = { x: mirror.x - Math.cos(radians) * mirror.length / 2,
+      y: mirror.y - Math.sin(radians) * mirror.length / 2 };
+    const result = valid(s), n = result.marks.find(mark => mark.key === 'normal');
+    const m = result.marks.find(mark => mark.key === 'mirror');
+    assert.equal(n.text, '法線'); assert.equal(m.text, '鏡');
+    near(n.x, normalEnd.x); near(n.y, normalEnd.y);
+    near(m.x, mirrorEnd.x); near(m.y, mirrorEnd.y);
+    attachedMarks(s, result);
+    assert.ok(Math.hypot(n.x - normalEnd.x, n.y - normalEnd.y) <= 30);
+    assert.ok(Math.hypot(m.x - mirrorEnd.x, m.y - mirrorEnd.y) <= 40);
+    for (const mark of [n, m]) assert.ok(Math.hypot(mark.x - mirror.x, mark.y - mirror.y) >= 60);
+    const handle = scene.handles(s).find(h => h.handle === 'tilt');
+    assert.ok(Math.hypot(m.x - mirrorEnd.x, m.y - mirrorEnd.y) < Math.hypot(m.x - handle.x, m.y - handle.y));
+  });
+}
+
+test('法線の端が上辺・左右辺に達する配置でも、文字の基準点は線上の見える端に収める', () => {
+  for (const [x, y, tilt] of [[300, 100, 0], [40, 270, -40], [560, 270, 40]]) {
+    const s = boards.get('reflect').scene, mirror = part(s, 'mirror'), src = part(s, 'source');
+    Object.assign(mirror, { x, y, length: 40, tiltDeg: tilt });
+    const radians = tilt * Math.PI / 180, nx = Math.sin(radians), ny = -Math.cos(radians);
+    Object.assign(src, { x: x + nx * 30, y: y + ny * 30 });
+    const mark = valid(s).marks.find(mark => mark.key === 'normal');
+    if (tilt === 0) { near(mark.x, x); near(mark.y, 0); }
+    else {
+      const edgeX = tilt < 0 ? 0 : 600, distance = (edgeX - x) / nx;
+      near(mark.x, edgeX); near(mark.y, y + ny * distance);
+    }
+  }
+});
+
+test('下辺に近い鏡と下向きの法線でも、文字の基準点は線上に残す', () => {
+  const reflected = boards.get('reflect').scene;
+  part(reflected, 'mirror').y = 400;
+  const mirror = valid(reflected).marks.find(mark => mark.key === 'mirror');
+  near(mirror.x, 120); near(mirror.y, 400);
+  let refracted = boards.get('refract').scene;
+  part(refracted, 'boundary').y = 380;
+  refracted = scene.setOption(refracted, 'direction', 'medium-to-air');
+  const normal = valid(refracted).marks.find(mark => mark.key === 'normal');
+  near(normal.x, 300); near(normal.y, 420);
+});
+
+test('直進のついたて・スクリーンと縦の鏡の文字を上の端に添える', () => {
+  const straight = boards.get('straight').scene, result = valid(straight);
+  for (const [key, text] of [['blocker', 'ついたて'], ['screen', 'スクリーン']]) {
+    const element = part(straight, key), mark = result.marks.find(mark => mark.key === key);
+    assert.equal(mark.text, text);
+    near(mark.x, element.x); near(mark.y, element.y - element.height / 2);
+    assert.deepEqual(mark.away, { x: 1, y: 0 });
+  }
+  const s = boards.get('mirror-image').scene, mirror = part(s, 'mirror');
+  const mark = valid(s).marks.find(mark => mark.key === 'mirror');
+  assert.equal(mark.text, '鏡');
+  near(mark.x, mirror.x); near(mark.y, mirror.y - mirror.length / 2);
+  assert.deepEqual(mark.away, { x: 1, y: 0 });
+});
+
+test('屈折の法線は入射側の端、空気・水・ガラスは左端の境界から各側へ 28 離す', () => {
+  for (const medium of ['water', 'glass']) for (const direction of ['air-to-medium', 'medium-to-air']) {
+    let s = scene.setOption(boards.get('refract').scene, 'medium', medium);
+    s = scene.setOption(s, 'direction', direction);
+    const boundary = part(s, 'boundary'), result = valid(s);
+    const normal = result.marks.find(mark => mark.key === 'normal');
+    near(normal.x, boundary.x);
+    near(normal.y, boundary.y + (direction === 'air-to-medium' ? -190 : 190));
+    attachedMarks(s, result);
+    const air = result.marks.find(mark => mark.key === 'air'), other = result.marks.find(mark => mark.key === 'medium');
+    assert.equal(air.text, '空気'); assert.equal(other.text, medium === 'water' ? '水' : 'ガラス');
+    near(air.x, 16); near(air.y, boundary.y - 28);
+    near(other.x, 16); near(other.y, boundary.y + 28);
+  }
+});
+
+test('レンズ2盤の焦点と光軸の文字は線上の点と下向きの away を持つ', () => {
+  for (const id of ['lens', 'lens-image']) {
+    const s = boards.get(id).scene, lens = part(s, 'lens'), result = valid(s);
+    for (const [key, sign] of [['focus-left', -1], ['focus-right', 1]]) {
+      const mark = result.marks.find(mark => mark.key === key);
+      assert.equal(mark.text, '焦点');
+      near(mark.x, lens.x + sign * lens.focalLength);
+      near(mark.y, lens.y);
+      assert.deepEqual(mark.away, { x: 0, y: 1 });
+    }
+    const axis = result.marks.find(mark => mark.key === 'axis');
+    assert.equal(axis.text, '光軸'); near(axis.x, 540); near(axis.y, lens.y);
+    assert.deepEqual(axis.away, { x: 0, y: 1 });
+  }
+});
+
+test('盤外の焦点の文字だけ省き、盤の端ちょうどの焦点は残す', () => {
+  // 通常のシーン検査では盤外の焦点を作れないため、文字を作る関数だけを VM 内で取り出す。
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const source = fs.readFileSync(path.join(__dirname, '../js/scene.js'), 'utf8');
+  assert.ok(source.includes('const api = { KINDS,'));
+  const context = { Hikari: { config, geometry, optics: require('../js/optics.js') } };
+  vm.runInNewContext(source.replace('const api = { KINDS,', 'const api = { lensMarks, KINDS,'), context);
+  for (const [x, focalLength, expected] of [
+    [180, 200, ['focus-right']], [420, 200, ['focus-left']], [300, 400, []],
+    [180, 180, ['focus-left', 'focus-right']], [420, 180, ['focus-left', 'focus-right']],
+  ]) {
+    const result = { marks: [] };
+    context.Hikari.scene.lensMarks(result, { x, y: 210, focalLength });
+    assert.deepEqual(result.marks.filter(mark => mark.text === '焦点').map(mark => mark.key), expected);
+    assert.equal(result.marks.filter(mark => mark.key === 'axis').length, 1);
+    for (const mark of result.marks) assert.ok(mark.x >= 0 && mark.x <= 600 && mark.y >= 0 && mark.y <= 420);
+  }
+});
+
+test('反射の光源を反対側へ引いても鏡の手前に止まる', () => {
+  let s = boards.get('reflect').scene;
+  s = scene.moveElement(s, 'mirror', 'tilt', { x: 450, y: 320 });
+  s = scene.moveElement(s, 'src', 'move', { x: 300, y: 5000 });
+  valid(s);
+  const mirror = part(s, 'mirror');
+  const t = mirror.tiltDeg * Math.PI / 180;
+  const src = part(s, 'source');
+  assert.ok((src.x - mirror.x) * Math.sin(t) - (src.y - mirror.y) * Math.cos(t) >= 20 - 1e-8);
+});
+
+test('鏡の像は対称、実線は物体から目へ、延長は像へ向かう', () => {
+  const s = boards.get('mirror-image').scene;
+  const result = valid(s);
+  const object = part(s, 'object');
+  const mirror = part(s, 'mirror');
+  const image = result.images[0];
+  near(image.x, 2 * mirror.x - object.x);
+  near(image.y, object.y);
+  near(result.measures.objectDistance, result.measures.imageDistance);
+  assert.equal(image.kind, 'mirror');
+  const dashed = result.rays.filter(r => r.style === 'dashed');
+  assert.equal(dashed.length, 2);
+  for (const r of dashed) {
+    near(geometry.distancePointToLine({ x: image.x, y: image.y - image.height },
+      { x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }), 0);
+  }
+  const solid = result.rays.filter(r => r.style === 'solid');
+  for (let i = 0; i < solid.length; i += 2) {
+    const incoming = solid[i], outgoing = solid[i + 1];
+    near(incoming.x2, mirror.x); near(outgoing.x1, mirror.x);
+    near(Math.abs((incoming.y2 - incoming.y1) / (incoming.x2 - incoming.x1)),
+      Math.abs((outgoing.y2 - outgoing.y1) / (outgoing.x2 - outgoing.x1)));
+  }
+});
+
+test('屈折: 垂直・スネルの法則・全反射', () => {
+  let s = boards.get('refract').scene;
+  const boundary = part(s, 'boundary');
+  s = scene.moveElement(s, 'src', 'move', { x: boundary.x, y: 50 });
+  let result = valid(s);
+  near(result.measures.incidenceDeg, 0); near(result.measures.refractionDeg, 0);
+  assert.ok(result.rays.filter(r => r.style === 'solid').some(r => r.y2 > boundary.y && r.x1 === r.x2));
+  s = scene.moveElement(s, 'src', 'move', { x: boundary.x - 80, y: boundary.y - 120 });
+  result = valid(s);
+  near(Math.sin(result.measures.incidenceDeg * Math.PI / 180), 1.33 * Math.sin(result.measures.refractionDeg * Math.PI / 180));
+  assert.equal(result.angles.find(a => a.key === 'out').name, '屈折角');
+  s = scene.setOption(s, 'direction', 'medium-to-air');
+  s = scene.moveElement(s, 'src', 'move', { x: boundary.x - 100 * Math.sqrt(3), y: boundary.y + 100 });
+  result = valid(s);
+  near(result.measures.incidenceDeg, 60);
+  assert.equal(result.measures.totalReflection, true);
+  assert.equal(result.measures.refractionDeg, null);
+  assert.ok(result.notes.includes('全反射'));
+  assert.equal(result.rays.length, 2);
+  assert.ok(result.rays.every(r => r.y1 >= boundary.y && r.y2 >= boundary.y));
+});
+
+test('屈折: 向きと物質の切り替えは元を変えず、角度を保つ', () => {
+  const original = boards.get('refract').scene;
+  const snapshot = structuredClone(original);
+  let s = scene.setOption(original, 'direction', 'medium-to-air');
+  const first = valid(original).measures.incidenceDeg;
+  near(valid(s).measures.incidenceDeg, first);
+  assert.ok(part(s, 'source').y > part(s, 'boundary').y);
+  s = scene.moveElement(s, 'src', 'move', { x: 100, y: -1000 });
+  assert.ok(part(s, 'source').y > part(s, 'boundary').y);
+  valid(s);
+  s = scene.setOption(s, 'medium', 'glass');
+  assert.equal(valid(s).measures.medium, 'glass');
+  near(scene.trace(s).measures.criticalDeg, 41.810314895778596);
+  s = scene.setOption(s, 'direction', 'air-to-medium');
+  assert.ok(part(s, 'source').y < part(s, 'boundary').y);
+  s = scene.moveElement(s, 'src', 'move', { x: 100, y: 5000 });
+  assert.ok(part(s, 'source').y < part(s, 'boundary').y);
+  valid(s);
+  assert.deepEqual(original, snapshot);
+});
+
+test('凸レンズ: 平行光が焦点で交わり、焦点距離を動かせる', () => {
+  let s = boards.get('lens').scene;
+  s = scene.moveElement(s, 'lens', 'focus', { x: 440, y: 0 });
+  const lens = part(s, 'lens');
+  const result = valid(s);
+  near(result.measures.focalLength, 140);
+  assert.equal(result.rays.length, 6);
+  for (const r of result.rays.filter(r => r.x1 === lens.x)) {
+    near(geometry.distancePointToLine({ x: lens.x + lens.focalLength, y: lens.y },
+      { x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }), 0);
+  }
+});
+
+for (const [a, kind, note] of [
+  [100, 'none', '像はできません（レンズを出た光が平行になります）'],
+  [100.5, 'none', '像はできません（レンズを出た光が平行になります）'],
+  [50, 'virtual', '虚像（スクリーンには映りません）'],
+  [200, 'real', null],
+]) {
+  test(`実像と虚像: 物体距離 ${a}`, () => {
+    let s = boards.get('lens-image').scene;
+    const lens = part(s, 'lens');
+    s = scene.moveElement(s, 'object', 'move', { x: lens.x - a, y: 30 });
+    const result = valid(s);
+    assert.equal(result.measures.imageKind, kind);
+    if (note) assert.ok(result.notes.includes(note));
+    if (kind === 'none') {
+      assert.deepEqual(result.images, []);
+      assert.equal(result.measures.imageDistance, null);
+      if (a === 100) {
+        const out = result.rays.filter(r => r.x1 === lens.x);
+        assert.equal(out.length, 2);
+        near((out[0].y2 - out[0].y1) / (out[0].x2 - out[0].x1),
+          (out[1].y2 - out[1].y1) / (out[1].x2 - out[1].x1));
+      }
+    } else {
+      const image = result.images[0];
+      const rays = result.rays.filter(r => kind === 'virtual' ? r.style === 'dashed' : r.x1 === lens.x);
+      assert.equal(rays.length, 3);
+      for (const r of rays) near(geometry.distancePointToLine({ x: image.x, y: image.y - image.height },
+        { x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }), 0);
+      assert.equal(result.measures.inverted, kind === 'real');
+    }
+    if (kind !== 'real') assert.equal(result.measures.screenSharp, false);
+  });
+}
+
+test('像が盤の外なら光線を端で切り、物体はレンズの手前で止める', () => {
+  let s = boards.get('lens-image').scene;
+  s = scene.moveElement(s, 'object', 'move', { x: 190, y: 210 });
+  let result = valid(s);
+  assert.equal(result.images[0].offBoard, true);
+  assert.ok(result.notes.includes('像はこの先にできます'));
+  s = scene.moveElement(s, 'object', 'move', { x: 300, y: 210 });
+  result = valid(s);
+  assert.ok(result.measures.objectDistance >= 20);
+  assert.equal(result.measures.imageKind, 'virtual');
+});
+
+test('実像と虚像: x=60〜280 の全位置で、光線はレンズの範囲内だけで曲がる', () => {
+  const original = boards.get('lens-image').scene;
+  for (let x = 60; x <= 280; x += 5) {
+    const s = scene.moveElement(original, 'object', 'move', { x, y: 210 });
+    const lens = part(s, 'lens'), object = part(s, 'object'), result = valid(s);
+    const thirdHeight = object.height * lens.focalLength / (lens.x - x - lens.focalLength);
+    const count = result.measures.imageKind !== 'none' && Math.abs(thirdHeight) <= config.lensHalfHeight ? 3 : 2;
+    const solid = result.rays.filter(r => r.style === 'solid'), dashed = result.rays.filter(r => r.style === 'dashed');
+    assert.equal(solid.length, count * 2, 'x=' + x);
+    assert.equal(dashed.length, result.measures.imageKind === 'virtual' ? count : 0, 'x=' + x);
+    for (let i = 0; i < solid.length; i += 2) {
+      const incoming = solid[i], outgoing = solid[i + 1];
+      near(incoming.x1, object.x); near(incoming.y1, object.y - object.height);
+      near(incoming.x2, lens.x); near(outgoing.x1, lens.x); near(incoming.y2, outgoing.y1);
+      assert.ok(Math.abs(incoming.y2 - lens.y) <= config.lensHalfHeight + 1e-8, 'x=' + x);
+      if (result.images.length) {
+        const image = result.images[0];
+        near(geometry.distancePointToLine({ x: image.x, y: image.y - image.height },
+          { x: outgoing.x1, y: outgoing.y1 }, { x: outgoing.x2, y: outgoing.y2 }), 0);
+      }
+    }
+    for (const r of dashed) {
+      near(r.x1, lens.x);
+      assert.ok(Math.abs(r.y1 - lens.y) <= config.lensHalfHeight + 1e-8);
+      const image = result.images[0];
+      near(geometry.distancePointToLine({ x: image.x, y: image.y - image.height },
+        { x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }), 0);
+    }
+    const expectedNotes = result.measures.imageKind === 'none' ? ['像はできません（レンズを出た光が平行になります）'] :
+      result.measures.imageKind === 'virtual' ? ['虚像（スクリーンには映りません）'] : [];
+    if (result.images.some(image => image.offBoard)) expectedNotes.push('像はこの先にできます');
+    assert.deepEqual(result.notes, expectedNotes);
+  }
+});
+
+test('実像と虚像: レンズの上下の端ちょうどは通し、少しでも外なら光線と延長を省く', () => {
+  const original = boards.get('lens-image').scene, lens = part(original, 'lens'), object = part(original, 'object');
+  for (const sign of [-1, 1]) for (const delta of [-.001, 0, .001]) {
+    const height = sign * (config.lensHalfHeight + delta);
+    const x = lens.x - lens.focalLength - object.height * lens.focalLength / height;
+    const result = valid(scene.moveElement(original, 'object', 'move', { x, y: 210 }));
+    const count = delta <= 0 ? 3 : 2;
+    assert.equal(result.rays.filter(r => r.style === 'solid').length, count * 2);
+    assert.equal(result.rays.filter(r => r.style === 'dashed').length, sign < 0 ? count : 0);
+    if (delta === 0) assert.ok(result.rays.some(r => r.x1 === lens.x && Math.abs(r.y1 - lens.y - height) < 1e-8));
+  }
+});
+
+test('凸レンズ: 光源を上・下の端へ引いても3本ともレンズの範囲内で通る', () => {
+  const original = boards.get('lens').scene;
+  for (const y of [-1000, 5000]) {
+    const moved = scene.moveElement(original, 'src', 'move', { x: 60, y });
+    const lens = part(moved, 'lens'), src = part(moved, 'source'), result = valid(moved);
+    const offset = y < 0 ? Math.min(config.motion.maxBeamOffset, config.lensHalfHeight) : config.motion.minBeamOffset;
+    near(lens.y - src.y, offset);
+    assert.equal(result.rays.length, 6);
+    for (const ray of result.rays.filter(r => r.x1 === lens.x)) {
+      assert.ok(Math.abs(ray.y1 - lens.y) <= config.lensHalfHeight);
+      near(geometry.distancePointToLine({ x: lens.x + lens.focalLength, y: lens.y },
+        { x: ray.x1, y: ray.y1 }, { x: ray.x2, y: ray.y2 }), 0);
+    }
+  }
+  const outside = structuredClone(original);
+  part(outside, 'source').y = part(outside, 'lens').y - config.lensHalfHeight - 1;
+  reject(outside);
+});
+
+test('スクリーンは実像の位置から ±6 以内ではっきり映る', () => {
+  const s = boards.get('lens-image').scene;
+  const imageX = scene.trace(s).images[0].x;
+  for (const delta of [-6.01, -6, 0, 6, 6.01]) {
+    const moved = scene.moveElement(s, 'screen', 'move', { x: imageX + delta, y: 0 });
+    assert.equal(valid(moved).measures.screenSharp, Math.abs(delta) <= 6);
+  }
+});
+
+test('屈折の切り替えデータや余分な複雑な項目は拒む', () => {
+  for (const options of [undefined, null, [], {}, { direction: true, medium: 'water' },
+    { direction: 'air-to-medium', medium: 'nope' },
+    { direction: 'air-to-medium', medium: 'water', extra: {} }]) {
+    const s = boards.get('refract').scene;
+    s.options = options;
+    reject(s);
+  }
+  const s = boards.get('reflect').scene;
+  s.extra = s;
+  reject(s);
+});
+
+test('境界が中央になくても、向きの切り替えで入射角を保つ', () => {
+  for (const y of [40, 80.25, 340.75, 380]) {
+    const s = boards.get('refract').scene;
+    part(s, 'boundary').y = y;
+    part(s, 'source').y = 20;
+    const before = valid(s).measures.incidenceDeg;
+    const switched = scene.setOption(s, 'direction', 'medium-to-air');
+    near(valid(switched).measures.incidenceDeg, before);
+    assert.ok(part(switched, 'source').y >= y + 20);
+    const returned = scene.setOption(switched, 'direction', 'air-to-medium');
+    near(valid(returned).measures.incidenceDeg, before);
+  }
+});
+
+test('水・ガラスの両方向で、描く屈折光もスネルの法則を満たす', () => {
+  for (const medium of ['water', 'glass']) {
+    for (const direction of ['air-to-medium', 'medium-to-air']) {
+      let s = scene.setOption(boards.get('refract').scene, 'medium', medium);
+      s = scene.setOption(s, 'direction', direction);
+      const entering = direction === 'air-to-medium';
+      for (const sign of [-1, 1]) {
+        s = scene.moveElement(s, 'src', 'move', { x: 300 + sign * 50, y: 210 + (entering ? -120 : 120) });
+        const result = valid(s), r = result.rays[1];
+        const incoming = geometry.sub(part(s, 'boundary'), part(s, 'source'));
+        const outgoing = { x: r.x2 - r.x1, y: r.y2 - r.y1 };
+        const n = medium === 'water' ? 1.33 : 1.5;
+        near((entering ? 1 : n) * Math.abs(incoming.x) / geometry.len(incoming),
+          (entering ? n : 1) * Math.abs(outgoing.x) / geometry.len(outgoing));
+        assert.equal(Math.sign(outgoing.y), entering ? 1 : -1);
+        assert.equal(Math.sign(outgoing.x), Math.sign(incoming.x));
+      }
+    }
+  }
+});
+
+test('鏡の像・虚像が盤の外でも、光線は有限で盤内に収まる', () => {
+  for (const [id, x] of [['mirror-image', 20], ['lens-image', 201]]) {
+    const s = scene.moveElement(boards.get(id).scene, 'object', 'move', { x, y: 180 });
+    const result = valid(s);
+    assert.equal(result.images[0].offBoard, true);
+    assert.ok(result.notes.includes('像はこの先にできます'));
+    assert.ok(result.rays.some(r => r.style === 'dashed'));
+  }
+});
+
+test('虚像・像なしはスクリーンをどこへ動かしても映らない', () => {
+  for (const x of [200, 200.5, 250, 280]) {
+    let s = scene.moveElement(boards.get('lens-image').scene, 'object', 'move', { x, y: 210 });
+    for (const screenX of [320, 400, 500, 580]) {
+      s = scene.moveElement(s, 'screen', 'move', { x: screenX, y: 210 });
+      assert.equal(valid(s).measures.screenSharp, false);
+    }
+  }
+});
+
+for (const id of scene.KINDS) {
+  test(`${id}: 操作を組み合わせて往復しても不正な配置にならない`, () => {
+    let s = boards.get(id).scene, seed = 213000;
+    function random() { seed = (Math.imul(seed, 1664525) + 1013904223) >>> 0; return seed / 4294967296; }
+    for (let i = 0; i < 120; i++) {
+      const snapshot = structuredClone(s);
+      const all = scene.handles(s), h = all[Math.floor(random() * all.length)];
+      let moved = scene.moveElement(s, h.elementId, h.handle,
+        { x: random() * 1600 - 500, y: random() * 1400 - 500 });
+      if (id === 'refract' && i % 3 === 0) moved = scene.setOption(moved, 'direction', i % 2 ? 'air-to-medium' : 'medium-to-air');
+      valid(moved);
+      assert.deepEqual(s, snapshot);
+      s = moved;
+    }
+  });
+}
