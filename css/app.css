@@ -86,6 +86,17 @@ button:hover { filter: brightness(.97); }
   min-height: 64px; background: #fff; border-radius: 16px; box-shadow: 0 1px 4px rgba(26,60,140,.10); }
 .speech img { flex: 0 0 48px; width: 48px; height: 48px; }
 .speech p { margin: 0; font-size: 18px; font-weight: 700; }
+.speech .sentence { display: inline-block; animation: words-appear 250ms ease-out both; }
+.speech .term { color: inherit; background: linear-gradient(transparent 62%, #FFE08A 62%);
+  background-repeat: no-repeat; background-size: 100% 100%; animation: term-mark 500ms ease-out 200ms both; }
+@keyframes words-appear {
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+@keyframes term-mark {
+  from { background-size: 0% 100%; }
+  to { background-size: 100% 100%; }
+}
 .voice-message { margin: 0 12px 10px; padding: 10px 14px; border-radius: 12px; background: var(--notice);
   color: var(--ink); font-size: 15px; font-weight: 700; }
 .explain-controls { display: flex; gap: 8px; align-items: center; padding: 10px 12px; background: #fff;
@@ -102,7 +113,7 @@ button:hover { filter: brightness(.97); }
 .dots i.done { background: var(--primary); }
 .dots i.now { background: #7FA2FF; }
 .talk { margin: 8px 0 0; padding-left: 24px; color: var(--sub); font-size: 16px; }
-.talk li { padding: 8px 0; border-bottom: 1px solid var(--line); }
+.talk li { padding: 8px 0; border-bottom: 1px solid var(--line); animation: words-appear 200ms ease-out both; }
 .talk .current { color: var(--ink); font-weight: 700; }
 .after { display: flex; flex-direction: column; gap: 12px; }
 .panel .replay { margin-top: auto; }
@@ -117,6 +128,10 @@ button:hover { filter: brightness(.97); }
 .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
 .ask { border: 1px dashed var(--line); border-radius: 14px; padding: 8px 12px; background: var(--disabled); color: var(--sub); font-size: 14px; }
 .reset { min-height: 48px; padding: 8px 18px; border: 0; border-radius: 14px; background: var(--soft-blue); font-size: 16px; font-weight: 700; }
+@media (prefers-reduced-motion: reduce) {
+  .speech .sentence, .speech .term, .talk li { animation: none; }
+  .speech .term { background-size: 100% 100%; }
+}
 @media (max-width: 900px) {
   .learn { grid-template-columns: minmax(0,1fr); }
   .board-heading { font-size: 18px; }

@@ -113,6 +113,7 @@
       let preparation = 'idle', preparedTeacher = null, pendingPreparation = null;
       let soundVersion = 0, soundWaiting = false;
       let readoutKey = null, invalidScene = mode === 'invalid';
+      let historyTeacher = null;
       const reduced = !!win.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       const now = () => win.performance.now();
       const player = voice.createPlayer({
@@ -234,12 +235,16 @@
       function schedule() {
         if (!disposed && mode === 'explain' && !paused && frameId === null) frameId = win.requestAnimationFrame(tick);
       }
+      function updateDrawing(hidePen = false) {
+        const state = { ...explain.stateAt(timeline, stepIndex, elapsed), paused, hidePen };
+        view.setState(state);
+        return state;
+      }
       function tick() {
         frameId = null;
         if (disposed || mode !== 'explain' || paused) return;
         syncTime();
-        const state = explain.stateAt(timeline, stepIndex, elapsed);
-        view.setState(state);
+        const state = updateDrawing();
         if (state.stepDone && voiceDone && elapsed >= Math.max(timeline.steps[stepIndex].drawDuration, voiceEndTime) + config.explain.gapMs) {
           if (stepIndex + 1 === steps.length) explore(); else enterStep(stepIndex + 1);
         }
@@ -280,16 +285,30 @@
       function showWords() {
         const teacher = scripts.TEACHERS.find(teacher => teacher.id === settings.teacher);
         face.src = teacher.image; face.alt = teacher.name;
-        speechText.textContent = steps[stepIndex].lines[settings.teacher];
-        lines.replaceChildren();
-        steps.slice(0, stepIndex + 1).forEach((step, index) => element('li', index === stepIndex ? 'current' : '', step.lines[settings.teacher], lines));
+        const words = steps[stepIndex].lines[settings.teacher];
+        const sentence = element('span', 'sentence');
+        let end = 0;
+        for (const match of words.matchAll(/「([^「」]*)」/g)) {
+          element('span', '', words.slice(end, match.index) + '「', sentence);
+          element('mark', 'term', match[1], sentence);
+          element('span', '', '」', sentence);
+          end = match.index + match[0].length;
+        }
+        element('span', '', words.slice(end), sentence);
+        speechText.replaceChildren(sentence);
+        if (historyTeacher !== settings.teacher) { lines.replaceChildren(); historyTeacher = settings.teacher; }
+        while (lines.children.length > stepIndex + 1) lines.children[lines.children.length - 1].remove();
+        for (let index = lines.children.length; index <= stepIndex; index++) {
+          element('li', '', steps[index].lines[settings.teacher], lines);
+        }
+        Array.from(lines.children).forEach((line, index) => { line.className = index === stepIndex ? 'current' : ''; });
         dotNodes.forEach((dot, index) => { dot.className = index < stepIndex ? 'done' : index === stepIndex ? 'now' : ''; });
         updateReadoutVisibility();
       }
       function enterStep(index) {
         if (mode !== 'explain') return;
         stopVoice(); stepIndex = index; elapsed = 0; voiceEndTime = 0; lastTime = now();
-        showWords(); updateButtons(); view.setState(explain.stateAt(timeline, stepIndex, elapsed));
+        showWords(); updateButtons(); updateDrawing(paused);
         if (preparation === 'ready') playStep(); else voiceDone = !settings.voice;
         schedule();
       }
@@ -341,6 +360,7 @@
         if (mode !== 'explain') return;
         syncTime(); paused = value;
         if (paused) { cancelSoundWait(); stopFrame(); player.pause(); } else { lastTime = now(); player.resume(); schedule(); }
+        updateDrawing();
         updateButtons();
       }
       function changeRate(direction) {
@@ -376,7 +396,7 @@
         else if (target.action === 'go') enterStep(target.stepIndex);
         else {
           elapsed = timeline.steps[stepIndex].drawDuration; voiceEndTime = elapsed;
-          view.setState(explain.stateAt(timeline, stepIndex, elapsed));
+          updateDrawing();
         }
       }
       function explore() {
@@ -390,7 +410,7 @@
         // 向き・物質も初期配置に戻してから時間割を作り直す。
         board.scene = boards.get(board.id).scene;
         if (scene.validateScene(board.scene).length) mode = 'invalid';
-        if (mode === 'start') { buildTimeline(); view.setState(explain.finalState(timeline)); chooseTeacher(settings.teacher); }
+        if (mode === 'start') { buildTimeline(); view.setState({ ...explain.finalState(timeline), hidePen: true }); chooseTeacher(settings.teacher); }
         else view.setState(null);
         updateMode();
         if (mode === 'start') teacherNodes[scripts.TEACHERS.findIndex(teacher => teacher.id === settings.teacher)].focus();

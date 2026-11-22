@@ -77,12 +77,17 @@
     return lines;
   }
 
-  function create(host, board, onChange = () => {}, validate = scene.validateScene, initialState = null) {
+  function create(host, board, onChange = () => {}, validate = scene.validateScene, initialState = null, clock) {
     if (typeof document === 'undefined' || !host) return null;
     const doc = host.ownerDocument, win = doc.defaultView;
+    const now = clock || (() => win.performance.now());
+    const reduced = !!win.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     const filterId = 'board-sketch-' + (++serial);
     let dragging = null, disposed = false, drawingState = initialState;
     let cachedScene = null, cachedWidth = null, animations = [], penNode = null, sketchNodes = null;
+    let frameTime = now(), penPosition = null, penTime = null, penOpacity = 0;
+    let penShown = false, fadeStart = frameTime, fadeFrom = 0, penEntry = null;
+    let penTransfer = null;
     const handleNodes = new Map();
     function svgNode(tag, attrs = {}, parent, text) {
       const element = doc.createElementNS(NS, tag);
@@ -117,31 +122,72 @@
     }
     function animate(element, refs, update = () => {}, visible = p => p > 0) {
       if (drawingState === null) return;
-      animations.push({ element, keys: refs.map(refKey), update, visible, previous: null, pen: null });
+      animations.push({ element, keys: refs.map(refKey), update, visible, previous: null, key: false, pen: null });
     }
     function updateDrawing() {
       const progress = new Map();
       for (const part of drawingState.parts || []) {
-        const p = typeof part.progress === 'number' && !Number.isNaN(part.progress) ? Math.max(0, Math.min(1, part.progress)) : 0;
+        const p = reduced ? 1 : typeof part.progress === 'number' && !Number.isNaN(part.progress) ? Math.max(0, Math.min(1, part.progress)) : 0;
         for (const item of part.items || []) if (item.ref) {
-          const key = refKey(item.ref);
-          progress.set(key, Math.max(progress.get(key) || 0, p));
+          const key = refKey(item.ref), previous = progress.get(key);
+          if (!previous || p > previous.p) progress.set(key, { p, key: item.key === true });
         }
       }
-      let pen = null;
+      // 描画対象が変わっても、乗りかえ中は前のペン位置から今の先端へ近づける。
+      const current = (drawingState.parts || []).find(part => part.progress < 1);
+      const currentKeys = new Set((current?.items || []).map(item => refKey(item.ref)));
+      let pen = null, completedTip = null;
       for (const entry of animations) {
-        const p = Math.max(0, ...entry.keys.map(key => progress.get(key) || 0));
-        if (p !== entry.previous) {
+        const states = entry.keys.map(key => progress.get(key)).filter(Boolean);
+        const p = Math.max(0, ...states.map(state => state.p));
+        const key = states.some(state => state.p === p && state.key);
+        if (p !== entry.previous || key !== entry.key) {
           attribute(entry.element, 'display', entry.visible(p) ? null : 'none');
-          entry.pen = entry.update(p);
-          entry.previous = p;
+          entry.pen = entry.update(p, key);
+          entry.previous = p; entry.key = key;
         }
-        if (p > 0 && p < 1 && entry.pen) pen = entry.pen;
+        if (p === 1 && entry.keys.join(';') === penEntry && entry.pen) completedTip = entry.pen;
+        if (p < 1 && entry.pen && entry.keys.some(key => currentKeys.has(key))) pen = entry;
       }
-      if (penNode) {
-        attribute(penNode, 'display', pen ? null : 'none');
-        if (pen) attribute(penNode, 'transform', `translate(${pen.x} ${pen.y})`);
-      }
+      // 完了コマでは前の先端まで進めてから乗りかえ、コマ間隔による起点の差をなくす。
+      if (completedTip && !penTransfer) penPosition = { ...completedTip };
+      updatePen(pen?.pen, pen?.keys.join(';'));
+    }
+    function resetPen() {
+      penPosition = null; penTime = null; penOpacity = 0; penShown = false; penEntry = null; penTransfer = null;
+      fadeStart = frameTime; fadeFrom = 0;
+    }
+    function updatePen(target, entry) {
+      if (!penNode) return;
+      const hidden = reduced || drawingState.hidePen || (drawingState.paused && !target);
+      if (hidden) target = null;
+      const delta = frameTime - penTime;
+      const invalidTime = !Number.isFinite(frameTime) || (penTime !== null &&
+        (!Number.isFinite(penTime) || delta < 0 || delta > config.explain.penMaxDeltaMs));
+      const reset = penTime === null || invalidTime;
+      if (target) {
+        if (!penPosition || reset || !penShown) penTransfer = null;
+        else if (entry !== penEntry) penTransfer = { from: { ...penPosition }, start: frameTime };
+        if (penTransfer) {
+          const fraction = math.easeOut((frameTime - penTransfer.start) / config.explain.penTransferMs);
+          penPosition = { x: penTransfer.from.x + (target.x - penTransfer.from.x) * fraction,
+            y: penTransfer.from.y + (target.y - penTransfer.from.y) * fraction };
+          if (fraction === 1) { penPosition = { ...target }; penTransfer = null; }
+        } else {
+          penPosition = { ...target };
+        }
+      } else penTransfer = null;
+      penEntry = target ? entry : null;
+      const shown = !!target;
+      if (shown !== penShown) { fadeStart = frameTime; fadeFrom = penOpacity; penShown = shown; }
+      if (invalidTime) { fadeFrom = shown ? 1 : 0; fadeStart = Number.isFinite(frameTime) ? frameTime : 0; }
+      const fraction = invalidTime ? 1 : Math.max(0, Math.min(1, (frameTime - fadeStart) / config.explain.penFadeMs));
+      penOpacity = hidden ? 0 : fadeFrom + ((shown ? 1 : 0) - fadeFrom) * fraction;
+      if (hidden) { fadeFrom = 0; fadeStart = frameTime; }
+      penTime = frameTime;
+      attribute(penNode, 'display', hidden || (!shown && penOpacity === 0) ? 'none' : null);
+      attribute(penNode, 'opacity', penOpacity);
+      if (penPosition) attribute(penNode, 'transform', `translate(${penPosition.x} ${penPosition.y})`);
     }
     function pop(ref, center, render) {
       const group = svgNode('g', {}, artRoot), sketches = [];
@@ -152,7 +198,6 @@
         attribute(group, 'opacity', eased);
         attribute(group, 'transform', `translate(${center.x} ${center.y}) scale(${.4 + .6 * eased}) translate(${-center.x} ${-center.y})`);
         sketches.forEach(el => attribute(el, 'filter', p === 1 ? 'url(#' + filterId + ')' : null));
-        return center;
       });
     }
     function growingLine(ref, a, b, color, width, sketch = false, attrs = {}) {
@@ -190,6 +235,9 @@
       let width = svg.getBoundingClientRect().width;
       if (drawingState !== null && cachedScene === board.scene && cachedWidth === width) {
         updateDrawing(); return;
+      }
+      if (drawingState === null || cachedScene !== board.scene) {
+        resetPen();
       }
       animations = []; penNode = null;
       cachedScene = null; cachedWidth = null;
@@ -371,7 +419,7 @@
         return [{ source: 'handles', elementId: handle.elementId, handle: handle.handle, field: 'label' },
           ...(mark ? [{ source: 'marks', key: mark.key, field: 'text' }] : [])];
       }
-      // 完成時の文字と障害物で位置を決め、説明中は切り抜く幅だけを変える。
+      // 完成時の位置で、重要語句は切り抜き、それ以外は浮き上がるように出す。
       math.placeLabels(data.labels, data.obstacles, s, lineData(board.scene, result)).forEach((place, index) => {
         if (place.hidden) return;
         const label = data.labels[index];
@@ -382,8 +430,18 @@
         const clipId = filterId + '-text-' + index;
         const clip = svgNode('clipPath', { id: clipId, clipPathUnits: 'userSpaceOnUse' }, clips);
         const rect = svgNode('rect', { x: left, y: box.top - 4, width, height: box.bottom - box.top + 8 }, clip);
-        animate(el, textRefs(label), p => {
+        animate(el, textRefs(label), (p, key) => {
+          if (!key) {
+            const eased = math.easeOut(p), dy = 6 * s.unitPerPx * (1 - eased);
+            const numeric = label.id.startsWith('angle-') && !label.id.startsWith('angle-name-');
+            const scale = numeric ? ` translate(${place.x} ${place.y}) scale(${.85 + .15 * eased}) translate(${-place.x} ${-place.y})` : '';
+            attribute(el, 'clip-path', null);
+            attribute(el, 'opacity', p === 1 ? null : eased);
+            attribute(el, 'transform', p === 1 ? null : `translate(0 ${dy})` + scale);
+            return null;
+          }
           const visibleWidth = width * math.ease(p);
+          attribute(el, 'opacity', null); attribute(el, 'transform', null);
           attribute(rect, 'width', visibleWidth);
           attribute(el, 'clip-path', p === 1 ? null : 'url(#' + clipId + ')');
           return { x: left + visibleWidth, y: place.y };
@@ -405,10 +463,9 @@
             attribute(el, 'opacity', 1 - p);
           }, p => p > 0 && p < 1);
         });
-        penNode = svgNode('g', { class: 'pen', display: 'none' }, art);
-        svgNode('circle', { r: 6, fill: C.text }, penNode);
-        svgNode('path', { d: 'M4 -4 L26 -26 L32 -20 L10 2 Z', fill: '#ffd24d', stroke: C.text,
-          'stroke-width': 2, 'stroke-linejoin': 'round' }, penNode);
+        const penSize = config.explain.penSizePx * s.unitPerPx;
+        penNode = svgNode('image', { class: 'pen', href: 'assets/pen.svg', display: 'none', opacity: 0,
+          x: -penSize * 6 / 64, y: -penSize * 58 / 64, width: penSize, height: penSize }, art);
         cachedScene = board.scene; cachedWidth = width;
         updateDrawing();
       }
@@ -437,10 +494,11 @@
     win.addEventListener('resize', draw);
     draw();
     return { draw,
-      setState(next) {
+      setState(next, time = now()) {
         if (next !== null) release();
         if ((next === null) !== (drawingState === null)) cachedWidth = null;
-        drawingState = next; draw();
+        if (next?.stepIndex !== drawingState?.stepIndex) resetPen();
+        drawingState = next; frameTime = time; draw();
       },
       setScene(next) { release(); cachedWidth = null; board.scene = next; draw(); },
       destroy() {

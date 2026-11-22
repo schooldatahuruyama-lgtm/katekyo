@@ -128,33 +128,33 @@ test('全反射で存在しない光線は空の参照・長さ0で飛ばす', (
 test('描画は形→文字→次の draw、複数の光線は同時に800ms', () => {
   const tl = timeline([['el:source', 'ray:incident'], ['angle:in'], ['normal']]);
   assert.deepEqual(tl.steps[0].parts.map(p => [p.token, p.start, p.duration]),
-    [['el:source', 0, 350], ['el:source', 350, 300], ['ray:incident', 650, 800]]);
-  assert.deepEqual(tl.steps[1].parts.map(p => p.duration), [600, 300, 300]);
-  assert.deepEqual(tl.steps[2].parts.map(p => p.duration), [800, 300]);
-  assert.equal(timeline([['el:screen']], {}, 'straight').steps[0].drawDuration, 350 + 5 * 90);
+    [['el:source', 0, 350], ['el:source', 350, 400], ['ray:incident', 750, 800]]);
+  assert.deepEqual(tl.steps[1].parts.map(p => p.duration), [600, 400, 400]);
+  assert.deepEqual(tl.steps[2].parts.map(p => p.duration), [800, 400]);
+  assert.equal(timeline([['el:screen']], {}, 'straight').steps[0].drawDuration, 350 + 400);
   const ray = timeline([['ray:edge']], {}, 'straight').steps[0];
   assert.equal(ray.parts[0].items.length, 2);
   assert.equal(ray.drawDuration, 800);
   assert.equal(timeline([['point:object']], {}, 'lens-image').steps[0].drawDuration, 600);
   assert.equal(timeline([['image']], {}, 'lens-image').steps[0].drawDuration, 800);
-  assert.equal(timeline([['shadow']], {}, 'straight').steps[0].drawDuration, 1100);
+  assert.equal(timeline([['shadow']], {}, 'straight').steps[0].drawDuration, 1200);
 });
 
 for (const rate of [.5, .75, 1, 1.25, 1.5, 1.75, 2]) {
   test(`音声なし・${rate}倍: 描画も間も同じ速さになり、手の時刻が連続する`, () => {
     const tl = timeline([['el:source', 'ray:incident'], ['ray:reflected']], { rate, clipSeconds: null });
-    near(tl.steps[0].drawDuration, 1450 / rate);
-    near(tl.steps[0].duration, (1450 + 1500) / rate);
+    near(tl.steps[0].drawDuration, 1550 / rate);
+    near(tl.steps[0].duration, (1550 + 1500) / rate);
     near(tl.steps[1].start, tl.steps[0].duration);
     near(tl.steps[1].duration, (800 + 1500) / rate);
-    near(tl.total, (1450 + 800 + 3000) / rate);
+    near(tl.total, (1550 + 800 + 3000) / rate);
   });
 
   test(`音声あり・${rate}倍: 長い声は8割まで引きのばし、短い声でも縮めない`, () => {
     const tl = timeline([['el:source', 'ray:incident'], ['ray:reflected']], { rate, clipSeconds: [10, .2] });
     near(tl.steps[0].drawDuration, 8000 / rate);
     near(tl.steps[0].duration, 11500 / rate);
-    near(tl.steps[0].parts[0].duration, 350 * 8000 / 1450 / rate);
+    near(tl.steps[0].parts[0].duration, 350 * 8000 / 1550 / rate);
     near(tl.steps[1].drawDuration, 800 / rate);
     near(tl.steps[1].duration, 2300 / rate);
   });
@@ -221,4 +221,84 @@ test('新しいモジュールは DOM なしのブラウザ名前空間でも動
   assert.equal(context.Hikari.explain.parseDraw('normal').kind, 'normal');
   assert.equal(context.Hikari.prefs.defaults(['A', 'E'], 'E').teacher, 'E');
   assert.equal(context.Hikari.voice.stepRate(1, 1), 1.25);
+});
+
+function displayedText(item, result, handles) {
+  const ref = item.ref;
+  if (ref.source === 'marks') return result.marks.find(mark => mark.key === ref.key).text;
+  if (ref.source === 'handles') return handles.find(handle => handle.elementId === ref.elementId && handle.handle === ref.handle).label;
+  if (ref.source === 'images') return { real: '実像', virtual: '虚像' }[result.images[ref.index].kind] || '像';
+  const angle = result.angles.find(angle => angle.key === ref.key);
+  return ref.field === 'name' ? angle.name : Math.round(angle.valueDeg) + '°';
+}
+
+const keyWords = {
+  straight: [['光源'], [], ['ついたて'], [], [], ['影'], []],
+  reflect: [[], [], ['法線'], [], ['入射角'], ['反射角'], []],
+  'mirror-image': [[], [], [], [], [], ['像'], []],
+  refract: [[], [], [], [], [], [], [], []],
+  lens: [[], ['光軸'], [], [], ['焦点', '焦点'], [], [], []],
+  'lens-image': [[], [], [], [], [], [], ['実像'], [], []],
+};
+for (const { id } of boards.list()) {
+  test(`${id}: 全手の重要語句は台本のかぎ括弧と完全一致し、数字や通常の名前は含めない`, () => {
+    const { s, result, handles } = setup(id), steps = scripts.BOARDS[id];
+    const tl = explain.buildTimeline(steps, s, result, handles);
+    const actual = tl.steps.map((step, index) => {
+      const texts = step.parts.flatMap(part => part.items).filter(item => item.type === 'text');
+      for (const item of texts) {
+        const text = displayedText(item, result, handles);
+        const terms = [...Object.values(steps[index].lines)[0].matchAll(/「([^「」]*)」/g)].map(match => match[1]);
+        assert.equal(item.key, item.ref.field !== 'valueDeg' && terms.includes(text), text);
+        if (['鏡', 'スクリーン', '空気', '水'].includes(text) || item.ref.field === 'valueDeg') assert.equal(item.key, false);
+      }
+      return texts.filter(item => item.key).map(item => displayedText(item, result, handles));
+    });
+    assert.deepEqual(actual, keyWords[id]);
+  });
+}
+
+test('かぎ括弧なし・閉じていない言葉は、すべて通常の文字にする', () => {
+  const { s, result, handles } = setup();
+  for (const words of ['法線と入射角を描く。', '「法線と入射角', '']) {
+    const tl = explain.buildTimeline([{ draw: ['normal', 'angle:in', 'el:source'], lines: { E: words } }], s, result, handles);
+    const texts = tl.steps[0].parts.flatMap(part => part.items).filter(item => item.type === 'text');
+    assert.ok(texts.length > 0); assert.ok(texts.every(item => item.key === false));
+  }
+});
+
+test('2つの重要語句と同じ語の繰り返しを拾い、盤に2つあれば両方に印を付ける', () => {
+  const reflect = setup(), lens = setup('lens');
+  const tl = explain.buildTimeline([{ draw: ['normal', 'angle:in'], lines: { A: '「法線」と「入射角」。' } }],
+    reflect.s, reflect.result, reflect.handles);
+  assert.deepEqual(tl.steps[0].parts.flatMap(part => part.items).filter(item => item.key)
+    .map(item => displayedText(item, reflect.result, reflect.handles)), ['法線', '入射角']);
+  for (const words of ['「焦点」と「焦点」。', '「焦点」と「光軸」。']) {
+    const tl = explain.buildTimeline([{ draw: ['focus'], lines: { F: words } }], lens.s, lens.result, lens.handles);
+    const texts = tl.steps[0].parts.flatMap(part => part.items).filter(item => item.type === 'text');
+    assert.equal(texts.length, 2); assert.ok(texts.every(item => item.key === true));
+  }
+});
+
+test('部分一致の光源・焦点は重要語句にせず、数字は台本にあっても通常の文字にする', () => {
+  for (const [id, draw, words] of [['straight', ['el:source'], '「光の直進」'], ['lens', ['focus'], '「焦点距離」']]) {
+    const { s, result, handles } = setup(id);
+    const tl = explain.buildTimeline([{ draw, lines: { E: words } }], s, result, handles);
+    assert.ok(tl.steps[0].parts.flatMap(part => part.items).filter(item => item.type === 'text').every(item => !item.key));
+  }
+  const { s, result, handles } = setup();
+  const tl = explain.buildTimeline([{ draw: ['angle:in'], lines: { E: `「${Math.round(result.angles[0].valueDeg)}°」` } }], s, result, handles);
+  assert.equal(tl.steps[0].parts.flatMap(part => part.items).find(item => item.ref.field === 'valueDeg').key, false);
+});
+
+test('通常の文字は1文字でも6文字でも400ms、重要語句は1文字90ms・最短300ms', () => {
+  for (const text of ['字', 'あいうえおか']) for (const key of [false, true]) {
+    const { s, result, handles } = setup();
+    result.marks.find(mark => mark.key === 'normal').text = text;
+    const tl = explain.buildTimeline([{ draw: ['normal'], lines: { E: key ? `「${text}」` : text } }], s, result, handles);
+    const part = tl.steps[0].parts.find(part => part.items[0].type === 'text');
+    assert.equal(part.items[0].key, key);
+    assert.equal(part.duration, key ? Math.max(300, Array.from(text).length * 90) : 400);
+    assert.equal(tl.steps[0].parts[0].duration, 800);
+  }
 });

@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" width="64" height="64">
+<!-- 描いている所を指すえんぴつ。先（芯の先）は左下の (6, 58)。このアプリ用に描いた絵 -->
+<ellipse cx="13" cy="60" rx="9" ry="2.2" fill="#1B2430" opacity=".14"/>
+<g transform="translate(6 58) rotate(45)" stroke="#1B2430" stroke-width="2.5" stroke-linejoin="round" stroke-linecap="round">
+<path d="M-7 -16 H7 V-50 H-7 Z" fill="#FFC93C"/>
+<path d="M-2.4 -18 V-48" stroke="#E0A300" stroke-width="2.2"/>
+<path d="M-7 -50 H7 V-56 H-7 Z" fill="#C9D5F0"/>
+<path d="M7 -56 V-61 A7 5 0 0 0 -7 -61 V-56 Z" fill="#F59DA3"/>
+<path d="M-7 -16 L0 0 L7 -16 Z" fill="#F6E0BC"/>
+<path d="M-3 -6.9 L0 0 L3 -6.9 Z" fill="#1B2430"/>
+</g>
+</svg>

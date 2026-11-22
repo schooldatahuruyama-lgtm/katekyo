@@ -1258,8 +1258,10 @@ function visible(el) {
 }
 function visibleElements(ui, predicate) { return elements(ui, el => visible(el) && predicate(el)); }
 function drawing(board, token, progress) {
+  const resolved = explain.resolve(token, board.scene, scene.trace(board.scene), scene.handles(board.scene));
+  resolved.items.forEach(item => { if (item.type === 'text') item.key = item.ref.field !== 'valueDeg'; });
   return { stepIndex: 0, stepDone: progress === 1,
-    parts: [{ ...explain.resolve(token, board.scene, scene.trace(board.scene), scene.handles(board.scene)), token, progress }] };
+    parts: [{ ...resolved, token, progress }] };
 }
 function currentWords(ui) { return ui.find(el => el.className === 'speech').textContent; }
 function startLesson(ui, audio = false) {
@@ -1414,12 +1416,15 @@ test('弧はeaseで広がり、ふわっと現れる部品はeaseOutで拡大す
 test('文字は箱の左端から連続して現れ、完成時に切り抜きを外し、巻き戻すと付け直す', () => {
   const { ui, renderer } = animationBoard();
   const text = ui.find(el => el.tagName === 'text' && el.textContent === '入射角');
+  const state = p => ({ parts: [{ progress: p, items: [{ type: 'text', key: true,
+    ref: { source: 'angles', key: 'in', field: 'name' } }] }] });
+  renderer.setState(state(0));
   const rect = clipRect(ui, text), size = Number(text.attributes['font-size']), box = view.labelBox({
     text: text.textContent, x: Number(text.attributes.x), y: Number(text.attributes.y), fontSize: size,
     anchor: text.attributes['text-anchor'],
   });
   for (const p of [0, .25, .5, 1, .3, 0]) {
-    renderer.setState({ parts: [{ progress: p, items: [{ ref: { source: 'angles', key: 'in', field: 'name' } }] }] });
+    renderer.setState(state(p));
     assert.equal(text.textContent, '入射角');
     assert.equal(visible(text), p > 0);
     assert.equal(text.hasAttribute('clip-path'), p !== 1);
@@ -1458,11 +1463,12 @@ test('start・end・middle の文字の切り抜きは箱の左端から始ま�
   const anchors = new Set();
   for (const { id } of boards.list()) {
     const { ui } = animationBoard(id);
-    for (const text of elements(ui, el => el.tagName === 'text')) {
+    const rects = elements(ui, el => el.tagName === 'clipPath').map(el => el.children[0]);
+    for (const [index, text] of elements(ui, el => el.tagName === 'text').entries()) {
       const anchor = text.attributes['text-anchor']; anchors.add(anchor);
       const size = Number(text.attributes['font-size']), width = Array.from(text.textContent).length * size;
       const left = Number(text.attributes.x) - width * (anchor === 'end' ? 1 : anchor === 'middle' ? .5 : 0);
-      assert.equal(Number(clipRect(ui, text).attributes.x), left - 4);
+      assert.equal(Number(rects[index].attributes.x), left - 4);
     }
   }
   assert.deepEqual([...anchors].sort(), ['end', 'middle', 'start']);
@@ -1498,6 +1504,369 @@ test('同じ手のtickを100回呼んでも、盤の外の文字・履歴・印�
   ui.button('▶ 再生').dispatch('click');
   ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
   assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+});
+
+function textState(ref, progress, key = false) {
+  return { stepIndex: 0, stepDone: progress === 1, parts: [{ progress, items: [{ type: 'text', ref, key }] }] };
+}
+
+for (const width of [319, 600]) for (const numeric of [false, true]) {
+  test(`${width}px・${numeric ? '角度の数字' : '通常の文字'}: 0・0.5・1・巻き戻しで浮き上がり、切り抜かない`, () => {
+    const { ui, renderer } = animationBoard('reflect', width), unit = 600 / width;
+    const ref = numeric ? { source: 'angles', key: 'in', field: 'valueDeg' } : { source: 'marks', key: 'mirror', field: 'text' };
+    renderer.setState(textState(ref, 1));
+    const text = visibleElements(ui, el => el.tagName === 'text')[0], complete = { ...text.attributes };
+    for (const p of [0, .5, 1, .3, 0]) {
+      renderer.setState(textState(ref, p));
+      assert.equal(visible(text), p > 0);
+      assert.equal(text.hasAttribute('clip-path'), false);
+      for (const key of ['x', 'y', 'text-anchor', 'font-size']) assert.equal(text.attributes[key], complete[key]);
+      if (p === 1) {
+        assert.equal(text.hasAttribute('opacity'), false); assert.equal(text.hasAttribute('transform'), false);
+      } else {
+        const eased = view.easeOut(p);
+        assert.equal(Number(text.attributes.opacity), eased);
+        assert.ok(text.attributes.transform.startsWith(`translate(0 ${6 * unit * (1 - eased)})`));
+        assert.equal(text.attributes.transform.includes('scale('), numeric);
+        if (numeric) assert.ok(text.attributes.transform.includes(`scale(${.85 + .15 * eased})`));
+      }
+      assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
+    }
+  });
+}
+
+test('同じ文字のkeyが変わっても要素は作り直さず、古い切り抜き・浮き上がり属性を外す', () => {
+  const { ui, renderer } = animationBoard(), ref = { source: 'angles', key: 'in', field: 'name' };
+  const text = ui.find(el => el.tagName === 'text' && el.textContent === '入射角');
+  ui.mutations.length = 0;
+  renderer.setState(textState(ref, .5, true));
+  assert.equal(text.hasAttribute('clip-path'), true);
+  renderer.setState(textState(ref, .5, false));
+  assert.equal(text.hasAttribute('clip-path'), false); assert.equal(text.attributes.opacity, '0.75');
+  renderer.setState(textState(ref, .5, true));
+  assert.equal(text.hasAttribute('clip-path'), true);
+  assert.equal(text.hasAttribute('opacity'), false); assert.equal(text.hasAttribute('transform'), false);
+  assertNoStructureChanges(ui);
+});
+
+function penTip(ui) {
+  const pen = ui.find(el => el.attributes.class === 'pen');
+  return pen.attributes.transform.match(/^translate\(([^ ]+) ([^)]+)\)$/).slice(1).map(Number);
+}
+function movingPen(width = 600) {
+  const result = scene.trace(boards.get('reflect').scene);
+  result.rays = [100, 200, 300].map(x => ({ x1: x, y1: 150, x2: x + 100, y2: 150, style: 'solid' }));
+  const ui = screen('', width, { scene: { ...scene, trace: () => result } }), board = boards.get('reflect');
+  let time = 0;
+  const renderer = ui.api.boardView.create(ui.host, board, undefined, undefined, { parts: [] }, () => time);
+  const state = (index, progress, stepIndex) => ({ stepIndex, stepDone: progress === 1,
+    parts: [{ progress, items: [{ type: 'line', ref: { source: 'rays', index } }] }] });
+  const set = (index, progress, at, stepIndex = 0) => { time = at; renderer.setState(state(index, progress, stepIndex)); };
+  set(0, 0, 0);
+  return { ui, renderer, set, pen: ui.find(el => el.attributes.class === 'pen') };
+}
+
+test('ペンは1つのSVG画像で、36pxの大きさと左下の先を保ち、300コマでも再作成しない', () => {
+  for (const width of [319, 600]) {
+    const { ui, set, pen } = movingPen(width), size = 36 * 600 / width;
+    assert.equal(pen.tagName, 'image'); assert.equal(pen.attributes.href, 'assets/pen.svg');
+    assert.equal(Number(pen.attributes.width), size); assert.equal(Number(pen.attributes.height), size);
+    assert.equal(Number(pen.attributes.x), -size * 6 / 64); assert.equal(Number(pen.attributes.y), -size * 58 / 64);
+    assert.equal(pen.children.length, 0); assert.equal(elements(ui, el => el.tagName === 'image').length, 1);
+    ui.mutations.length = 0;
+    for (let i = 1; i <= 300; i++) set(0, i / 301, i * 16);
+    assertNoStructureChanges(ui); assert.equal(ui.find(el => el.attributes.class === 'pen'), pen);
+  }
+});
+
+test('相手を変えたペンは動く先端へ150msで乗りかえ、その後は差0で付く（外から渡した時計）', () => {
+  const { ui, set } = movingPen();
+  assert.deepEqual(penTip(ui), [100, 150]);
+  set(1, 0, 0); assert.deepEqual(penTip(ui), [100, 150]);
+  set(1, .25, 75);
+  assert.deepEqual(penTip(ui), [100 + (200 + 100 * view.ease(.25) - 100) * view.easeOut(.5), 150]);
+  set(1, .5, 150); assert.deepEqual(penTip(ui), [250, 150]);
+  set(1, .75, 166); assert.deepEqual(penTip(ui), [200 + 100 * view.ease(.75), 150]);
+});
+
+test('ペンの移動は16ms刻みと50ms刻みで同じ時間に同じ位置になる', () => {
+  for (const end of [75, 100, 150, 240]) {
+    const positions = [16, 50].map(interval => {
+      const { ui, set } = movingPen(); set(1, 0, 0);
+      for (let time = interval; time < end; time += interval) set(1, time / 300, time);
+      set(1, end / 300, end); return penTip(ui)[0];
+    });
+    assert.equal(positions[0], positions[1]);
+    assert.equal(positions[0], 100 + (100 + 100 * view.ease(end / 300)) * view.easeOut(end / 150));
+  }
+});
+
+test('乗りかえ75msでさらに相手が変わると、その位置から新しく150msを測る', () => {
+  const { ui, set } = movingPen();
+  set(1, 0, 0); set(1, .25, 75);
+  const [from] = penTip(ui);
+  set(2, 0, 75); assert.deepEqual(penTip(ui), [from, 150]);
+  set(2, .25, 150);
+  assert.deepEqual(penTip(ui), [from + (300 + 100 * view.ease(.25) - from) * view.easeOut(.5), 150]);
+  set(2, .5, 225); assert.deepEqual(penTip(ui), [350, 150]);
+});
+
+test('手が変わった最初の相手には乗りかえず、その場で200msかけて現れる', () => {
+  const { ui, set, pen } = movingPen();
+  set(0, .5, 200);
+  set(2, 0, 216, 1);
+  assert.deepEqual(penTip(ui), [300, 150]); assert.equal(pen.attributes.opacity, '0');
+  set(2, 0, 316, 1); assert.equal(pen.attributes.opacity, '0.5');
+  set(2, 0, 416, 1); assert.equal(pen.attributes.opacity, '1');
+});
+
+function reflectionPen(interval, width = 600, checkpoints = []) {
+  const { ui, board, renderer } = animationBoard('reflect', width);
+  const timeline = explain.buildTimeline(scripts.BOARDS.reflect, board.scene, scene.trace(board.scene), scene.handles(board.scene));
+  const step = timeline.steps[2], textPart = step.parts.find(part => part.items.some(item => item.key));
+  const times = new Set(checkpoints), positions = new Map();
+  for (let time = 0; time <= step.duration; time += interval) times.add(time);
+  let previous = null, changed = false, followed = 0;
+  ui.mutations.length = 0;
+  for (const time of [...times].sort((a, b) => a - b)) {
+    renderer.setState(explain.stateAt(timeline, 2, time), time);
+    const tip = penTip(ui); positions.set(time, tip);
+    if (previous && interval === 16) assert.ok(Math.hypot(tip[0] - previous[0], tip[1] - previous[1]) <= 40, `時刻${time}`);
+    if (time >= textPart.start && time < textPart.start + interval) changed = true;
+    if (time >= textPart.start + 150 && time < step.drawDuration) {
+      const text = ui.find(el => el.tagName === 'text' && el.textContent === '法線'), rect = clipRect(ui, text);
+      const gap = Math.hypot(tip[0] - Number(rect.attributes.x) - Number(rect.attributes.width), tip[1] - Number(text.attributes.y));
+      assert.ok(gap * width / 600 <= 2); followed++;
+    }
+    previous = tip;
+  }
+  assert.equal(changed, true); assert.ok(followed > 0); assertNoStructureChanges(ui);
+  return positions;
+}
+
+test('反射3手目をstateAtで16msずつ進めても法線から文字へ飛ばず、150ms後は右端に付く', () => {
+  for (const width of [319, 600]) reflectionPen(16, width);
+});
+
+test('反射3手目を50msずつ進めても、乗りかえ途中を含む同じ時刻で16ms刻みと1単位以内になる', () => {
+  const checkpoints = [800, 850, 900, 950, 1000, 1050, 1100];
+  for (const width of [319, 600]) {
+    const fine = reflectionPen(16, width, checkpoints), coarse = reflectionPen(50, width);
+    for (const time of checkpoints) {
+      const a = fine.get(time), b = coarse.get(time);
+      assert.ok(Math.hypot(a[0] - b[0], a[1] - b[1]) <= 1, `幅${width}・時刻${time}`);
+    }
+  }
+});
+
+for (const { id } of boards.list()) {
+  test(`${id}: 全手を16msずつ進めてもペンの座標は有限で、手の変更・再出現以外では40単位を超えて動かない`, () => {
+    const { ui, board, renderer, calls } = animationBoard(id);
+    const timeline = explain.buildTimeline(scripts.BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const pen = ui.find(el => el.attributes.class === 'pen');
+    let previous = null;
+    ui.mutations.length = 0;
+    for (const step of timeline.steps) for (let time = 0; time <= step.duration; time += 16) {
+      assert.doesNotThrow(() => renderer.setState(explain.stateAt(timeline, step.index, time), step.start + time));
+      const tip = pen.hasAttribute('transform') ? penTip(ui) : null;
+      const shown = visible(pen) && Number(pen.attributes.opacity) > 0;
+      if (tip) assert.ok(tip.every(Number.isFinite));
+      if (tip && previous?.tip && previous.step === step.index && previous.shown && shown) {
+        const distance = Math.hypot(tip[0] - previous.tip[0], tip[1] - previous.tip[1]);
+        assert.ok(distance <= 40, `${id}・${step.index + 1}手目・${time}ms: ${distance}`);
+      }
+      previous = { tip, shown, step: step.index };
+    }
+    assertNoStructureChanges(ui);
+    assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
+  });
+}
+
+test('描画中の線・弧・重要語句では、ペンと先端の差が2px以内になる', () => {
+  for (const width of [319, 600]) for (const kind of ['line', 'arc', 'text']) {
+    const { ui, board, renderer } = animationBoard('reflect', width), unit = 600 / width;
+    for (const p of [.1, .5, .9]) {
+      if (kind === 'line') {
+        renderer.setState(drawing(board, 'ray:incident', p), p * 1000);
+        const ray = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00'), [x, y] = penTip(ui);
+        assert.ok(Math.hypot(x - Number(ray.attributes.x2), y - Number(ray.attributes.y2)) / unit <= 2);
+      }
+      if (kind === 'arc') {
+        const angle = scene.trace(board.scene).angles[0], radius = 54 * Math.min(view.sizes(width).textSize / 16, 1.5);
+        renderer.setState({ parts: [{ progress: p, items: [{ type: 'arc', ref: { source: 'angles', key: angle.key } }] }] }, p * 1000);
+        const radians = (angle.fromDeg + (angle.toDeg - angle.fromDeg) * view.ease(p)) * Math.PI / 180, tip = penTip(ui);
+        assert.ok(Math.hypot(tip[0] - angle.vertex.x - radius * Math.cos(radians),
+          tip[1] - angle.vertex.y - radius * Math.sin(radians)) / unit <= 2);
+      }
+      if (kind === 'text') {
+        renderer.setState(textState({ source: 'marks', key: 'normal', field: 'text' }, p, true), p * 1000);
+        const text = ui.find(el => el.tagName === 'text' && el.textContent === '法線'), rect = clipRect(ui, text), textTip = penTip(ui);
+        assert.ok(Math.hypot(textTip[0] - Number(rect.attributes.x) - Number(rect.attributes.width), textTip[1] - Number(text.attributes.y)) / unit <= 2);
+      }
+    }
+  }
+});
+
+for (const time of [-10, NaN, 2075]) {
+  test(`ペンの時刻${String(time)}は目標に合わせ、次の正常な時刻でも有限のまま動く`, () => {
+    const { ui, set, pen } = movingPen();
+    set(1, 0, 0); set(1, .25, 75);
+    assert.doesNotThrow(() => set(1, 0, time)); assert.deepEqual(penTip(ui), [200, 150]);
+    assert.ok(Number.isFinite(Number(pen.attributes.opacity)));
+    set(0, 0, 100); assert.ok(penTip(ui).every(Number.isFinite));
+  });
+}
+
+test('手の終了から200msで消え、次の手で200msかけて現れ、説明終了・操作中には出ない', () => {
+  const { ui, set, renderer, pen } = movingPen();
+  assert.equal(pen.attributes.opacity, '0');
+  set(0, .2, 100); assert.equal(pen.attributes.opacity, '0.5');
+  set(0, .4, 200); assert.equal(pen.attributes.opacity, '1');
+  set(0, 1, 200); assert.equal(pen.attributes.opacity, '1'); assert.deepEqual(penTip(ui), [200, 150]);
+  set(0, 1, 300); assert.equal(pen.attributes.opacity, '0.5');
+  set(0, 1, 400); assert.equal(pen.attributes.opacity, '0'); assert.equal(visible(pen), false);
+  set(1, 0, 400); assert.equal(pen.attributes.opacity, '0');
+  set(1, .2, 500); assert.equal(pen.attributes.opacity, '0.5');
+  set(1, .4, 600); assert.equal(pen.attributes.opacity, '1');
+  renderer.setState(null, 600);
+  assert.equal(ui.find(el => el.attributes.class === 'pen'), null);
+  renderer.draw(); assert.equal(ui.find(el => el.attributes.class === 'pen'), null);
+});
+
+test('同じ手でもペンが消えた後の相手には乗りかえず、その場で現れる', () => {
+  const { ui, set, pen } = movingPen();
+  set(0, .5, 200); set(0, 1, 216); set(0, 1, 416);
+  assert.equal(visible(pen), false);
+  set(2, .25, 432); assert.deepEqual(penTip(ui), [300 + 100 * view.ease(.25), 150]);
+  assert.equal(pen.attributes.opacity, '0');
+  set(2, .25, 532); assert.equal(pen.attributes.opacity, '0.5');
+  set(2, .25, 632); assert.equal(pen.attributes.opacity, '1');
+});
+
+function penLesson() {
+  const ui = screen('?board=reflect'); startLesson(ui);
+  for (let i = 0; i < 4; i++) ui.button('次へ ▶').dispatch('click');
+  ui.advance(320);
+  const pen = ui.find(el => el.attributes.class === 'pen');
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[2].lines.E);
+  assert.equal(pen.attributes.opacity, '1'); assert.equal(visible(pen), true);
+  return { ui, pen };
+}
+
+function assertPenHidden(pen) {
+  assert.equal(pen.attributes.opacity, '0'); assert.equal(pen.attributes.display, 'none');
+}
+
+test('app経由で止める→次へを押すと即座に消え、200msコマを更新しなくても残らない', () => {
+  const { ui, pen } = penLesson();
+  ui.button('⏸ 止める').dispatch('click');
+  assert.equal(visible(pen), true); assert.equal(ui.frames.size, 0);
+  ui.button('次へ ▶').dispatch('click'); assertPenHidden(pen);
+  ui.mutations.length = 0; ui.advance(200);
+  assertPenHidden(pen); assert.equal(ui.frames.size, 0); assert.equal(ui.mutations.length, 0);
+});
+
+test('再生中の手が終わって200msで消える途中に止めると、即座に消える', () => {
+  const { ui, pen } = penLesson();
+  ui.advance(400); ui.advance(380);
+  assert.equal(pen.attributes.opacity, '1');
+  ui.advance(100); assert.equal(pen.attributes.opacity, '0.5');
+  ui.button('⏸ 止める').dispatch('click'); assertPenHidden(pen);
+  assert.equal(ui.frames.size, 0);
+});
+
+test('停止中にもどるとペンは隠れ、再生すると戻った手の最初の相手の所に現れる', () => {
+  const { ui, pen } = penLesson();
+  ui.button('⏸ 止める').dispatch('click'); ui.button('◀ もどる').dispatch('click');
+  assertPenHidden(pen); assert.equal(ui.frames.size, 0);
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+  ui.advance(200); assertPenHidden(pen);
+  ui.button('▶ 再生').dispatch('click'); ui.advance(750);
+  const ray = scene.trace(boards.get('reflect').scene).rays[0];
+  assert.deepEqual(penTip(ui), [ray.x1, ray.y1]); assert.equal(pen.attributes.opacity, '0');
+  ui.advance(100); assert.equal(pen.attributes.opacity, '0.5');
+  ui.advance(100); assert.equal(pen.attributes.opacity, '1');
+});
+
+test('停止中にとばすとペンを残さず、自分で動かす盤になる', () => {
+  const { ui } = penLesson();
+  ui.button('⏸ 止める').dispatch('click'); ui.button('とばして自分で動かす').dispatch('click');
+  assert.equal(ui.find(el => el.attributes.class === 'pen'), null);
+  assert.equal(ui.frames.size, 0); assert.equal(ui.find(el => el.className === 'after').hidden, false);
+});
+
+test('通常の文字・部品ではペンの位置を動かさず、文字・部品だけの手にはペンを出さない', () => {
+  const { ui, set, renderer, pen } = movingPen(); set(0, .5, 200);
+  const before = pen.attributes.transform;
+  renderer.setState(textState({ source: 'marks', key: 'mirror', field: 'text' }, .5), 250);
+  assert.equal(pen.attributes.transform, before);
+  const pop = drawing(boards.get('reflect'), 'el:mirror', .5);
+  pop.parts[0].items.forEach(item => { if (item.type === 'text') item.key = false; });
+  renderer.setState(pop, 300);
+  assert.equal(pen.attributes.transform, before);
+  const other = animationBoard();
+  const state = drawing(other.board, 'el:mirror', .5);
+  state.parts[0].items.forEach(item => { if (item.type === 'text') item.key = false; });
+  other.renderer.setState(state, 200);
+  assert.equal(other.ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
+});
+
+for (const [words, expected] of [['普通の言葉。', []], ['「法線」を描く。', ['法線']],
+  ['「法線」と「入射角」。', ['法線', '入射角']], ['「法線」はここ。「入射角', ['法線']],
+  ['閉じていない「法線', []], ['<b>&「<b>&」を文字にする。', ['<b>&']]]) {
+  test(`吹き出し「${words}」を文字のまま組み立て、閉じたかぎ括弧だけをマーカーにする`, () => {
+    const ui = screen('?board=reflect'), data = { ...scripts, BOARDS: structuredClone(scripts.BOARDS) };
+    data.BOARDS.reflect[0].lines.E = words; ui.api.scripts = data;
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8'), { document: ui.doc, URL, Hikari: ui.api });
+    startLesson(ui);
+    const speech = ui.find(el => el.className === 'speech');
+    const marks = elements(ui, el => el.tagName === 'mark');
+    assert.equal(speech.textContent, words); assert.deepEqual(marks.map(el => el.textContent), expected);
+    assert.ok(marks.every(el => el.className === 'term'));
+    assert.equal(elements(ui, el => el.tagName === 'b' && el.parent !== ui.find(el => el.className === 'speed')).length, 0);
+    const sentence = ui.find(el => el.className === 'sentence');
+    ui.advance(100); assert.equal(ui.find(el => el.className === 'sentence'), sentence);
+  });
+}
+
+test('手が切り替わったときだけ新しい吹き出しを作り、履歴は追加した行だけを現す', () => {
+  const ui = screen('?board=reflect'); startLesson(ui);
+  const history = ui.find(el => el.className === 'talk'), first = history.children[0];
+  const sentence = ui.find(el => el.className === 'sentence');
+  ui.button('次へ ▶').dispatch('click'); assert.equal(ui.find(el => el.className === 'sentence'), sentence);
+  ui.button('次へ ▶').dispatch('click');
+  assert.notEqual(ui.find(el => el.className === 'sentence'), sentence);
+  assert.equal(history.children.length, 2); assert.equal(history.children[0], first);
+  ui.button('◀ もどる').dispatch('click');
+  assert.equal(history.children.length, 1); assert.equal(history.children[0], first);
+});
+
+test('ペンが出ている途中で説明をやり直すと、待ち時間なしで隠して開始画面に戻る', () => {
+  const ui = screen('?board=reflect'); startLesson(ui);
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  ui.advance(900); ui.advance(200);
+  assert.ok(ui.find(el => el.attributes.class === 'pen' && visible(el)));
+  ui.button('先生をかえる').dispatch('click');
+  assert.equal(ui.find(el => el.className === 'start').hidden, false);
+  assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
+  assert.equal(ui.frames.size, 0);
+});
+
+test('動きを減らす設定は手の文字を最初から完成形にし、ペンと吹き出しの動きを付けない', () => {
+  const ui = screen('?board=reflect', 600, { reduced: true }); startLesson(ui);
+  const mirror = ui.find(el => el.tagName === 'text' && el.textContent === '鏡');
+  assert.equal(visible(mirror), true);
+  for (const key of ['clip-path', 'opacity', 'transform']) assert.equal(mirror.hasAttribute(key), false);
+  assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
+  for (let i = 0; i < 4; i++) ui.button('次へ ▶').dispatch('click');
+  const normal = ui.find(el => el.tagName === 'text' && el.textContent === '法線');
+  assert.equal(visible(normal), true); assert.equal(normal.hasAttribute('clip-path'), false);
+  assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
+  const css = fs.readFileSync(path.join(__dirname, '../css/app.css'), 'utf8');
+  assert.match(css, /\.speech \.sentence[^}]*animation: words-appear 250ms ease-out both/);
+  assert.match(css, /\.speech \.term[^}]*linear-gradient\(transparent 62%, #FFE08A 62%\)[^}]*animation: term-mark 500ms ease-out 200ms both/);
+  assert.match(css, /\.talk li[^}]*animation: words-appear 200ms ease-out both/);
+  assert.match(css, /@media \(prefers-reduced-motion: reduce\)\s*{\s*\.speech \.sentence, \.speech \.term, \.talk li { animation: none; }\s*\.speech \.term { background-size: 100% 100%; }/);
 });
 
 test('反射の2手目の線をのばす1コマは、終点2属性とペンの位置だけを更新する', t => {
@@ -1576,7 +1945,8 @@ test('途中の文字は完成時の位置・大きさで描き、弧と部品�
   texts.forEach((el, i) => {
     for (const key of ['x', 'y', 'text-anchor', 'font-size']) assert.equal(el.attributes[key], complete[i][key]);
     assert.equal(el.hasAttribute('dx'), false);
-    assert.ok(el.hasAttribute('clip-path'));
+    assert.equal(el.hasAttribute('clip-path'), el.textContent === '入射角');
+    if (el.textContent !== '入射角') assert.equal(Number(el.attributes.opacity), view.easeOut(.5));
   });
   assert.notEqual(arc.attributes.d, completeArc);
   assert.ok(ui.find(el => el.attributes.class === 'pen' && visible(el)));

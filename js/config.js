@@ -19,7 +19,8 @@
     angleNamesWidthPx: 360,
     boardParamMaxLength: 40,
     explain: Object.freeze({
-      elementMs: 350, lineMs: 800, textCharMs: 90, textMinMs: 300, arcMs: 600, pointMs: 600,
+      elementMs: 350, lineMs: 800, textCharMs: 90, textMinMs: 300, textFadeMs: 400, arcMs: 600, pointMs: 600,
+      penSizePx: 36, penTransferMs: 150, penFadeMs: 200, penMaxDeltaMs: 1000,
       gapMs: 1500, stretchRatio: .8, voiceCharMs: 180, voiceExtraMs: 1000, voiceWaitMs: 4000,
       rates: Object.freeze([.5, .75, 1, 1.25, 1.5, 1.75, 2]), defaultRate: 1, maxTextLength: 75,
     }),

@@ -29,6 +29,7 @@ test('HTML の読み込み順と PRECACHE が一致し、全ファイルが実�
   assert.deepEqual(cache.filter(file => files.includes(file)), files);
   assert.ok(cache.includes('./') && cache.includes('index.html'));
   assert.ok(cache.includes('assets/mascots/mascot_E.svg'));
+  assert.ok(cache.includes('assets/pen.svg'));
   assert.equal(new Set(cache).size, cache.length);
   for (const file of cache) assert.ok(fs.existsSync(path.join(base, file)), file);
   assert.match(sw.value('VERSION'), /^\d{4}-\d{2}-\d{2}-\d+$/);

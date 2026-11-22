@@ -1,6 +1,6 @@
 // アプリのファイルを保存し、通信がなくても盤を開けるようにする。
 'use strict';
-const VERSION = '2026-11-22-3';
+const VERSION = '2026-11-22-5';
 const CACHE_PREFIX = 'hikari-board-';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const AUDIO_CACHE = 'hikari-board-audio-v1';
@@ -11,6 +11,7 @@ const PRECACHE = [
   'js/explain.js', 'js/prefs.js', 'js/voice.js', 'js/board-view.js', 'js/app.js',
   'assets/mascots/mascot_A.svg', 'assets/mascots/mascot_B.svg', 'assets/mascots/mascot_C.svg',
   'assets/mascots/mascot_D.svg', 'assets/mascots/mascot_E.svg', 'assets/mascots/mascot_F.svg',
+  'assets/pen.svg',
 ];
 
 self.addEventListener('install', event => {
