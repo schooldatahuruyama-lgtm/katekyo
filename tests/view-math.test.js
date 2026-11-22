@@ -10,6 +10,17 @@ const boards = require('../js/boards.js');
 const scene = require('../js/scene.js');
 const boardView = require('../js/board-view.js');
 
+for (const [name, middle] of [['ease', .5], ['easeOut', .75]]) {
+  test(`${name} は緩急を付け、範囲外・数でない進み具合を収める`, () => {
+    for (const [input, expected] of [[0, 0], [.5, middle], [1, 1], [-1, 0], [2, 1],
+      [NaN, 0], ['0.5', 0], [null, 0], [undefined, 0], [Infinity, 1], [-Infinity, 0]]) {
+      assert.equal(view[name](input), expected);
+    }
+    assert.equal(view[name](.25), name === 'ease' ? .15625 : .4375);
+    assert.equal(view[name](.75), name === 'ease' ? .84375 : .9375);
+  });
+}
+
 for (const width of [264, 319, 375, 612, 1100]) {
   test(`幅 ${width}px でも文字とつまみの最小サイズを保つ`, () => {
     const s = view.sizes(width);
@@ -826,6 +837,7 @@ function screen(search = '', width = 600, options = {}) {
   const listeners = new Map();
   const docListeners = new Map(), frames = new Map(), timers = new Map(), audios = [], saved = [], revoked = [];
   let time = 0, serial = 0;
+  const mutations = [];
   const doc = { readyState: 'loading', hidden: false,
     addEventListener(name, listener) { if (!docListeners.has(name)) docListeners.set(name, new Set()); docListeners.get(name).add(listener); },
     removeEventListener(name, listener) { docListeners.get(name)?.delete(listener); },
@@ -841,24 +853,35 @@ function screen(search = '', width = 600, options = {}) {
       this.events = {}; this.style = {}; this.hidden = false; this.className = ''; this.content = '';
       this.classList = { add: name => { this.className += ' ' + name; } };
     }
-    setAttribute(key, value) { this.attributes[key] = String(value); }
-    appendChild(child) { child.parent = this; this.children.push(child); return child; }
-    replaceChildren(...children) { this.children.forEach(child => { child.parent = null; }); this.children = []; this.content = ''; children.forEach(child => this.appendChild(child)); }
-    set textContent(value) { this.replaceChildren(); this.content = String(value); }
+    setAttribute(key, value) { mutations.push({ method: 'setAttribute', element: this, key }); this.attributes[key] = String(value); }
+    getAttribute(key) { return this.attributes[key] ?? null; }
+    hasAttribute(key) { return Object.hasOwn(this.attributes, key); }
+    removeAttribute(key) { mutations.push({ method: 'removeAttribute', element: this, key }); delete this.attributes[key]; }
+    appendChild(child) { mutations.push({ method: 'appendChild', element: this }); child.parent = this; this.children.push(child); return child; }
+    removeChild(child) {
+      mutations.push({ method: 'removeChild', element: this });
+      this.children = this.children.filter(el => el !== child); child.parent = null; return child;
+    }
+    replaceChildren(...children) { mutations.push({ method: 'replaceChildren', element: this }); this.children.forEach(child => { child.parent = null; }); this.children = []; this.content = ''; children.forEach(child => this.appendChild(child)); }
+    set textContent(value) { mutations.push({ method: 'textContent', element: this }); this.replaceChildren(); this.content = String(value); }
     get textContent() { return this.content + this.children.map(child => child.textContent).join(''); }
     addEventListener(name, listener) { (this.events[name] ||= []).push(listener); }
     dispatch(name, props = {}) {
       const event = { button: 0, preventDefault() {}, ...props };
       (this.events[name] || []).forEach(listener => listener(event));
     }
-    remove() { if (this.parent) this.parent.children = this.parent.children.filter(child => child !== this); }
+    remove() { if (this.parent) this.parent.removeChild(this); }
     focus() { doc.activeElement = this; }
-    getBoundingClientRect() { return { left: 20, top: 40, width, height: width * 420 / 600 }; }
+    getBoundingClientRect() {
+      const measured = this.style.display === 'none' ? 0 : width;
+      return { left: 20, top: 40, width: measured, height: measured * 420 / 600 };
+    }
     setPointerCapture(id) { this.capture = id; }
     hasPointerCapture(id) { return this.capture === id; }
     releasePointerCapture() { this.capture = null; }
   }
-  doc.createElement = tag => new Element(tag); doc.createElementNS = (_, tag) => new Element(tag);
+  doc.createElement = tag => { mutations.push({ method: 'createElement' }); return new Element(tag); };
+  doc.createElementNS = (_, tag) => { mutations.push({ method: 'createElementNS' }); return new Element(tag); };
   const win = { location: new URL('file:///app/index.html' + search), navigator: { onLine: true }, console,
     Audio, performance: { now: () => time },
     URL: { createObjectURL: () => 'blob:' + (++serial), revokeObjectURL: url => revoked.push(url) },
@@ -880,14 +903,15 @@ function screen(search = '', width = 600, options = {}) {
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
     scripts: require('../content/scripts-light.js'), voiceData: options.voiceData || require('../content/voice-light.js'),
     explain: options.explain || require('../js/explain.js'), prefs: require('../js/prefs.js'), voice: options.voice || require('../js/voice.js'),
-    geometry: require('../js/geometry.js'), viewMath: view, boards, scene, entry: require('../js/entry.js') } });
+    geometry: require('../js/geometry.js'), viewMath: options.viewMath || view, boards,
+    scene: options.scene || scene, entry: require('../js/entry.js') } });
   for (const file of ['board-view', 'app']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/' + file + '.js'), 'utf8'), context);
   function find(predicate, parent = host) {
     if (predicate(parent)) return parent;
     for (const child of parent.children) { const match = find(predicate, child); if (match) return match; }
     return null;
   }
-  return { host, win, doc, api: context.Hikari, find, audios, saved, revoked, frames, timers,
+  return { host, win, doc, api: context.Hikari, find, audios, saved, revoked, frames, timers, mutations,
     resize: value => { width = value; for (const listener of listeners.get('resize') || []) listener(); },
     advance: ms => {
       time += ms;
@@ -1226,6 +1250,13 @@ function elements(ui, predicate) {
   function visit(el) { if (predicate(el)) found.push(el); el.children.forEach(visit); }
   visit(ui.host); return found;
 }
+function visible(el) {
+  for (let current = el; current; current = current.parent) {
+    if (current.attributes.display === 'none' || current.tagName === 'defs') return false;
+  }
+  return true;
+}
+function visibleElements(ui, predicate) { return elements(ui, el => visible(el) && predicate(el)); }
 function drawing(board, token, progress) {
   return { stepIndex: 0, stepDone: progress === 1,
     parts: [{ ...explain.resolve(token, board.scene, scene.trace(board.scene), scene.handles(board.scene)), token, progress }] };
@@ -1235,6 +1266,251 @@ function startLesson(ui, audio = false) {
   ui.api.app.start(ui.host);
   if (!audio) ui.button('音声なしで見る').dispatch('click');
 }
+
+function animationBoard(id = 'reflect', width = 600) {
+  const calls = { trace: 0, handles: 0, sizes: 0, placeLabels: 0, change: 0 };
+  const counted = (source, key) => (...args) => { calls[key]++; return source[key](...args); };
+  const ui = screen('', width, {
+    scene: { ...scene, trace: counted(scene, 'trace'), handles: counted(scene, 'handles') },
+    viewMath: { ...view, sizes: counted(view, 'sizes'), placeLabels: counted(view, 'placeLabels') },
+  });
+  const board = boards.get(id);
+  const renderer = ui.api.boardView.create(ui.host, board, () => calls.change++, undefined, { parts: [] });
+  return { ui, board, renderer, calls };
+}
+function assertNoStructureChanges(ui) {
+  const forbidden = ['createElement', 'createElementNS', 'appendChild', 'removeChild', 'replaceChildren', 'textContent'];
+  assert.equal(ui.mutations.filter(call => forbidden.includes(call.method)).length, 0);
+}
+function clipRect(ui, text) {
+  const id = text.attributes['clip-path'].slice(5, -1);
+  return ui.find(el => el.attributes.id === id).children[0];
+}
+
+test('説明を300コマ進めても要素を増減せず、計算と配置は最初の1回だけ', () => {
+  const { ui, board, renderer, calls } = animationBoard();
+  const state = drawing(board, 'ray:incident', 0), nodes = elements(ui, () => true);
+  ui.mutations.length = 0;
+  for (let i = 1; i <= 300; i++) {
+    state.parts[0].progress = i / 301;
+    renderer.setState(state);
+    const current = elements(ui, () => true);
+    assert.equal(current.length, nodes.length);
+    assert.ok(current.every((el, index) => el === nodes[index]));
+  }
+  assertNoStructureChanges(ui);
+  assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
+});
+
+test('手が進んでも弧・文字・矢印・強調の印は用意済みの要素を表示する', () => {
+  for (const { id } of boards.list()) {
+    const { ui, board, renderer, calls } = animationBoard(id);
+    const nodes = elements(ui, () => true);
+    const timeline = explain.buildTimeline(scripts.BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    ui.mutations.length = 0;
+    for (const step of timeline.steps) for (const part of step.parts) {
+      renderer.setState(explain.stateAt(timeline, step.index, part.start + part.duration / 2));
+      renderer.setState(explain.stateAt(timeline, step.index, part.start + part.duration));
+    }
+    assertNoStructureChanges(ui);
+    assert.ok(elements(ui, () => true).every((el, index) => el === nodes[index]));
+    assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
+    assert.ok(visibleElements(ui, el => el.tagName === 'line').length > 0);
+  }
+});
+
+test('同じ進み具合では属性を更新せず、進行中も完成済みの部品に触れない', () => {
+  const { ui, board, renderer } = animationBoard();
+  const state = drawing(board, 'el:mirror', 1);
+  state.parts.push(...drawing(board, 'ray:incident', .3).parts);
+  renderer.setState(state);
+  ui.mutations.length = 0;
+  renderer.setState(structuredClone(state));
+  assert.equal(ui.mutations.length, 0);
+  state.parts[1].progress = .4;
+  renderer.setState(state);
+  const ray = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  const pen = ui.find(el => el.attributes.class === 'pen');
+  assert.ok(ui.mutations.length > 0);
+  assert.ok(ui.mutations.every(call => call.element === ray || call.element === pen));
+});
+
+test('説明中の幅変更は1回だけ再構築し、進み具合を保って属性の更新に戻る', () => {
+  const { ui, board, renderer, calls } = animationBoard();
+  const state = drawing(board, 'ray:incident', .3);
+  renderer.setState(state);
+  const rayNode = () => ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  const before = rayNode(), coords = ['x1', 'y1', 'x2', 'y2'].map(key => before.attributes[key]);
+  ui.resize(319);
+  assert.ok(rayNode() !== before);
+  assert.deepEqual(['x1', 'y1', 'x2', 'y2'].map(key => rayNode().attributes[key]), coords);
+  assert.notEqual(rayNode().attributes['stroke-width'], before.attributes['stroke-width']);
+  assert.deepEqual(calls, { trace: 2, handles: 2, sizes: 2, placeLabels: 2, change: 2 });
+  ui.mutations.length = 0;
+  ui.resize(319); renderer.setState(state);
+  assert.equal(ui.mutations.length, 0);
+  state.parts[0].progress = .4; renderer.setState(state);
+  assertNoStructureChanges(ui);
+  assert.deepEqual(calls, { trace: 2, handles: 2, sizes: 2, placeLabels: 2, change: 2 });
+});
+
+test('setScene と再説明の配置差し替えは、それぞれ1回だけ再構築する', () => {
+  const { ui, board, renderer, calls } = animationBoard();
+  const state = drawing(board, 'ray:incident', .3);
+  renderer.setState(state);
+  const rayNode = () => ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  const before = rayNode();
+  renderer.setScene(scene.moveElement(board.scene, 'src', 'move', { x: 180, y: 70 }));
+  assert.ok(rayNode() !== before);
+  const ray = scene.trace(board.scene).rays[0];
+  assert.equal(Number(rayNode().attributes.x2), ray.x1 + (ray.x2 - ray.x1) * view.ease(.3));
+  assert.deepEqual(calls, { trace: 2, handles: 2, sizes: 2, placeLabels: 2, change: 2 });
+  ui.mutations.length = 0; renderer.setState(state); assert.equal(ui.mutations.length, 0);
+  board.scene = boards.get('reflect').scene;
+  renderer.setState(state);
+  assert.deepEqual(calls, { trace: 3, handles: 3, sizes: 3, placeLabels: 3, change: 3 });
+  ui.mutations.length = 0; renderer.setState(state); assert.equal(ui.mutations.length, 0);
+});
+
+test('線は緩急のある終点までのび、完成時だけ加工し、1から0.3へも戻れる', () => {
+  const { ui, board, renderer } = animationBoard();
+  const ray = scene.trace(board.scene).rays[0];
+  const el = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  for (const p of [0, .25, .5, 1, .3, 0]) {
+    renderer.setState(drawing(board, 'ray:incident', p));
+    assert.equal(visible(el), p > 0);
+    assert.equal(Number(el.attributes.x2), ray.x1 + (ray.x2 - ray.x1) * view.ease(p));
+    assert.equal(Number(el.attributes.y2), ray.y1 + (ray.y2 - ray.y1) * view.ease(p));
+    assert.equal(el.hasAttribute('filter'), p === 1);
+    if (p > 0 && p < 1) assert.equal(ui.find(el => el.attributes.class === 'pen').attributes.transform,
+      `translate(${el.attributes.x2} ${el.attributes.y2})`);
+  }
+  for (const p of [.5, 1, .3]) {
+    renderer.setState(drawing(board, 'el:mirror', p));
+    const mirror = visibleElements(ui, el => el.tagName === 'line');
+    assert.ok(mirror.length > 1);
+    assert.ok(mirror.every(el => el.hasAttribute('filter') === (p === 1)));
+  }
+});
+
+test('弧はeaseで広がり、ふわっと現れる部品はeaseOutで拡大する', () => {
+  const { ui, board, renderer } = animationBoard();
+  const angle = scene.trace(board.scene).angles[0], radius = 54, delta = angle.toDeg - angle.fromDeg;
+  const arc = ui.find(el => el.tagName === 'path' && el.attributes['fill-opacity'] === '0.1');
+  for (const p of [0, .25, .5, 1, .3]) {
+    renderer.setState({ parts: [{ progress: p, items: [{ ref: { source: 'angles', key: angle.key } }] }] });
+    const degrees = angle.fromDeg + delta * view.ease(p);
+    const x = angle.vertex.x + radius * Math.cos(degrees * Math.PI / 180);
+    const y = angle.vertex.y + radius * Math.sin(degrees * Math.PI / 180);
+    assert.equal(visible(arc), p > 0);
+    assert.ok(arc.attributes.d.endsWith(`${x} ${y} Z`));
+    assert.equal(arc.hasAttribute('filter'), false);
+  }
+  renderer.setState(drawing(board, 'el:source', .25));
+  const group = ui.find(el => el.tagName === 'g' && el.attributes.opacity === String(view.easeOut(.25)));
+  assert.ok(group.attributes.transform.includes(`scale(${.4 + .6 * view.easeOut(.25)})`));
+});
+
+test('文字は箱の左端から連続して現れ、完成時に切り抜きを外し、巻き戻すと付け直す', () => {
+  const { ui, renderer } = animationBoard();
+  const text = ui.find(el => el.tagName === 'text' && el.textContent === '入射角');
+  const rect = clipRect(ui, text), size = Number(text.attributes['font-size']), box = view.labelBox({
+    text: text.textContent, x: Number(text.attributes.x), y: Number(text.attributes.y), fontSize: size,
+    anchor: text.attributes['text-anchor'],
+  });
+  for (const p of [0, .25, .5, 1, .3, 0]) {
+    renderer.setState({ parts: [{ progress: p, items: [{ ref: { source: 'angles', key: 'in', field: 'name' } }] }] });
+    assert.equal(text.textContent, '入射角');
+    assert.equal(visible(text), p > 0);
+    assert.equal(text.hasAttribute('clip-path'), p !== 1);
+    assert.equal(Number(rect.attributes.x), box.left - 4);
+    assert.equal(Number(rect.attributes.width), (box.right - box.left + 8) * view.ease(p));
+    if (p !== 1) assert.ok(clipRect(ui, text) === rect);
+    if (p > 0 && p < 1) assert.equal(ui.find(el => el.attributes.class === 'pen').attributes.transform,
+      `translate(${box.left - 4 + (box.right - box.left + 8) * view.ease(p)} ${text.attributes.y})`);
+  }
+});
+
+test('垂直入射の0度では弧を描かず、説明中のペンの印は保つ', () => {
+  const { ui, board, renderer } = animationBoard();
+  renderer.setScene(scene.moveElement(board.scene, 'src', 'move', { x: 300, y: 70 }));
+  const angle = scene.trace(board.scene).angles[0];
+  assert.equal(angle.valueDeg, 0);
+  renderer.setState({ parts: [{ progress: .5, items: [{ ref: { source: 'angles', key: angle.key } }] }] });
+  assert.equal(visibleElements(ui, el => el.tagName === 'path' && el.hasAttribute('fill-opacity')).length, 0);
+  assert.ok(ui.find(el => el.attributes.class === 'pen' && visible(el)));
+});
+
+test('不正なシーンから復帰した最初の描画も、表示幅に合わせる', () => {
+  const { ui, renderer } = animationBoard('reflect', 319);
+  renderer.setScene(null);
+  assert.equal(ui.find(el => el.tagName === 'svg').style.display, 'none');
+  assert.equal(ui.find(el => el.className === 'board-error').hidden, false);
+  renderer.setScene(boards.get('reflect').scene);
+  assert.equal(ui.find(el => el.tagName === 'svg').style.display, '');
+  const ray = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  assert.equal(Number(ray.attributes['stroke-width']), view.sizes(319).rayWidth);
+  const text = ui.find(el => el.tagName === 'text');
+  assert.equal(Number(text.attributes['font-size']), view.sizes(319).angleSize);
+});
+
+test('start・end・middle の文字の切り抜きは箱の左端から始まる', () => {
+  const anchors = new Set();
+  for (const { id } of boards.list()) {
+    const { ui } = animationBoard(id);
+    for (const text of elements(ui, el => el.tagName === 'text')) {
+      const anchor = text.attributes['text-anchor']; anchors.add(anchor);
+      const size = Number(text.attributes['font-size']), width = Array.from(text.textContent).length * size;
+      const left = Number(text.attributes.x) - width * (anchor === 'end' ? 1 : anchor === 'middle' ? .5 : 0);
+      assert.equal(Number(clipRect(ui, text).attributes.x), left - 4);
+    }
+  }
+  assert.deepEqual([...anchors].sort(), ['end', 'middle', 'start']);
+});
+
+test('説明終了で切り抜きと非表示属性を残さず、再び説明を始めると1回だけ作り直す', () => {
+  const { ui, board, renderer, calls } = animationBoard();
+  renderer.setState(drawing(board, 'angle:in', .3));
+  renderer.setState(null);
+  assert.equal(elements(ui, el => el.hasAttribute('clip-path') || el.hasAttribute('display') || el.tagName === 'clipPath').length, 0);
+  assert.ok(ui.find(el => el.attributes.class === 'handle'));
+  assert.deepEqual(calls, { trace: 2, handles: 2, sizes: 2, placeLabels: 2, change: 2 });
+  renderer.setState(drawing(board, 'angle:in', .3));
+  assert.deepEqual(calls, { trace: 3, handles: 3, sizes: 3, placeLabels: 3, change: 3 });
+  ui.mutations.length = 0; renderer.setState(drawing(board, 'angle:in', .4));
+  assertNoStructureChanges(ui);
+});
+
+test('同じ手のtickを100回呼んでも、盤の外の文字・履歴・印・ボタンを更新しない', async () => {
+  const ui = screen('?board=reflect'); startLesson(ui); await settle();
+  ui.advance(10);
+  const words = currentWords(ui), outside = new Set(elements(ui, el => {
+    for (let current = el; current; current = current.parent) if (current.tagName === 'svg') return false;
+    return true;
+  }));
+  ui.mutations.length = 0;
+  for (let i = 0; i < 100; i++) ui.advance(1);
+  assert.equal(currentWords(ui), words);
+  assert.equal(ui.mutations.filter(call => outside.has(call.element)).length, 0);
+  assertNoStructureChanges(ui);
+  ui.button('⏸ 止める').dispatch('click'); assert.ok(ui.button('▶ 再生'));
+  ui.button('＋').dispatch('click'); assert.ok(ui.host.textContent.includes('1.25 倍'));
+  ui.button('▶ 再生').dispatch('click');
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+});
+
+test('反射の2手目の線をのばす1コマは、終点2属性とペンの位置だけを更新する', t => {
+  const { ui, board, renderer } = animationBoard();
+  const timeline = explain.buildTimeline(scripts.BOARDS.reflect, board.scene, scene.trace(board.scene), scene.handles(board.scene));
+  renderer.setState(explain.stateAt(timeline, 1, 1050));
+  ui.mutations.length = 0;
+  renderer.setState(explain.stateAt(timeline, 1, 1066));
+  assertNoStructureChanges(ui);
+  const writes = ui.mutations.filter(call => call.method === 'setAttribute');
+  assert.deepEqual(writes.map(call => call.key).sort(), ['transform', 'x2', 'y2']);
+  t.diagnostic(`反射の2手目 1050ms→1066ms: setAttribute ${writes.length} 回/コマ`);
+});
 
 test('説明の状態が null なら従来の全描画に戻り、つまみを動かせる', () => {
   const ui = screen(), board = boards.get('reflect');
@@ -1249,24 +1525,31 @@ test('説明の状態が null なら従来の全描画に戻り、つまみを�
 });
 
 for (const [input, expected] of [[0, 0], [.5, .5], [1, 1], [-1, 0], [2, 1], [NaN, 0]]) {
-  test(`説明の progress=${input}: 線の終点と文字数を0〜1に収める`, () => {
+  test(`説明の progress=${input}: 線の終点と文字の切り抜きを0〜1に収める`, () => {
     const ui = screen(), board = boards.get('reflect'), result = scene.trace(board.scene);
     const renderer = ui.api.boardView.create(ui.host, board);
     renderer.setState(drawing(board, 'ray:incident', input));
     const ray = result.rays.find(ray => ray.role === 'incident');
-    const line = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
-    if (!expected) assert.equal(line, null);
+    const line = visibleElements(ui, el => el.tagName === 'line' && el.attributes.stroke === '#B45C00')[0];
+    if (!expected) assert.equal(line, undefined);
     else {
       assert.equal(Number(line.attributes.x1), ray.x1);
       assert.equal(Number(line.attributes.y1), ray.y1);
       assert.equal(Number(line.attributes.x2), ray.x1 + (ray.x2 - ray.x1) * expected);
       assert.equal(Number(line.attributes.y2), ray.y1 + (ray.y2 - ray.y1) * expected);
     }
-    assert.equal(elements(ui, el => el.tagName === 'polygon').length, expected === 1 ? 1 : 0);
+    assert.equal(visibleElements(ui, el => el.tagName === 'polygon').length, expected === 1 ? 1 : 0);
     renderer.setState(drawing(board, 'angle:in', input));
-    const name = elements(ui, el => el.tagName === 'text').find(el => '入射角'.startsWith(el.textContent));
+    const name = visibleElements(ui, el => el.tagName === 'text').find(el => el.textContent === '入射角');
     if (!expected) assert.equal(name, undefined);
-    else assert.equal(name.textContent, '入射角'.slice(0, Math.ceil(3 * expected)));
+    else {
+      assert.equal(name.textContent, '入射角');
+      if (expected === 1) assert.equal(name.hasAttribute('clip-path'), false);
+      else {
+        const id = name.attributes['clip-path'].slice(5, -1), rect = ui.find(el => el.attributes.id === id).children[0];
+        assert.equal(Number(rect.attributes.width), (3 * Number(name.attributes['font-size']) + 8) * expected);
+      }
+    }
     renderer.destroy();
   });
 }
@@ -1278,31 +1561,31 @@ test('計算結果にない参照は全種類とも描かず、例外を出さ�
     { source: 'angles', key: 'missing' }, { source: 'marks', key: 'missing', field: 'text' },
     { source: 'images', index: 999 }, { source: 'elements', id: 'missing', part: 'highlight' }];
   assert.doesNotThrow(() => renderer.setState({ parts: refs.map(ref => ({ progress: .5, items: [{ ref }] })) }));
-  assert.equal(elements(ui, el => ['line', 'text', 'circle', 'path', 'polygon'].includes(el.tagName)).length, 0);
+  assert.equal(visibleElements(ui, el => ['line', 'text', 'circle', 'path', 'polygon'].includes(el.tagName)).length, 0);
 });
 
 test('途中の文字は完成時の位置・大きさで描き、弧と部品・印とペンも進む', () => {
   const ui = screen(), board = boards.get('reflect');
   const renderer = ui.api.boardView.create(ui.host, board);
   renderer.setState(drawing(board, 'angle:in', 1));
-  const complete = elements(ui, el => el.tagName === 'text').map(el => ({ ...el.attributes }));
-  const lengths = elements(ui, el => el.tagName === 'text').map(el => Array.from(el.textContent).length);
-  const completeArc = ui.find(el => el.tagName === 'path').attributes.d;
+  const texts = visibleElements(ui, el => el.tagName === 'text');
+  const complete = texts.map(el => ({ ...el.attributes }));
+  const arc = ui.find(el => el.tagName === 'path' && el.attributes['fill-opacity'] === '0.1');
+  const completeArc = arc.attributes.d;
   renderer.setState(drawing(board, 'angle:in', .5));
-  elements(ui, el => el.tagName === 'text').forEach((el, i) => {
+  texts.forEach((el, i) => {
     for (const key of ['x', 'y', 'text-anchor', 'font-size']) assert.equal(el.attributes[key], complete[i][key]);
-    const fullLength = lengths[i], count = Math.ceil(fullLength / 2);
-    const anchor = complete[i]['text-anchor'] === 'end' ? 1 : complete[i]['text-anchor'] === 'middle' ? .5 : 0;
-    assert.equal(Number(el.attributes.dx), -(fullLength - count) * Number(el.attributes['font-size']) * anchor);
+    assert.equal(el.hasAttribute('dx'), false);
+    assert.ok(el.hasAttribute('clip-path'));
   });
-  assert.notEqual(ui.find(el => el.tagName === 'path').attributes.d, completeArc);
-  assert.ok(ui.find(el => el.attributes.class === 'pen'));
+  assert.notEqual(arc.attributes.d, completeArc);
+  assert.ok(ui.find(el => el.attributes.class === 'pen' && visible(el)));
   renderer.setState(drawing(board, 'el:source', .5));
-  assert.ok(ui.find(el => el.attributes.opacity === '0.5' && el.attributes.transform.includes('scale(0.7)')));
+  assert.ok(ui.find(el => el.attributes.opacity === '0.75' && el.attributes.transform.includes('scale(0.85)')));
   renderer.setState(drawing(board, 'point:source', .5));
-  assert.ok(ui.find(el => el.tagName === 'circle' && el.attributes.stroke === '#1A5CFF'));
+  assert.ok(ui.find(el => el.tagName === 'circle' && el.attributes.stroke === '#1A5CFF' && visible(el)));
   renderer.setState(drawing(board, 'point:source', 1));
-  assert.equal(ui.find(el => el.attributes.stroke === '#1A5CFF'), null);
+  assert.equal(ui.find(el => el.attributes.stroke === '#1A5CFF' && visible(el)), null);
 });
 
 for (const { id } of boards.list()) {
@@ -1415,7 +1698,7 @@ test('もどるは1手目で押せず、前の手へ戻ったら描き始めと�
   assert.equal(ui.button('◀ もどる').disabled, true);
   assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
   assert.equal(ui.audios[0].calls.at(-1), 'play');
-  assert.equal(ui.find(el => el.tagName === 'line'), null);
+  assert.equal(ui.find(el => el.tagName === 'line' && visible(el)), null);
 });
 
 test('速さの両端を越えず、描画進捗を保ったまま声と時計の速さを変える', async () => {
@@ -1528,7 +1811,7 @@ test('リサイズしても同じ手・進み具合で描き直す', () => {
 test('動きを減らす設定ではpartが1msで完成し、手と声と間は残す', () => {
   const ui = screen('?board=reflect', 600, { reduced: true }); startLesson(ui);
   ui.advance(2);
-  assert.equal(ui.find(el => el.attributes.class === 'pen'), null);
+  assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
   assert.ok(ui.find(el => el.tagName === 'text' && el.textContent === '鏡'));
   assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
   ui.advance(1500); assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);

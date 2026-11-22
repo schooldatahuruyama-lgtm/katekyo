@@ -194,7 +194,17 @@
       length: size.unitPerPx * (small ? 14 : 16), width: size.unitPerPx * (small ? 11 : 13) };
   }
 
-  const api = { sizes, angleValue, angleLabel, markBox, labelBox, placeLabels, arrowAt, toBoardPoint };
+  function ease(p) {
+    p = typeof p === 'number' && !Number.isNaN(p) ? Math.max(0, Math.min(1, p)) : 0;
+    return p * p * (3 - 2 * p);
+  }
+
+  function easeOut(p) {
+    p = typeof p === 'number' && !Number.isNaN(p) ? Math.max(0, Math.min(1, p)) : 0;
+    return 1 - (1 - p) * (1 - p);
+  }
+
+  const api = { sizes, angleValue, angleLabel, markBox, labelBox, placeLabels, arrowAt, toBoardPoint, ease, easeOut };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hikari = Object.assign(root.Hikari || {}, { viewMath: api });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
