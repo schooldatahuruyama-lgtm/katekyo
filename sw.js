@@ -1,6 +1,6 @@
 // アプリのファイルを保存し、通信がなくても盤を開けるようにする。
 'use strict';
-const VERSION = '2026-11-22-2';
+const VERSION = '2026-11-22-3';
 const CACHE_PREFIX = 'hikari-board-';
 const CACHE_NAME = CACHE_PREFIX + VERSION;
 const AUDIO_CACHE = 'hikari-board-audio-v1';

@@ -112,6 +112,7 @@
       let voiceDone = true, voiceEndTime = 0, playVersion = 0, prepareVersion = 0, disposed = false;
       let preparation = 'idle', preparedTeacher = null, pendingPreparation = null;
       let soundVersion = 0, soundWaiting = false;
+      let readoutKey = null, invalidScene = mode === 'invalid';
       const reduced = !!win.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
       const now = () => win.performance.now();
       const player = voice.createPlayer({
@@ -273,6 +274,7 @@
         transport.hidden = mode !== 'explain'; history.hidden = mode !== 'explain';
         after.hidden = mode !== 'explore' && mode !== 'invalid'; replay.hidden = mode !== 'explore';
         instruction.hidden = mode !== 'explore'; notes.hidden = mode !== 'explore';
+        updateReadoutVisibility();
         updateButtons();
       }
       function showWords() {
@@ -282,6 +284,7 @@
         lines.replaceChildren();
         steps.slice(0, stepIndex + 1).forEach((step, index) => element('li', index === stepIndex ? 'current' : '', step.lines[settings.teacher], lines));
         dotNodes.forEach((dot, index) => { dot.className = index < stepIndex ? 'done' : index === stepIndex ? 'now' : ''; });
+        updateReadoutVisibility();
       }
       function enterStep(index) {
         if (mode !== 'explain') return;
@@ -399,21 +402,29 @@
         disposed = true; stopFrame(); stopVoice(); prepareVersion++; player.release();
         doc.removeEventListener('visibilitychange', visibility);
       };
+      function updateReadoutVisibility() {
+        const angleStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
+        const hidden = invalidScene || mode === 'start' || (mode === 'explain' && stepIndex < (angleStep < 0 ? steps.length - 1 : angleStep));
+        if (readout.hidden !== hidden) readout.hidden = hidden;
+      }
       // 初回も操作・サイズ変更のたびも、表示や判定に先立って検査する。
       function validate(current) {
         const errors = scene.validateScene(current);
-        const angleStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
-        readout.hidden = errors.length > 0 || mode === 'start' || (mode === 'explain' && stepIndex < (angleStep < 0 ? steps.length - 1 : angleStep));
+        invalidScene = errors.length > 0; updateReadoutVisibility();
         if (errors.length) {
-          readout.replaceChildren(); notes.replaceChildren();
+          readout.replaceChildren(); readoutKey = null; notes.replaceChildren();
           controls.hidden = true; controls.replaceChildren(); controlNodes.clear();
         }
         return errors;
       }
       function update(result) {
-        readout.replaceChildren();
         const values = boards.readout(board.id, result.measures, board.scene);
-        values.forEach(item => element('span', item.tone, item.text, readout));
+        const key = JSON.stringify(values);
+        if (readoutKey !== key) {
+          readout.replaceChildren();
+          values.forEach(item => element('span', item.tone, item.text, readout));
+          readoutKey = key;
+        }
         const visibleNotes = result.notes.filter(note => !values.some(item => item.text === note));
         if (notes.textContent !== visibleNotes.join('')) {
           notes.replaceChildren(); visibleNotes.forEach(note => element('p', '', note, notes));

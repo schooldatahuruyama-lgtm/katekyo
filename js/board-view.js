@@ -13,8 +13,8 @@
   let serial = 0;
 
   // 描画とテストで同じ文字・障害物を使う。角度以外の座標は付けたい相手の位置。
-  function labelData(board, result, size) {
-    const labels = [], handles = scene.handles(board.scene);
+  function labelData(board, result, size, handles = scene.handles(board.scene)) {
+    const labels = [];
     const obstacles = handles.map(handle => ({ x: handle.x, y: handle.y, r: size.knobRadius }));
     const incoming = result.angles.find(angle => angle.key === 'in');
     const incomingLabel = incoming && { ...math.angleLabel(incoming, size),
@@ -81,7 +81,8 @@
     if (typeof document === 'undefined' || !host) return null;
     const doc = host.ownerDocument, win = doc.defaultView;
     const filterId = 'board-sketch-' + (++serial);
-    let dragging = null, disposed = false, drawingState = initialState, progress = new Map(), pen = null;
+    let dragging = null, disposed = false, drawingState = initialState;
+    let cachedScene = null, cachedWidth = null, animations = [], penNode = null, sketchNodes = null;
     const handleNodes = new Map();
     function svgNode(tag, attrs = {}, parent, text) {
       const element = doc.createElementNS(NS, tag);
@@ -97,6 +98,7 @@
     const filter = svgNode('filter', { id: filterId, filterUnits: 'userSpaceOnUse', x: -10, y: -10, width: W + 20, height: H + 20 }, defs);
     svgNode('feTurbulence', { type: 'fractalNoise', baseFrequency: '.035', numOctaves: 2, seed: 4, result: 'noise' }, filter);
     svgNode('feDisplacementMap', { in: 'SourceGraphic', in2: 'noise', scale: '1.4' }, filter);
+    const clips = svgNode('g', {}, defs);
     const artRoot = svgNode('g', { 'pointer-events': 'none' }, svg);
     let art = artRoot;
     const labels = svgNode('g', { 'pointer-events': 'none' }, svg);
@@ -108,27 +110,67 @@
     function refKey(ref) {
       return [ref.source, ref.id, ref.index, ref.key, ref.elementId, ref.handle, ref.part, ref.field].join('|');
     }
-    function amount(ref) { return drawingState === null ? 1 : progress.get(refKey(ref)) || 0; }
+    function attribute(element, key, value) {
+      if (value === null) {
+        if (element.hasAttribute(key)) element.removeAttribute(key);
+      } else if (element.getAttribute(key) !== String(value)) element.setAttribute(key, value);
+    }
+    function animate(element, refs, update = () => {}, visible = p => p > 0) {
+      if (drawingState === null) return;
+      animations.push({ element, keys: refs.map(refKey), update, visible, previous: null, pen: null });
+    }
+    function updateDrawing() {
+      const progress = new Map();
+      for (const part of drawingState.parts || []) {
+        const p = typeof part.progress === 'number' && !Number.isNaN(part.progress) ? Math.max(0, Math.min(1, part.progress)) : 0;
+        for (const item of part.items || []) if (item.ref) {
+          const key = refKey(item.ref);
+          progress.set(key, Math.max(progress.get(key) || 0, p));
+        }
+      }
+      let pen = null;
+      for (const entry of animations) {
+        const p = Math.max(0, ...entry.keys.map(key => progress.get(key) || 0));
+        if (p !== entry.previous) {
+          attribute(entry.element, 'display', entry.visible(p) ? null : 'none');
+          entry.pen = entry.update(p);
+          entry.previous = p;
+        }
+        if (p > 0 && p < 1 && entry.pen) pen = entry.pen;
+      }
+      if (penNode) {
+        attribute(penNode, 'display', pen ? null : 'none');
+        if (pen) attribute(penNode, 'transform', `translate(${pen.x} ${pen.y})`);
+      }
+    }
     function pop(ref, center, render) {
-      const p = amount(ref);
-      if (!p) return;
-      art = svgNode('g', drawingState === null ? {} : { opacity: p,
-        transform: `translate(${center.x} ${center.y}) scale(${.4 + .6 * p}) translate(${-center.x} ${-center.y})` }, artRoot);
-      render(); art = artRoot;
-      if (p < 1) pen = center;
+      const group = svgNode('g', {}, artRoot), sketches = [];
+      art = group; sketchNodes = sketches;
+      render(); art = artRoot; sketchNodes = null;
+      animate(group, [ref], p => {
+        const eased = math.easeOut(p);
+        attribute(group, 'opacity', eased);
+        attribute(group, 'transform', `translate(${center.x} ${center.y}) scale(${.4 + .6 * eased}) translate(${-center.x} ${-center.y})`);
+        sketches.forEach(el => attribute(el, 'filter', p === 1 ? 'url(#' + filterId + ')' : null));
+        return center;
+      });
     }
     function growingLine(ref, a, b, color, width, sketch = false, attrs = {}) {
-      const p = amount(ref);
-      if (!p) return;
-      const tip = { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p };
-      line(a, tip, color, width, sketch, attrs);
-      if (p < 1) pen = tip;
+      const el = line(a, b, color, width, sketch, attrs);
+      animate(el, [ref], p => {
+        const eased = math.ease(p), tip = { x: a.x + (b.x - a.x) * eased, y: a.y + (b.y - a.y) * eased };
+        attribute(el, 'x2', tip.x); attribute(el, 'y2', tip.y);
+        if (sketch) attribute(el, 'filter', p === 1 ? 'url(#' + filterId + ')' : null);
+        return tip;
+      });
     }
 
     function line(a, b, color, width, sketch = false, attrs = {}) {
-      return svgNode('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
+      const el = svgNode('line', { x1: a.x, y1: a.y, x2: b.x, y2: b.y,
         stroke: color, 'stroke-width': width, 'stroke-linecap': 'round',
         ...(sketch ? { filter: 'url(#' + filterId + ')' } : {}), ...attrs }, art);
+      if (sketch && sketchNodes) sketchNodes.push(el);
+      return el;
     }
     function arrow(a, b, color, size, fraction = .6) {
       const distance = Math.hypot(b.x - a.x, b.y - a.y);
@@ -145,6 +187,13 @@
 
     function draw() {
       if (disposed) return;
+      let width = svg.getBoundingClientRect().width;
+      if (drawingState !== null && cachedScene === board.scene && cachedWidth === width) {
+        updateDrawing(); return;
+      }
+      animations = []; penNode = null;
+      cachedScene = null; cachedWidth = null;
+      clips.replaceChildren();
       const errors = validate(board.scene), invalid = errors.length > 0;
       svg.hidden = invalid; svg.style.display = invalid ? 'none' : '';
       error.hidden = !invalid;
@@ -156,18 +205,12 @@
         });
         return;
       }
+      // エラーから復帰したときは、SVG を表示してから実際の幅を測る。
+      width = svg.getBoundingClientRect().width;
       const result = scene.trace(board.scene);
-      const s = math.sizes(svg.getBoundingClientRect().width), f = s.textSize / 16;
+      const s = math.sizes(width), f = s.textSize / 16;
       const handles = scene.handles(board.scene);
-      art = artRoot; artRoot.replaceChildren(); labels.replaceChildren(); pen = null;
-      progress = new Map();
-      for (const part of drawingState?.parts || []) {
-        const p = typeof part.progress === 'number' && !Number.isNaN(part.progress) ? Math.max(0, Math.min(1, part.progress)) : 0;
-        for (const item of part.items || []) if (item.ref) {
-          const key = refKey(item.ref);
-          progress.set(key, Math.max(progress.get(key) || 0, p));
-        }
-      }
+      art = artRoot; artRoot.replaceChildren(); labels.replaceChildren();
 
       // 部品の外形は配置データ、光の道すじと像は trace の結果をそのまま描く。
       for (const e of board.scene.elements) {
@@ -229,26 +272,32 @@
         const ref = { source: 'rays', index };
         growingLine(ref, a, b, C.ray, s.rayWidth, true, ray.style === 'dashed' ? { 'stroke-dasharray': '8 7' } : {});
         const p = math.arrowAt(ray, s);
-        if (p && amount(ref) === 1) {
+        if (p) {
           const half = p.length / 2, halfWidth = p.width / 2;
-          svgNode('polygon', { points: [
+          const el = svgNode('polygon', { points: [
             [p.x + p.dx * half, p.y + p.dy * half],
             [p.x - p.dx * half - p.dy * halfWidth, p.y - p.dy * half + p.dx * halfWidth],
             [p.x - p.dx * half + p.dy * halfWidth, p.y - p.dy * half - p.dx * halfWidth],
           ].map(point => point.join(',')).join(' '), fill: C.ray }, art);
+          animate(el, [ref], undefined, p => p === 1);
         }
       });
       result.angles.forEach(angle => {
-        const progress = amount({ source: 'angles', key: angle.key });
-        if (!progress) return;
         const radius = 54 * Math.min(f, 1.5), delta = geometry.normalizeDeg(angle.toDeg - angle.fromDeg);
         const point = degrees => ({ x: angle.vertex.x + radius * Math.cos(degrees * Math.PI / 180),
           y: angle.vertex.y + radius * Math.sin(degrees * Math.PI / 180) });
-        const a = point(angle.fromDeg), b = point(angle.fromDeg + delta * progress), color = angle.key === 'in' ? C.bluePen : C.redPen;
-        if (progress < 1) pen = b;
-        if (Math.abs(delta) > .01) svgNode('path', {
-          d: `M${angle.vertex.x} ${angle.vertex.y} L${a.x} ${a.y} A${radius} ${radius} 0 0 ${delta > 0 ? 1 : 0} ${b.x} ${b.y} Z`,
-          fill: color, 'fill-opacity': .1, stroke: color, 'stroke-width': s.thinWidth }, art);
+        const a = point(angle.fromDeg), color = angle.key === 'in' ? C.bluePen : C.redPen;
+        const path = b => `M${angle.vertex.x} ${angle.vertex.y} L${a.x} ${a.y} A${radius} ${radius} 0 0 ${delta > 0 ? 1 : 0} ${b.x} ${b.y} Z`;
+        const hasArc = Math.abs(delta) > .01;
+        if (hasArc || drawingState !== null) {
+          const el = hasArc ? svgNode('path', { d: path(point(angle.fromDeg + delta)),
+            fill: color, 'fill-opacity': .1, stroke: color, 'stroke-width': s.thinWidth }, art) : svgNode('g', {}, art);
+          animate(el, [{ source: 'angles', key: angle.key }], p => {
+            const tip = point(angle.fromDeg + delta * math.ease(p));
+            if (hasArc) attribute(el, 'd', path(tip));
+            return tip;
+          });
+        }
       });
       result.images.forEach((image, index) => pop({ source: 'images', index }, image, () => {
         const tip = { x: image.x, y: image.y - (image.height || 0) };
@@ -302,57 +351,66 @@
       }
       const lens = board.scene.elements.find(e => e.type === 'lens');
       result.marks.forEach(mark => {
-        if (lens && mark.key.startsWith('focus-') && amount({ source: 'marks', key: mark.key, part: 'dot' })) svgNode('circle', {
-          cx: lens.x + (mark.key === 'focus-left' ? -1 : 1) * lens.focalLength, cy: lens.y,
-          r: 4 * s.unitPerPx, fill: C.bluePen }, art);
+        if (lens && mark.key.startsWith('focus-')) {
+          const el = svgNode('circle', {
+            cx: lens.x + (mark.key === 'focus-left' ? -1 : 1) * lens.focalLength, cy: lens.y,
+            r: 4 * s.unitPerPx, fill: C.bluePen }, art);
+          animate(el, [{ source: 'marks', key: mark.key, part: 'dot' }]);
+        }
       });
-      const data = labelData(board, result, s);
-      function textProgress(label) {
-        if (drawingState === null) return 1;
+      const data = labelData(board, result, s, handles);
+      function textRefs(label) {
         const ref = label.id.startsWith('angle-name-') ? { source: 'angles', key: label.id.slice(11), field: 'name' } :
           label.id.startsWith('angle-') ? { source: 'angles', key: label.id.slice(6), field: 'valueDeg' } :
           label.id.startsWith('image-') ? { source: 'images', index: Number(label.id.slice(6)), field: 'kind' } :
           label.id.startsWith('mark-') ? { source: 'marks', key: label.id.slice(5), field: 'text' } : null;
-        if (ref) return amount(ref);
+        if (ref) return [ref];
         const handle = handles.find(h => label.id === 'handle-' + h.elementId + ':' + h.handle);
-        if (!handle) return 0;
+        if (!handle) return [];
         const mark = result.marks.find(m => m.text === handle.label || (m.key === 'eye' && handle.label === '見る人'));
-        return Math.max(amount({ source: 'handles', elementId: handle.elementId, handle: handle.handle, field: 'label' }),
-          mark ? amount({ source: 'marks', key: mark.key, field: 'text' }) : 0);
+        return [{ source: 'handles', elementId: handle.elementId, handle: handle.handle, field: 'label' },
+          ...(mark ? [{ source: 'marks', key: mark.key, field: 'text' }] : [])];
       }
-      // 完成時の文字と障害物で位置を決めてから、見せる文字数だけを変える。
+      // 完成時の文字と障害物で位置を決め、説明中は切り抜く幅だけを変える。
       math.placeLabels(data.labels, data.obstacles, s, lineData(board.scene, result)).forEach((place, index) => {
         if (place.hidden) return;
-        const label = data.labels[index], p = textProgress(label);
-        if (!p) return;
-        const chars = Array.from(label.text), text = chars.slice(0, Math.ceil(chars.length * p)).join('');
+        const label = data.labels[index];
         const el = svgNode('text', { x: place.x, y: place.y, 'text-anchor': place.anchor, fill: label.color,
           'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400 }, labels, label.text);
-        if (p < 1) {
-          const width = el.getComputedTextLength ? el.getComputedTextLength() : chars.length * label.fontSize;
-          const visibleWidth = el.getSubStringLength ? el.getSubStringLength(0, text.length) : Array.from(text).length * label.fontSize;
-          const anchor = place.anchor === 'end' ? 1 : place.anchor === 'middle' ? .5 : 0;
-          // 中央・右寄せも、完成時の先頭位置から文字を足す。
-          el.setAttribute('dx', -(width - visibleWidth) * anchor);
-          pen = { x: place.x - width * anchor + visibleWidth, y: place.y };
-        }
-        el.textContent = text;
+        if (drawingState === null) return;
+        const box = math.labelBox({ ...label, ...place }), left = box.left - 4, width = box.right - box.left + 8;
+        const clipId = filterId + '-text-' + index;
+        const clip = svgNode('clipPath', { id: clipId, clipPathUnits: 'userSpaceOnUse' }, clips);
+        const rect = svgNode('rect', { x: left, y: box.top - 4, width, height: box.bottom - box.top + 8 }, clip);
+        animate(el, textRefs(label), p => {
+          const visibleWidth = width * math.ease(p);
+          attribute(rect, 'width', visibleWidth);
+          attribute(el, 'clip-path', p === 1 ? null : 'url(#' + clipId + ')');
+          return { x: left + visibleWidth, y: place.y };
+        });
       });
-      for (const part of drawingState?.parts || []) for (const item of part.items || []) {
-        const ref = item.ref, p = ref && amount(ref);
-        if (ref?.part !== 'highlight' || !p || p >= 1) continue;
-        const target = ref.source === 'elements' ? board.scene.elements.find(e => e.id === ref.id) :
-          ref.source === 'marks' ? result.marks.find(m => m.key === ref.key) :
-          ref.source === 'options' && board.scene.kind === 'refract' ? { x: W / 2, y: H - 25 } : null;
-        if (!target) continue;
-        svgNode('circle', { cx: target.x ?? W / 2, cy: target.y, r: (22 + 22 * p) * s.unitPerPx,
-          fill: 'none', stroke: '#1A5CFF', 'stroke-width': 3, opacity: 1 - p, 'vector-effect': 'non-scaling-stroke' }, art);
-      }
-      if (pen) {
-        const group = svgNode('g', { class: 'pen', transform: `translate(${pen.x} ${pen.y})` }, art);
-        svgNode('circle', { r: 6, fill: C.text }, group);
+      if (drawingState !== null) {
+        const targets = [
+          ...board.scene.elements.map(target => ({ target, ref: { source: 'elements', id: target.id, part: 'highlight' } })),
+          ...result.marks.map(target => ({ target, ref: { source: 'marks', key: target.key, part: 'highlight' } })),
+          ...(board.scene.kind === 'refract' ? Object.keys(board.scene.options).map(key => ({
+            target: { x: W / 2, y: H - 25 }, ref: { source: 'options', key, part: 'highlight' },
+          })) : []),
+        ];
+        targets.forEach(({ target, ref }) => {
+          const el = svgNode('circle', { cx: target.x ?? W / 2, cy: target.y, r: 44 * s.unitPerPx,
+            fill: 'none', stroke: '#1A5CFF', 'stroke-width': 3, opacity: 0, 'vector-effect': 'non-scaling-stroke' }, art);
+          animate(el, [ref], p => {
+            attribute(el, 'r', (22 + 22 * p) * s.unitPerPx);
+            attribute(el, 'opacity', 1 - p);
+          }, p => p > 0 && p < 1);
+        });
+        penNode = svgNode('g', { class: 'pen', display: 'none' }, art);
+        svgNode('circle', { r: 6, fill: C.text }, penNode);
         svgNode('path', { d: 'M4 -4 L26 -26 L32 -20 L10 2 Z', fill: '#ffd24d', stroke: C.text,
-          'stroke-width': 2, 'stroke-linejoin': 'round' }, group);
+          'stroke-width': 2, 'stroke-linejoin': 'round' }, penNode);
+        cachedScene = board.scene; cachedWidth = width;
+        updateDrawing();
       }
       onChange(result);
     }
@@ -379,8 +437,12 @@
     win.addEventListener('resize', draw);
     draw();
     return { draw,
-      setState(next) { if (next !== null) release(); drawingState = next; draw(); },
-      setScene(next) { release(); board.scene = next; draw(); },
+      setState(next) {
+        if (next !== null) release();
+        if ((next === null) !== (drawingState === null)) cachedWidth = null;
+        drawingState = next; draw();
+      },
+      setScene(next) { release(); cachedWidth = null; board.scene = next; draw(); },
       destroy() {
         release(); disposed = true;
         if (observer) observer.disconnect();
