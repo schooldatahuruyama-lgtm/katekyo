@@ -126,7 +126,7 @@
   function empty() { return { rays: [], angles: [], images: [], marks: [], notes: [], measures: {} }; }
 
   // 線分も半直線も盤の四辺で切る。始点が盤の外でも、見える部分だけを返す。
-  function ray(result, start, dir, end = Infinity, style = 'solid') {
+  function ray(result, start, dir, end = Infinity, style = 'solid', role) {
     if (dir.x === 0 && dir.y === 0) return;
     let low = 0, high = end;
     for (const [key, limit] of [['x', W], ['y', H]]) {
@@ -141,9 +141,9 @@
     const a = add(start, scale(dir, low)), b = add(start, scale(dir, high));
     if (geometry.len(geometry.sub(a, b)) <= EPS) return;
     result.rays.push({ x1: clamp(a.x, 0, W), y1: clamp(a.y, 0, H),
-      x2: clamp(b.x, 0, W), y2: clamp(b.y, 0, H), style, arrow: style === 'solid' });
+      x2: clamp(b.x, 0, W), y2: clamp(b.y, 0, H), style, arrow: style === 'solid', role });
   }
-  function segment(result, a, b, style = 'solid') { ray(result, a, geometry.sub(b, a), 1, style); }
+  function segment(result, a, b, style = 'solid', role) { ray(result, a, geometry.sub(b, a), 1, style, role); }
   function mark(result, key, p, text, away) {
     result.marks.push({ key, x: clamp(p.x, 0, W), y: clamp(p.y, 0, H), text, ...(away ? { away } : {}) });
   }
@@ -173,7 +173,7 @@
     const src = part(scene, 'source'), blocker = part(scene, 'blocker'), screen = part(scene, 'screen');
     const ratio = (screen.x - src.x) / (blocker.x - src.x);
     const ends = [-1, 1].map(sign => src.y + (blocker.y + sign * blocker.height / 2 - src.y) * ratio);
-    ends.forEach(y => segment(result, src, { x: screen.x, y }));
+    ends.forEach(y => segment(result, src, { x: screen.x, y }, 'solid', 'edge'));
     const shadowTop = clamp(ends[0], screen.y - screen.height / 2, screen.y + screen.height / 2);
     const shadowBottom = clamp(ends[1], screen.y - screen.height / 2, screen.y + screen.height / 2);
     result.measures = { shadowTop, shadowBottom, shadowSize: shadowBottom - shadowTop };
@@ -186,8 +186,8 @@
     const src = part(scene, 'source'), mirror = part(scene, 'mirror');
     const { normal, a } = mirrorFrame(mirror);
     const incoming = geometry.sub(mirror, src), outgoing = optics.reflect(incoming, normal);
-    segment(result, src, mirror);
-    ray(result, mirror, outgoing);
+    segment(result, src, mirror, 'solid', 'incident');
+    ray(result, mirror, outgoing, Infinity, 'solid', 'reflected');
     angle(result, 'in', '入射角', mirror, normal, geometry.sub(src, mirror));
     angle(result, 'out', '反射角', mirror, normal, outgoing);
     normalMark(result, mirror, normal);
@@ -203,9 +203,9 @@
       const target = { x: eye.x, y: eye.y + sign * config.motion.eyeSpread };
       const hit = geometry.intersectLine(target, geometry.sub(imageTip, target),
         { x: mirror.x, y: 0 }, { x: mirror.x, y: H });
-      segment(result, tip, hit);
-      segment(result, hit, target);
-      segment(result, hit, imageTip, 'dashed');
+      segment(result, tip, hit, 'solid', 'to-mirror');
+      segment(result, hit, target, 'solid', 'to-eye');
+      segment(result, hit, imageTip, 'dashed', 'extension');
     }
     addImage(result, 'mirror', imageX, object.y, object.height);
     mark(result, 'mirror', { x: mirror.x, y: mirror.y - mirror.length / 2 }, '鏡', { x: 1, y: 0 });
@@ -223,17 +223,17 @@
     const incoming = geometry.sub(boundary, src);
     const incidenceDeg = optics.incidenceDeg(incoming, normal);
     const refraction = optics.refract(incidenceDeg, n1, n2);
-    segment(result, src, boundary);
+    segment(result, src, boundary, 'solid', 'incident');
     const reflected = optics.reflect(incoming, normal);
     if (refraction.total) {
-      ray(result, boundary, reflected);
+      ray(result, boundary, reflected, Infinity, 'solid', 'reflected');
       result.notes.push('全反射');
     } else {
       const t = refraction.refractionDeg / DEG;
       const outgoing = { x: Math.sign(incoming.x) * Math.sin(t), y: -normal.y * Math.cos(t) };
-      ray(result, boundary, outgoing);
+      ray(result, boundary, outgoing, Infinity, 'solid', 'refracted');
       // 通常の屈折でも境界で一部が反射する。角度の out は屈折角を示す。
-      ray(result, boundary, reflected);
+      ray(result, boundary, reflected, Infinity, 'solid', 'reflected');
     }
     angle(result, 'in', '入射角', boundary, normal, geometry.sub(src, boundary));
     if (refraction.total) angle(result, 'out', '反射角', boundary, normal, reflected);
@@ -261,10 +261,12 @@
   function traceLens(scene, result) {
     const src = part(scene, 'source'), lens = part(scene, 'lens');
     const offset = lens.y - src.y;
+    const focus = { x: lens.x + lens.focalLength, y: lens.y };
     for (const height of [-offset, 0, offset]) {
       const hit = { x: lens.x, y: lens.y + height };
-      segment(result, { x: src.x, y: hit.y }, hit);
-      ray(result, hit, { x: lens.focalLength, y: -height });
+      segment(result, { x: src.x, y: hit.y }, hit, 'solid', 'to-lens');
+      segment(result, hit, focus, 'solid', 'to-focus');
+      ray(result, focus, { x: lens.focalLength, y: -height }, Infinity, 'solid', 'beyond-focus');
     }
     lensMarks(result, lens);
     result.measures = { focalLength: lens.focalLength, beamOffset: offset };
@@ -276,16 +278,16 @@
     const image = optics.thinLens(a, f);
     const tip = { x: object.x, y: object.y - h };
     const paths = [
-      { hit: { x: lens.x, y: tip.y }, dir: { x: f, y: h } },
-      { hit: { x: lens.x, y: lens.y }, dir: { x: a, y: h } },
+      { hit: { x: lens.x, y: tip.y }, dir: { x: f, y: h }, role: 'ray1' },
+      { hit: { x: lens.x, y: lens.y }, dir: { x: a, y: h }, role: 'ray2' },
     ];
     // 焦点の上では「手前の焦点を通る光」はレンズと平行になり、レンズへ届かない。
-    if (image.kind !== 'none') paths.push({ hit: { x: lens.x, y: lens.y + h * f / (a - f) }, dir: { x: 1, y: 0 } });
-    for (const { hit, dir } of paths) {
+    if (image.kind !== 'none') paths.push({ hit: { x: lens.x, y: lens.y + h * f / (a - f) }, dir: { x: 1, y: 0 }, role: 'ray3' });
+    for (const { hit, dir, role } of paths) {
       if (!between(hit.y, lens.y - config.lensHalfHeight, lens.y + config.lensHalfHeight)) continue;
-      segment(result, tip, hit);
-      ray(result, hit, dir);
-      if (image.kind === 'virtual') ray(result, hit, scale(dir, -1), Infinity, 'dashed');
+      segment(result, tip, hit, 'solid', role);
+      ray(result, hit, dir, Infinity, 'solid', role);
+      if (image.kind === 'virtual') ray(result, hit, scale(dir, -1), Infinity, 'dashed', 'extension');
     }
     lensMarks(result, lens);
     if (image.kind === 'none') result.notes.push('像はできません（レンズを出た光が平行になります）');
