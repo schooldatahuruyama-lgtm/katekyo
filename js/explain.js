@@ -89,21 +89,25 @@
     return { kind, arg, items };
   }
 
+  function itemText(item, result, handles) {
+    const ref = item.ref;
+    let text = '';
+    if (ref.source === 'marks') text = result.marks.find(m => m.key === ref.key).text;
+    if (ref.source === 'handles') text = handles.find(h => h.elementId === ref.elementId && h.handle === ref.handle).label;
+    if (ref.source === 'images') {
+      const kind = result.images[ref.index].kind;
+      text = kind === 'real' ? '実像' : kind === 'virtual' ? '虚像' : '像';
+    }
+    if (ref.source === 'angles') {
+      const angle = result.angles.find(a => a.key === ref.key);
+      text = ref.field === 'name' ? angle.name : Math.round(angle.valueDeg) + '°';
+    }
+    return text;
+  }
+
   function itemDuration(item, result, handles) {
     if (item.type === 'text') {
-      const ref = item.ref;
-      let text = '';
-      if (ref.source === 'marks') text = result.marks.find(m => m.key === ref.key).text;
-      if (ref.source === 'handles') text = handles.find(h => h.elementId === ref.elementId && h.handle === ref.handle).label;
-      if (ref.source === 'images') {
-        const kind = result.images[ref.index].kind;
-        text = kind === 'real' ? '実像' : kind === 'virtual' ? '虚像' : '像';
-      }
-      if (ref.source === 'angles') {
-        const angle = result.angles.find(a => a.key === ref.key);
-        text = ref.field === 'name' ? angle.name : Math.round(angle.valueDeg) + '°';
-      }
-      return Math.max(C.textMinMs, Array.from(text).length * C.textCharMs);
+      return item.key ? Math.max(C.textMinMs, Array.from(itemText(item, result, handles)).length * C.textCharMs) : C.textFadeMs;
     }
     if (['line', 'image', 'shadow'].includes(item.type)) return C.lineMs;
     if (item.type === 'arc') return C.arcMs;
@@ -122,10 +126,13 @@
     let total = 0;
     const timed = steps.map((step, index) => {
       const parts = [];
+      const words = Object.values(step.lines || {})[0] || '';
+      const terms = new Set(Array.from(words.matchAll(/「([^「」]*)」/g), match => match[1]));
       for (const token of step.draw) {
         const resolved = resolve(token, scene, traceResult, handles), groups = [];
         // 同じ種類の形は同時に描き、そのあとで文字を出す。角の名前と数字は別々に出す。
         for (const item of resolved.items) {
+          if (item.type === 'text') item.key = item.ref.field !== 'valueDeg' && terms.has(itemText(item, traceResult, handles));
           const previous = groups[groups.length - 1];
           if (previous && previous[0].type === item.type && previous[0].ref.field === item.ref.field) previous.push(item);
           else groups.push([item]);
