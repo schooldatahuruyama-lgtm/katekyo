@@ -5,7 +5,7 @@
 $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 Set-Location $root
-$paths = @("index.html", "sw.js", "manifest.webmanifest", "css", "js", "assets")
+$paths = @("index.html", "sw.js", "manifest.webmanifest", "css", "js", "content", "assets")
 $tmpIndex = Join-Path $env:TEMP ("hikari-pages-index-" + [guid]::NewGuid().ToString("N"))
 $env:GIT_INDEX_FILE = $tmpIndex
 try {

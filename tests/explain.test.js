@@ -1,0 +1,224 @@
+// 台本の参照、時間割、途中の状態を画面なしで確かめる。
+'use strict';
+const test = require('node:test');
+const assert = require('node:assert/strict');
+const explain = require('../js/explain.js');
+const scene = require('../js/scene.js');
+const boards = require('../js/boards.js');
+const scripts = require('../content/scripts-light.js');
+
+function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
+function setup(id = 'reflect') {
+  const s = boards.get(id).scene;
+  return { s, result: scene.trace(s), handles: scene.handles(s) };
+}
+function timeline(draws, options = {}, id = 'reflect') {
+  const { s, result, handles } = setup(id);
+  return explain.buildTimeline(draws.map(draw => ({ draw })), s, result, handles, options);
+}
+
+test('draw の種類と引数を読み取り、知らない指定や文字列以外を拒む', () => {
+  assert.deepEqual(explain.DRAW_KINDS, ['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
+    'ray', 'angle', 'point', 'handles', 'controls']);
+  assert.deepEqual(explain.parseDraw('ray:incident'), { kind: 'ray', arg: 'incident' });
+  assert.deepEqual(explain.parseDraw('normal'), { kind: 'normal', arg: null });
+  for (const token of ['', 'nope', 12, null, undefined, {}, 'ray', 'ray:', 'ray:unknown',
+    'el:unknown', 'point:unknown', 'angle:left', 'normal:in', 'ray:incident:more', ' axis']) {
+    assert.equal(explain.parseDraw(token), null, String(token));
+  }
+});
+
+function checkRef(item, s, result, handles) {
+  assert.ok(['element', 'line', 'text', 'arc', 'image', 'shadow', 'point', 'handles', 'controls'].includes(item.type));
+  const ref = item.ref;
+  if (ref.source === 'elements') assert.ok(s.elements.some(e => e.id === ref.id));
+  else if (ref.source === 'rays' || ref.source === 'images') assert.ok(result[ref.source][ref.index]);
+  else if (ref.source === 'marks' || ref.source === 'angles') assert.ok(result[ref.source].some(v => v.key === ref.key));
+  else if (ref.source === 'handles') assert.ok(handles.some(h => h.elementId === ref.elementId && h.handle === ref.handle));
+  else if (ref.source === 'options') assert.ok(Object.hasOwn(s.options, ref.key));
+  else assert.fail('参照先が不明: ' + JSON.stringify(ref));
+}
+
+for (const { id } of boards.list()) {
+  test(`${id}: 全 draw の参照先が実在し、最後はつまみ・必要な切り替えまで描く`, () => {
+    const { s, result, handles } = setup(id), steps = scripts.BOARDS[id];
+    const snapshot = structuredClone({ s, result, handles, steps });
+    for (const step of steps) for (const token of step.draw) {
+      const resolved = explain.resolve(token, s, result, handles);
+      assert.ok(resolved.items.length > 0, token);
+      resolved.items.forEach(item => checkRef(item, s, result, handles));
+    }
+    assert.ok(steps.at(-1).draw.includes('handles'));
+    const tl = explain.buildTimeline(steps, s, result, handles, { clipSeconds: null, rate: 1 });
+    const final = explain.finalState(tl);
+    assert.equal(final.stepIndex, steps.length - 1);
+    assert.equal(final.stepDone, true);
+    assert.ok(final.parts.every(part => part.progress === 1));
+    assert.ok(final.parts.some(part => part.kind === 'handles' && part.items.length === handles.length));
+    if (id === 'refract') assert.ok(final.parts.some(part => part.kind === 'controls' && part.items.length === 2));
+    assert.deepEqual({ s, result, handles, steps }, snapshot);
+  });
+
+  test(`${id}: 100ms ずつ進めても、表示する parts と進捗は減らない`, () => {
+    for (const rate of [.5, 1, 2]) for (const withVoice of [false, true]) {
+      const { s, result, handles } = setup(id), steps = scripts.BOARDS[id];
+      const tl = explain.buildTimeline(steps, s, result, handles, { rate,
+        clipSeconds: withVoice ? steps.map(() => 10) : null });
+      let previous = [];
+      function check(index, ms) {
+        const state = explain.stateAt(tl, index, ms);
+        assert.ok(state.parts.length >= previous.length);
+        state.parts.forEach((part, i) => {
+          assert.ok(part.progress >= 0 && part.progress <= 1);
+          if (previous[i]) assert.ok(part.progress >= previous[i].progress);
+        });
+        previous = state.parts;
+      }
+      for (const step of tl.steps) {
+        for (let ms = 0; ms <= step.duration; ms += 100) check(step.index, ms);
+        check(step.index, step.duration);
+      }
+    }
+  });
+}
+
+test('複合 draw は形と文字の参照を持ち、角の数字と名前を区別する', () => {
+  const { s, result, handles } = setup();
+  const resolve = token => explain.resolve(token, s, result, handles).items;
+  assert.deepEqual(resolve('normal'), [
+    { type: 'line', ref: { source: 'angles', key: 'in', part: 'normal' } },
+    { type: 'text', ref: { source: 'marks', key: 'normal', field: 'text' } },
+  ]);
+  assert.deepEqual(resolve('el:source'), [
+    { type: 'element', ref: { source: 'elements', id: 'src', part: 'body' } },
+    { type: 'text', ref: { source: 'handles', elementId: 'src', handle: 'move', field: 'label' } },
+  ]);
+  assert.deepEqual(resolve('angle:in').map(item => [item.type, item.ref.field]),
+    [['arc', undefined], ['text', 'name'], ['text', 'valueDeg']]);
+  assert.deepEqual(resolve('el:lens'), []);
+  assert.deepEqual(resolve('controls'), []);
+  assert.deepEqual(explain.resolve('unknown', s, result, handles), { kind: null, arg: null, items: [] });
+});
+
+test('焦点の点と指す印は別で、境目は物質の文字も含む', () => {
+  const lens = setup('lens');
+  const resolve = token => explain.resolve(token, lens.s, lens.result, lens.handles).items;
+  assert.equal(resolve('el:lens').length, 1);
+  assert.deepEqual(resolve('focus').map(item => item.type), ['point', 'point', 'text', 'text']);
+  assert.ok(resolve('focus').filter(item => item.type === 'point').every(item => item.ref.part === 'dot'));
+  assert.ok(resolve('point:focus').every(item => item.ref.part === 'highlight'));
+  const refract = setup('refract');
+  assert.deepEqual(explain.resolve('el:boundary', refract.s, refract.result, refract.handles).items.map(item =>
+    [item.type, item.ref.id || item.ref.key]), [['element', 'boundary'], ['text', 'air'], ['text', 'medium']]);
+});
+
+test('全反射で存在しない光線は空の参照・長さ0で飛ばす', () => {
+  let s = scene.setOption(boards.get('refract').scene, 'direction', 'medium-to-air');
+  s = scene.moveElement(s, 'src', 'move', { x: 20, y: 240 });
+  const result = scene.trace(s), handles = scene.handles(s);
+  assert.equal(result.measures.totalReflection, true);
+  assert.deepEqual(explain.resolve('ray:refracted', s, result, handles).items, []);
+  const tl = explain.buildTimeline([{ draw: ['ray:refracted'] }], s, result, handles, { clipSeconds: [10] });
+  assert.equal(tl.steps[0].parts[0].duration, 0);
+  assert.equal(tl.steps[0].drawDuration, 0);
+  assert.equal(tl.total, 11500);
+  assert.equal(explain.stateAt(tl, 0, 0).stepDone, true);
+});
+
+test('描画は形→文字→次の draw、複数の光線は同時に800ms', () => {
+  const tl = timeline([['el:source', 'ray:incident'], ['angle:in'], ['normal']]);
+  assert.deepEqual(tl.steps[0].parts.map(p => [p.token, p.start, p.duration]),
+    [['el:source', 0, 350], ['el:source', 350, 300], ['ray:incident', 650, 800]]);
+  assert.deepEqual(tl.steps[1].parts.map(p => p.duration), [600, 300, 300]);
+  assert.deepEqual(tl.steps[2].parts.map(p => p.duration), [800, 300]);
+  assert.equal(timeline([['el:screen']], {}, 'straight').steps[0].drawDuration, 350 + 5 * 90);
+  const ray = timeline([['ray:edge']], {}, 'straight').steps[0];
+  assert.equal(ray.parts[0].items.length, 2);
+  assert.equal(ray.drawDuration, 800);
+  assert.equal(timeline([['point:object']], {}, 'lens-image').steps[0].drawDuration, 600);
+  assert.equal(timeline([['image']], {}, 'lens-image').steps[0].drawDuration, 800);
+  assert.equal(timeline([['shadow']], {}, 'straight').steps[0].drawDuration, 1100);
+});
+
+for (const rate of [.5, .75, 1, 1.25, 1.5, 1.75, 2]) {
+  test(`音声なし・${rate}倍: 描画も間も同じ速さになり、手の時刻が連続する`, () => {
+    const tl = timeline([['el:source', 'ray:incident'], ['ray:reflected']], { rate, clipSeconds: null });
+    near(tl.steps[0].drawDuration, 1450 / rate);
+    near(tl.steps[0].duration, (1450 + 1500) / rate);
+    near(tl.steps[1].start, tl.steps[0].duration);
+    near(tl.steps[1].duration, (800 + 1500) / rate);
+    near(tl.total, (1450 + 800 + 3000) / rate);
+  });
+
+  test(`音声あり・${rate}倍: 長い声は8割まで引きのばし、短い声でも縮めない`, () => {
+    const tl = timeline([['el:source', 'ray:incident'], ['ray:reflected']], { rate, clipSeconds: [10, .2] });
+    near(tl.steps[0].drawDuration, 8000 / rate);
+    near(tl.steps[0].duration, 11500 / rate);
+    near(tl.steps[0].parts[0].duration, 350 * 8000 / 1450 / rate);
+    near(tl.steps[1].drawDuration, 800 / rate);
+    near(tl.steps[1].duration, 2300 / rate);
+  });
+}
+
+test('clipSeconds は有限で正の数だけを使い、ほかは文字数から秒数を求める', () => {
+  assert.equal(explain.clipSeconds(3.2, 20), 3.2);
+  for (const value of [0, -1, NaN, Infinity, '3.2', null, undefined]) {
+    assert.equal(explain.clipSeconds(value, 20), 4.6);
+  }
+  for (const length of [0, -1, NaN, Infinity, '20', null, undefined]) {
+    assert.equal(explain.clipSeconds(null, length), 1);
+  }
+});
+
+test('音声の長さが0・負・NaN・文字列・不明なら文字数から時間を求める', () => {
+  for (const seconds of [0, -1, NaN, '10', undefined, null, Infinity]) {
+    const tl = timeline([['ray:incident']], { clipSeconds: [seconds], textLengths: [20], rate: 2 });
+    near(tl.steps[0].drawDuration, (20 * 180 + 1000) * .8 / 2);
+    near(tl.total, (20 * 180 + 1000 + 1500) / 2);
+  }
+  assert.equal(timeline([['ray:incident']], { clipSeconds: null, textLengths: [20] }).total, 2300);
+});
+
+test('一覧にない速さは、近い値にせず1倍で計算する', () => {
+  for (const rate of [0, -1, .6, 3, 1e9, '1', NaN, Infinity, null]) {
+    assert.deepEqual(timeline([['ray:incident']], { rate }), timeline([['ray:incident']], { rate: 1 }));
+  }
+});
+
+test('stateAt は手と時刻を補正し、未来の手を含めず、描画完了と間を区別する', () => {
+  const tl = timeline([['ray:incident'], ['ray:reflected']]);
+  for (const index of [-100, NaN, null, '1']) assert.equal(explain.stateAt(tl, index, 0).stepIndex, 0);
+  for (const index of [2, 1e9, Infinity]) assert.equal(explain.stateAt(tl, index, 0).stepIndex, 1);
+  for (const ms of [-1, NaN, '800', null]) assert.equal(explain.stateAt(tl, 0, ms).parts[0].progress, 0);
+  assert.equal(explain.stateAt(tl, 0, 400).parts[0].progress, .5);
+  assert.equal(explain.stateAt(tl, 0, 400).parts.length, 1);
+  assert.equal(explain.stateAt(tl, 0, 799).stepDone, false);
+  assert.equal(explain.stateAt(tl, 0, 800).stepDone, true);
+  assert.equal(explain.stateAt(tl, 0, Infinity).stepDone, true);
+  assert.deepEqual(explain.stateAt(tl, 1, 0).parts.map(p => p.progress), [1, 0]);
+  const empty = explain.buildTimeline([], null, null, [], {});
+  assert.deepEqual(empty, { steps: [], total: 0 });
+  assert.deepEqual(explain.finalState(empty), { stepIndex: 0, parts: [], stepDone: true });
+});
+
+test('次へは描画完了→次の手→終了、もどるは前の手へ進む', () => {
+  assert.deepEqual(explain.nextTarget(0, false, 3), { action: 'finish-step', stepIndex: 0 });
+  assert.deepEqual(explain.nextTarget(0, true, 3), { action: 'go', stepIndex: 1 });
+  assert.deepEqual(explain.nextTarget(2, false, 3), { action: 'finish-step', stepIndex: 2 });
+  assert.deepEqual(explain.nextTarget(2, true, 3), { action: 'end', stepIndex: 2 });
+  assert.deepEqual(explain.nextTarget(0, true, 0), { action: 'end', stepIndex: 0 });
+  assert.equal(explain.backTarget(0), 0);
+  assert.equal(explain.backTarget(2), 1);
+});
+
+test('新しいモジュールは DOM なしのブラウザ名前空間でも動く', () => {
+  const fs = require('node:fs'), path = require('node:path'), vm = require('node:vm');
+  const context = {};
+  for (const name of ['config', 'explain', 'prefs', 'voice']) {
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/' + name + '.js'), 'utf8'), context);
+    assert.ok(context.Hikari[name]);
+  }
+  assert.equal(context.Hikari.explain.parseDraw('normal').kind, 'normal');
+  assert.equal(context.Hikari.prefs.defaults(['A', 'E'], 'E').teacher, 'E');
+  assert.equal(context.Hikari.voice.stepRate(1, 1), 1.25);
+});

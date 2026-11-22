@@ -822,9 +822,19 @@ for (const width of [319, 612]) for (const { id } of boards.list()) {
 }
 
 // 実ブラウザの描画は別に確認する。ここでは DOM の最小の代役でイベントの連携を検査する。
-function screen(search = '', width = 600) {
+function screen(search = '', width = 600, options = {}) {
   const listeners = new Map();
-  const doc = { readyState: 'loading', addEventListener() {} };
+  const docListeners = new Map(), frames = new Map(), timers = new Map(), audios = [], saved = [], revoked = [];
+  let time = 0, serial = 0;
+  const doc = { readyState: 'loading', hidden: false,
+    addEventListener(name, listener) { if (!docListeners.has(name)) docListeners.set(name, new Set()); docListeners.get(name).add(listener); },
+    removeEventListener(name, listener) { docListeners.get(name)?.delete(listener); },
+  };
+  class Audio {
+    constructor() { this.calls = []; audios.push(this); }
+    play() { this.calls.push('play'); return options.blocked ? Promise.reject(new Error('blocked')) : Promise.resolve(); }
+    pause() { this.calls.push('pause'); }
+  }
   class Element {
     constructor(tag) {
       this.tagName = tag; this.ownerDocument = doc; this.children = []; this.attributes = {};
@@ -850,6 +860,17 @@ function screen(search = '', width = 600) {
   }
   doc.createElement = tag => new Element(tag); doc.createElementNS = (_, tag) => new Element(tag);
   const win = { location: new URL('file:///app/index.html' + search), navigator: { onLine: true }, console,
+    Audio, performance: { now: () => time },
+    URL: { createObjectURL: () => 'blob:' + (++serial), revokeObjectURL: url => revoked.push(url) },
+    fetch: options.fetch || (async () => ({ ok: true, blob: async () => ({}) })),
+    localStorage: { getItem: () => options.saved || null, setItem: (_, value) => {
+      if (options.storageBlocked) throw new Error('保存できない'); saved.push(JSON.parse(value));
+    } },
+    matchMedia: () => ({ matches: !!options.reduced }),
+    requestAnimationFrame: fn => { const id = ++serial; frames.set(id, fn); return id; },
+    cancelAnimationFrame: id => frames.delete(id),
+    setTimeout: (fn, ms) => { const id = ++serial; timers.set(id, { fn, at: time + ms }); return id; },
+    clearTimeout: id => timers.delete(id),
     addEventListener(name, listener) { if (!listeners.has(name)) listeners.set(name, new Set()); listeners.get(name).add(listener); },
     removeEventListener(name, listener) { listeners.get(name)?.delete(listener); },
     history: { pushState(_, __, url) { win.location = new URL(url); } }, scrollTo() {},
@@ -857,6 +878,8 @@ function screen(search = '', width = 600) {
   doc.defaultView = win;
   const host = new Element('main');
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
+    scripts: require('../content/scripts-light.js'), voiceData: options.voiceData || require('../content/voice-light.js'),
+    explain: options.explain || require('../js/explain.js'), prefs: require('../js/prefs.js'), voice: options.voice || require('../js/voice.js'),
     geometry: require('../js/geometry.js'), viewMath: view, boards, scene, entry: require('../js/entry.js') } });
   for (const file of ['board-view', 'app']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/' + file + '.js'), 'utf8'), context);
   function find(predicate, parent = host) {
@@ -864,7 +887,14 @@ function screen(search = '', width = 600) {
     for (const child of parent.children) { const match = find(predicate, child); if (match) return match; }
     return null;
   }
-  return { host, win, doc, api: context.Hikari, find,
+  return { host, win, doc, api: context.Hikari, find, audios, saved, revoked, frames, timers,
+    resize: value => { width = value; for (const listener of listeners.get('resize') || []) listener(); },
+    advance: ms => {
+      time += ms;
+      for (const [id, timer] of [...timers]) if (timer.at <= time && timers.has(id)) { timers.delete(id); timer.fn(); }
+      const pending = [...frames]; frames.clear(); pending.forEach(([, fn]) => fn(time));
+    },
+    visibility: hidden => { doc.hidden = hidden; for (const listener of docListeners.get('visibilitychange') || []) listener(); },
     fire: name => { for (const listener of listeners.get(name) || []) listener(); },
     button: text => find(el => el.tagName === 'button' && el.textContent.includes(text)),
   };
@@ -885,7 +915,7 @@ for (const { id } of boards.list()) {
   });
 }
 
-test('6 盤の見出しはカード内の SVG の直前に一度だけ描く', () => {
+test('6 盤の見出し・吹き出し・SVG をカード内にこの順で描く', () => {
   for (const { id } of boards.list()) {
     const ui = screen('?board=' + id); ui.api.app.start(ui.host);
     const heading = ui.find(el => el.className === 'board-heading');
@@ -893,7 +923,9 @@ test('6 盤の見出しはカード内の SVG の直前に一度だけ描く', (
     const svg = ui.find(el => el.tagName === 'svg');
     assert.equal(heading.tagName, 'h2'); assert.equal(heading.textContent, boards.get(id).heading);
     assert.equal(heading.parent, stage.parent);
-    assert.equal(heading.parent.children.indexOf(heading) + 1, heading.parent.children.indexOf(stage));
+    const speech = ui.find(el => el.className === 'speech');
+    assert.equal(heading.parent.children.indexOf(heading) + 1, heading.parent.children.indexOf(speech));
+    assert.equal(heading.parent.children.indexOf(speech) + 1, heading.parent.children.indexOf(stage));
     assert.ok(!svg.textContent.includes(boards.get(id).heading));
   }
 });
@@ -1057,6 +1089,7 @@ for (const { id } of boards.list()) {
         { document: ui.doc, URL, Hikari: ui.api });
       let app;
       assert.doesNotThrow(() => { app = ui.api.app.start(ui.host); });
+      if (!initiallyInvalid) ui.button('説明をとばして、すぐ動かす').dispatch('click');
       if (initiallyInvalid) assert.deepEqual(calls, { readout: 0, controls: 0, check: 0, trace: 0 });
       else {
         assert.ok(calls.trace > 0 && calls.readout > 0 && calls.controls > 0 && calls.check > 0);
@@ -1147,6 +1180,7 @@ test('つまみのフォーカスは focus-visible の丸い青線で、画面�
 test('課題の達成は操作と初期化で消さず、盤を開き直すと消す', () => {
   const ui = screen('?board=refract');
   const app = ui.api.app.start(ui.host);
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
   ui.button('ガラス').dispatch('click');
   assert.ok(ui.host.textContent.includes('できた！'));
   assert.ok(ui.button('ガラス → 空気'));
@@ -1181,3 +1215,481 @@ test('file:// の履歴変更を拒む環境でも、盤の URL に移動する'
   ui.button('実像と虚像').dispatch('click');
   assert.equal(ui.win.location.search, '?board=lens-image');
 });
+
+// 説明の画面は同じ模擬 DOM に、音声と requestAnimationFrame の時計を渡して確かめる。
+const scripts = require('../content/scripts-light.js');
+const explain = require('../js/explain.js');
+const voiceData = require('../content/voice-light.js');
+const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
+function elements(ui, predicate) {
+  const found = [];
+  function visit(el) { if (predicate(el)) found.push(el); el.children.forEach(visit); }
+  visit(ui.host); return found;
+}
+function drawing(board, token, progress) {
+  return { stepIndex: 0, stepDone: progress === 1,
+    parts: [{ ...explain.resolve(token, board.scene, scene.trace(board.scene), scene.handles(board.scene)), token, progress }] };
+}
+function currentWords(ui) { return ui.find(el => el.className === 'speech').textContent; }
+function startLesson(ui, audio = false) {
+  ui.api.app.start(ui.host);
+  if (!audio) ui.button('音声なしで見る').dispatch('click');
+}
+
+test('説明の状態が null なら従来の全描画に戻り、つまみを動かせる', () => {
+  const ui = screen(), board = boards.get('reflect');
+  const renderer = ui.api.boardView.create(ui.host, board);
+  const before = ui.host.textContent;
+  renderer.setState(drawing(board, 'ray:incident', .5));
+  assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
+  renderer.setState(null);
+  assert.equal(ui.host.textContent, before);
+  assert.ok(ui.find(el => el.attributes.class === 'handle'));
+  renderer.destroy();
+});
+
+for (const [input, expected] of [[0, 0], [.5, .5], [1, 1], [-1, 0], [2, 1], [NaN, 0]]) {
+  test(`説明の progress=${input}: 線の終点と文字数を0〜1に収める`, () => {
+    const ui = screen(), board = boards.get('reflect'), result = scene.trace(board.scene);
+    const renderer = ui.api.boardView.create(ui.host, board);
+    renderer.setState(drawing(board, 'ray:incident', input));
+    const ray = result.rays.find(ray => ray.role === 'incident');
+    const line = ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+    if (!expected) assert.equal(line, null);
+    else {
+      assert.equal(Number(line.attributes.x1), ray.x1);
+      assert.equal(Number(line.attributes.y1), ray.y1);
+      assert.equal(Number(line.attributes.x2), ray.x1 + (ray.x2 - ray.x1) * expected);
+      assert.equal(Number(line.attributes.y2), ray.y1 + (ray.y2 - ray.y1) * expected);
+    }
+    assert.equal(elements(ui, el => el.tagName === 'polygon').length, expected === 1 ? 1 : 0);
+    renderer.setState(drawing(board, 'angle:in', input));
+    const name = elements(ui, el => el.tagName === 'text').find(el => '入射角'.startsWith(el.textContent));
+    if (!expected) assert.equal(name, undefined);
+    else assert.equal(name.textContent, '入射角'.slice(0, Math.ceil(3 * expected)));
+    renderer.destroy();
+  });
+}
+
+test('計算結果にない参照は全種類とも描かず、例外を出さない', () => {
+  const ui = screen(), board = boards.get('reflect');
+  const renderer = ui.api.boardView.create(ui.host, board);
+  const refs = [{ source: 'rays', index: 999 }, { source: 'elements', id: 'missing', part: 'body' },
+    { source: 'angles', key: 'missing' }, { source: 'marks', key: 'missing', field: 'text' },
+    { source: 'images', index: 999 }, { source: 'elements', id: 'missing', part: 'highlight' }];
+  assert.doesNotThrow(() => renderer.setState({ parts: refs.map(ref => ({ progress: .5, items: [{ ref }] })) }));
+  assert.equal(elements(ui, el => ['line', 'text', 'circle', 'path', 'polygon'].includes(el.tagName)).length, 0);
+});
+
+test('途中の文字は完成時の位置・大きさで描き、弧と部品・印とペンも進む', () => {
+  const ui = screen(), board = boards.get('reflect');
+  const renderer = ui.api.boardView.create(ui.host, board);
+  renderer.setState(drawing(board, 'angle:in', 1));
+  const complete = elements(ui, el => el.tagName === 'text').map(el => ({ ...el.attributes }));
+  const lengths = elements(ui, el => el.tagName === 'text').map(el => Array.from(el.textContent).length);
+  const completeArc = ui.find(el => el.tagName === 'path').attributes.d;
+  renderer.setState(drawing(board, 'angle:in', .5));
+  elements(ui, el => el.tagName === 'text').forEach((el, i) => {
+    for (const key of ['x', 'y', 'text-anchor', 'font-size']) assert.equal(el.attributes[key], complete[i][key]);
+    const fullLength = lengths[i], count = Math.ceil(fullLength / 2);
+    const anchor = complete[i]['text-anchor'] === 'end' ? 1 : complete[i]['text-anchor'] === 'middle' ? .5 : 0;
+    assert.equal(Number(el.attributes.dx), -(fullLength - count) * Number(el.attributes['font-size']) * anchor);
+  });
+  assert.notEqual(ui.find(el => el.tagName === 'path').attributes.d, completeArc);
+  assert.ok(ui.find(el => el.attributes.class === 'pen'));
+  renderer.setState(drawing(board, 'el:source', .5));
+  assert.ok(ui.find(el => el.attributes.opacity === '0.5' && el.attributes.transform.includes('scale(0.7)')));
+  renderer.setState(drawing(board, 'point:source', .5));
+  assert.ok(ui.find(el => el.tagName === 'circle' && el.attributes.stroke === '#1A5CFF'));
+  renderer.setState(drawing(board, 'point:source', 1));
+  assert.equal(ui.find(el => el.attributes.stroke === '#1A5CFF'), null);
+});
+
+for (const { id } of boards.list()) {
+  test(`${id}: 全手を100ms刻みで描き、終わるまでは操作不可、最後に従来の盤へ戻る`, () => {
+    const ui = screen('?board=' + id); startLesson(ui);
+    const board = boards.get(id), steps = scripts.BOARDS[id];
+    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const seen = new Set([currentWords(ui)]), readoutStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
+    const firstReadout = readoutStep < 0 ? steps.length - 1 : readoutStep;
+    const limit = timeline.total + steps.length * 100;
+    for (let time = 0; time <= limit && !ui.find(el => el.className === 'explain-controls').hidden; time += 100) {
+      assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
+      assert.equal(ui.find(el => el.className === 'after').hidden, true);
+      const index = steps.findIndex(step => step.lines.E === currentWords(ui));
+      assert.equal(ui.find(el => el.className === 'readout').hidden, index < firstReadout);
+      assert.doesNotThrow(() => ui.advance(100)); seen.add(currentWords(ui));
+    }
+    assert.equal(seen.size, steps.length);
+    assert.ok(ui.find(el => el.attributes.class === 'handle'));
+    assert.equal(ui.find(el => el.className === 'after').hidden, false);
+    assert.equal(ui.find(el => el.className === 'explain-history').hidden, true);
+    assert.equal(currentWords(ui), steps[steps.length - 1].lines.E);
+    assert.equal(ui.button('もう一度、説明を見る').hidden, false);
+  });
+}
+
+test('開始画面は6体のラジオで、矢印キーと保存値を反映する', () => {
+  const ui = screen('?board=reflect', 600, { saved: JSON.stringify({ teacher: 'C', voice: true, rate: 1.75 }) });
+  ui.api.app.start(ui.host);
+  assert.equal(elements(ui, el => el.attributes.role === 'radio').length, 6);
+  assert.equal(ui.button('ぷにカプセル').attributes['aria-checked'], 'true');
+  assert.equal(ui.button('ぷにカプセル').tabIndex, 0);
+  ui.button('ぷにカプセル').dispatch('keydown', { key: 'ArrowDown' });
+  assert.equal(ui.button('まめ博士').attributes['aria-checked'], 'true');
+  assert.equal(ui.doc.activeElement, ui.button('まめ博士'));
+  ui.button('まめ博士').dispatch('keydown', { key: 'ArrowRight' });
+  assert.equal(ui.button('まる先生').attributes['aria-checked'], 'true');
+  assert.equal(ui.button('準備中').className, 'btn main');
+  ui.button('音声なしで見る').dispatch('click');
+  assert.ok(ui.host.textContent.includes('1.75 倍'));
+  assert.equal(ui.saved.at(-1).voice, false);
+  assert.deepEqual(Object.keys(ui.saved.at(-1)).sort(), ['rate', 'teacher', 'voice']);
+});
+
+test('読み込み中に先生を変えても古い結果で準備完了にせず、古いURLを解放する', async () => {
+  const requests = [];
+  const ui = screen('?board=reflect', 600, { fetch: url => new Promise(resolve => requests.push({ url, resolve })) });
+  ui.api.app.start(ui.host);
+  assert.equal(ui.button('準備中').disabled, true);
+  ui.button('まる先生').dispatch('click');
+  const response = { ok: true, blob: async () => ({}) };
+  requests.filter(item => item.url.includes('/E/')).forEach(item => item.resolve(response)); await settle();
+  assert.equal(ui.button('準備中').disabled, true);
+  assert.ok(ui.revoked.length > 0);
+  requests.filter(item => item.url.includes('/A/')).forEach(item => item.resolve(response)); await settle();
+  assert.equal(ui.button('音声ありで見る').disabled, false);
+  ui.button('音声ありで見る').dispatch('click');
+  // Promiseを待つ前、クリックの処理内でAudio.playを呼んでいる。
+  assert.equal(ui.audios[0].calls.at(-1), 'play');
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.A);
+});
+
+for (const failure of ['network', 'status']) {
+  test(`音声の${failure}失敗はボタンを戻し、黄色の帯を出して文字だけで始める`, async () => {
+    const ui = screen('?board=reflect', 600, { fetch: async () => {
+      if (failure === 'network') throw new Error('offline');
+      return { ok: false, blob: () => assert.fail('失敗応答をblobにしない') };
+    } });
+    ui.api.app.start(ui.host); await settle();
+    assert.equal(ui.button('音声ありで見る').disabled, false);
+    ui.button('音声ありで見る').dispatch('click');
+    const message = ui.find(el => el.className === 'voice-message');
+    assert.equal(message.hidden, false); assert.equal(message.attributes.role, 'status');
+    assert.equal(message.textContent, '音声を読みこめませんでした。文字だけで続けます。');
+    assert.ok(ui.button('🔇 音声オフ'));
+    ui.advance(100); assert.ok(ui.find(el => el.attributes.class === 'pen'));
+  });
+}
+
+test('再生拒否は黄色の帯を出し、文字だけで説明を続ける', async () => {
+  const ui = screen('?board=reflect', 600, { blocked: true });
+  ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click'); await settle();
+  assert.equal(ui.find(el => el.className === 'voice-message').textContent, 'この画面では音を出せませんでした。文字だけで続けます。');
+  assert.ok(ui.button('🔇 音声オフ'));
+  for (let i = 0; i < 30; i++) ui.advance(100);
+  assert.notEqual(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
+});
+
+test('次へを5回続けても声が重ならず、最後の手の次へで自分で動かす状態になる', async () => {
+  const ui = screen('?board=reflect'); ui.api.app.start(ui.host); await settle();
+  ui.button('音声ありで見る').dispatch('click');
+  const audio = ui.audios[0], stale = audio.onended;
+  for (let i = 0; i < 5; i++) ui.button('次へ ▶').dispatch('click');
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[2].lines.E);
+  const before = currentWords(ui); stale(); ui.advance(100);
+  assert.equal(currentWords(ui), before);
+  audio.calls.forEach((call, index) => { if (call === 'play') assert.equal(audio.calls[index - 1], 'pause'); });
+  for (let i = 0; i < 30 && ui.find(el => el.className === 'after').hidden; i++) ui.button('次へ ▶').dispatch('click');
+  assert.equal(ui.find(el => el.className === 'after').hidden, false);
+  assert.equal(audio.calls.at(-1), 'pause');
+});
+
+test('もどるは1手目で押せず、前の手へ戻ったら描き始めと声も頭からになる', async () => {
+  const ui = screen('?board=reflect'); ui.api.app.start(ui.host); await settle();
+  ui.button('音声ありで見る').dispatch('click');
+  assert.equal(ui.button('◀ もどる').disabled, true);
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  assert.equal(ui.button('◀ もどる').disabled, false);
+  ui.button('◀ もどる').dispatch('click');
+  assert.equal(ui.button('◀ もどる').disabled, true);
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
+  assert.equal(ui.audios[0].calls.at(-1), 'play');
+  assert.equal(ui.find(el => el.tagName === 'line'), null);
+});
+
+test('速さの両端を越えず、描画進捗を保ったまま声と時計の速さを変える', async () => {
+  const ui = screen('?board=reflect', 600, { saved: JSON.stringify({ rate: .5 }) });
+  ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click');
+  const rate = () => ui.find(el => el.className === 'speed').children.find(el => el.tagName === 'b').textContent;
+  assert.equal(ui.button('−').disabled, true); ui.button('−').dispatch('click'); assert.equal(rate(), '0.5 倍');
+  ui.advance(100);
+  const pen = ui.find(el => el.attributes.class === 'pen').attributes.transform;
+  for (let i = 0; i < 6; i++) ui.button('＋').dispatch('click');
+  assert.equal(ui.find(el => el.attributes.class === 'pen').attributes.transform, pen);
+  assert.equal(ui.audios[0].playbackRate, 2); assert.equal(ui.audios[0].preservesPitch, true);
+  assert.equal(ui.button('＋').disabled, true); ui.button('＋').dispatch('click'); assert.equal(rate(), '2 倍');
+});
+
+for (const route of ['home', 'popstate', 'other', 'destroy']) {
+  test(`${route}: 画面を離れると声を止め、古い終了通知と読み込みで画面が変わらない`, async () => {
+    const ui = screen('?board=reflect'), app = ui.api.app.start(ui.host); await settle();
+    ui.button('音声ありで見る').dispatch('click');
+    const audio = ui.audios[0], stale = audio.onended, pauses = audio.calls.length;
+    if (route === 'home') ui.button('← ボード一覧').dispatch('click');
+    if (route === 'destroy') app.destroy();
+    if (route === 'popstate' || route === 'other') {
+      ui.win.location = new URL('file:///app/index.html' + (route === 'other' ? '?board=lens' : '')); ui.fire('popstate');
+    }
+    assert.ok(audio.calls.length > pauses); assert.equal(audio.calls.at(-1), 'pause');
+    await settle(); const before = ui.host.textContent;
+    stale(); ui.advance(60000); await settle(); assert.equal(ui.host.textContent, before);
+    assert.ok(ui.revoked.length > 0);
+  });
+}
+
+test('保存できなくても動き、知らない先生idは担当Eを選ぶ', () => {
+  const ui = screen('?board=reflect', 600, { storageBlocked: true, saved: JSON.stringify({ teacher: 'unknown' }) });
+  ui.api.app.start(ui.host);
+  assert.equal(ui.button('キューブ先生').attributes['aria-checked'], 'true');
+  ui.button('まめ博士').dispatch('click'); ui.button('音声なしで見る').dispatch('click');
+  ui.button('＋').dispatch('click');
+  assert.ok(ui.host.textContent.includes('1.25 倍'));
+  assert.equal(ui.find(el => el.className === 'voice-message').hidden, true);
+  ui.button('← ボード一覧').dispatch('click'); ui.button(boards.get('straight').title).dispatch('click');
+  assert.equal(ui.button('まめ博士').attributes['aria-checked'], 'true');
+});
+
+test('不正なシーンでは開始画面を出さず、説明も読み込みも始めない', () => {
+  const ui = screen('?board=reflect', 600, { fetch: () => assert.fail('読み込まない') });
+  ui.api.boards = { ...boards, get: id => ({ ...boards.get(id), scene: null }) };
+  vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8'), { document: ui.doc, URL, Hikari: ui.api });
+  ui.api.app.start(ui.host);
+  assert.equal(ui.find(el => el.className === 'start').hidden, true);
+  assert.ok(ui.host.textContent.includes('この図は表示できません'));
+  assert.equal(ui.frames.size, 0);
+});
+
+test('屈折の再説明は配置・物質・向きを空気→水に戻し、introを出さない', () => {
+  const ui = screen('?board=refract'); ui.api.app.start(ui.host);
+  assert.equal(ui.find(el => el.className === 'say'), null);
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  ui.button('ガラス').dispatch('click'); ui.button('ガラス → 空気').dispatch('click');
+  ui.button('もう一度、説明を見る').dispatch('click');
+  assert.equal(ui.find(el => el.className === 'start').hidden, false);
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  assert.equal(ui.button('空気 → 水').attributes['aria-pressed'], 'true');
+  assert.equal(ui.button('水 → 空気').attributes['aria-pressed'], 'false');
+  assert.equal(ui.button('水').attributes['aria-pressed'], 'true');
+});
+
+test('音声の終わり・描き終わりの両方から1500ms待ち、オンは今の手の頭から、オフは停止する', async () => {
+  const ui = screen('?board=reflect'); ui.api.app.start(ui.host); await settle();
+  ui.button('音声ありで見る').dispatch('click');
+  const first = currentWords(ui), audio = ui.audios[0];
+  ui.advance(4000); assert.equal(currentWords(ui), first);
+  audio.onended(); ui.advance(1499); assert.equal(currentWords(ui), first);
+  ui.advance(1); assert.notEqual(currentWords(ui), first);
+  ui.button('🔊 音声オン').dispatch('click'); assert.equal(audio.calls.at(-1), 'pause');
+  const src = audio.src;
+  ui.button('🔇 音声オフ').dispatch('click'); assert.equal(audio.calls.at(-1), 'play'); assert.equal(audio.src, src);
+});
+
+test('声が先に終わっても描き終わりを待ち、2倍では間も半分になる', async () => {
+  const ui = screen('?board=reflect', 600, { saved: JSON.stringify({ rate: 2 }) });
+  ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click');
+  const board = boards.get('reflect'), timeline = explain.buildTimeline(scripts.BOARDS.reflect, board.scene,
+    scene.trace(board.scene), scene.handles(board.scene), { clipSeconds: voiceData.CLIPS.reflect.E.map(clip => clip[1]) });
+  const first = currentWords(ui); ui.audios[0].onended();
+  ui.advance(timeline.steps[0].drawDuration / 2 + 749); assert.equal(currentWords(ui), first);
+  ui.advance(1); assert.notEqual(currentWords(ui), first);
+});
+
+test('非表示は一時停止し、復帰後に再生を押すまで声と描画を進めない', async () => {
+  const ui = screen('?board=reflect'); ui.api.app.start(ui.host); await settle();
+  ui.button('音声ありで見る').dispatch('click'); ui.advance(100);
+  ui.visibility(true); assert.ok(ui.button('▶ 再生')); assert.equal(ui.audios[0].calls.at(-1), 'pause');
+  const before = ui.host.textContent; ui.advance(30000); ui.visibility(false);
+  assert.equal(ui.host.textContent, before); assert.equal(ui.frames.size, 0);
+  ui.button('▶ 再生').dispatch('click'); assert.equal(ui.audios[0].calls.at(-1), 'play');
+  assert.ok(ui.frames.size > 0);
+});
+
+test('リサイズしても同じ手・進み具合で描き直す', () => {
+  const ui = screen('?board=reflect'); startLesson(ui);
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click'); ui.advance(1050);
+  const words = currentWords(ui), line = () => ui.find(el => el.tagName === 'line' && el.attributes.stroke === '#B45C00');
+  const before = { ...line().attributes }; ui.resize(319);
+  assert.equal(currentWords(ui), words);
+  for (const key of ['x1', 'y1', 'x2', 'y2']) assert.equal(line().attributes[key], before[key]);
+  assert.notEqual(line().attributes['stroke-width'], before['stroke-width']);
+});
+
+test('動きを減らす設定ではpartが1msで完成し、手と声と間は残す', () => {
+  const ui = screen('?board=reflect', 600, { reduced: true }); startLesson(ui);
+  ui.advance(2);
+  assert.equal(ui.find(el => el.attributes.class === 'pen'), null);
+  assert.ok(ui.find(el => el.tagName === 'text' && el.textContent === '鏡'));
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
+  ui.advance(1500); assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+});
+
+test('読み込み中に音声オンにしたら準備を待ち、失敗すれば文字だけで続ける', async () => {
+  const pending = [];
+  const ui = screen('?board=reflect', 600, { fetch: () => new Promise((_, reject) => pending.push(reject)) });
+  startLesson(ui); ui.button('🔇 音声オフ').dispatch('click');
+  assert.equal(ui.button('🔊 準備中…').disabled, true);
+  pending.forEach(reject => reject(new Error('offline'))); await settle();
+  assert.equal(ui.button('🔇 音声オフ').disabled, false);
+  assert.equal(ui.find(el => el.className === 'voice-message').hidden, false);
+  assert.equal(ui.find(el => el.className === 'voice-message').textContent, '音声を読みこめませんでした。文字だけで続けます。');
+  assert.equal(ui.audios[0].calls.includes('play'), false);
+});
+
+function pendingVoice() {
+  const requests = [];
+  const ui = screen('?board=reflect', 600, { fetch: url => new Promise((resolve, reject) => requests.push({ url, resolve, reject })) });
+  function finish(items = requests, failed = false) {
+    items.forEach(item => failed ? item.reject(new Error('offline')) : item.resolve({ ok: true, blob: async () => ({}) }));
+  }
+  return { ui, requests, finish };
+}
+
+function clickWithVoice(ui, button) {
+  const audio = ui.audios[0], before = audio.calls.filter(call => call === 'play').length;
+  let checked = false;
+  // アプリのクリック処理の直後、dispatch が戻る前に再生済みであることを調べる。
+  button.addEventListener('click', () => {
+    if (checked) return;
+    assert.equal(audio.calls.filter(call => call === 'play').length, before + 1);
+    checked = true;
+  });
+  button.dispatch('click');
+  assert.equal(checked, true);
+}
+
+test('音声なしで始めても同じ先生の準備を続け、準備後のクリック内で今の手を再生する', async () => {
+  const { ui, requests, finish } = pendingVoice(); startLesson(ui);
+  assert.equal(requests.length, scripts.BOARDS.reflect.length);
+  requests.forEach((item, index) => assert.equal(item.url, voiceData.BASE + voiceData.CLIPS.reflect.E[index][0]));
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  finish(); await settle();
+  assert.equal(ui.audios[0].calls.includes('play'), false);
+  clickWithVoice(ui, ui.button('🔇 音声オフ'));
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+  const src = ui.audios[0].src;
+  ui.advance(100); ui.button('🔊 音声オン').dispatch('click');
+  assert.equal(ui.audios[0].calls.at(-1), 'pause');
+  // 同じ手の声を再び頭から始め、終了待ちも全文の長さに戻す。
+  ui.button('🔇 音声オフ').dispatch('click');
+  assert.equal(ui.audios[0].src, src);
+  assert.equal([...ui.timers.values()][0].at, 100 + voiceData.CLIPS.reflect.E[1][1] * 1000 + 4000);
+});
+
+test('準備中に音声オンを押しても完了後はオフに戻り、再クリック内でだけ再生する', async () => {
+  const { ui, requests, finish } = pendingVoice(); startLesson(ui);
+  const sound = ui.button('🔇 音声オフ'); sound.dispatch('click');
+  assert.equal(sound.textContent, '🔊 準備中…'); assert.equal(sound.disabled, true);
+  assert.equal(sound.attributes['aria-pressed'], 'false');
+  sound.dispatch('click'); assert.equal(requests.length, scripts.BOARDS.reflect.length);
+  finish(); await settle();
+  assert.equal(sound.textContent, '🔇 音声オフ'); assert.equal(sound.disabled, false);
+  assert.equal(ui.audios[0].calls.includes('play'), false);
+  assert.equal(ui.find(el => el.className === 'voice-message').hidden, true);
+  clickWithVoice(ui, sound);
+  assert.equal(sound.textContent, '🔊 音声オン'); assert.equal(sound.attributes['aria-pressed'], 'true');
+});
+
+for (const failed of [false, true]) for (const action of ['次へ ▶', '◀ もどる', '⏸ 止める', 'とばして自分で動かす']) {
+  test(`音声の準備待ち中の${action}: 古い${failed ? '失敗' : '成功'}で再生も表示変更もしない`, async () => {
+    const { ui, finish } = pendingVoice(); startLesson(ui);
+    if (action === '◀ もどる') {
+      ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+    }
+    const sound = ui.button('🔇 音声オフ'); sound.dispatch('click');
+    ui.button(action).dispatch('click');
+    assert.equal(sound.textContent, '🔇 音声オフ'); assert.equal(sound.disabled, false);
+    const before = ui.host.textContent;
+    finish(undefined, failed); await settle();
+    assert.equal(ui.host.textContent, before);
+    assert.equal(ui.audios[0].calls.includes('play'), false);
+    assert.equal(ui.find(el => el.className === 'voice-message').hidden, true);
+    if (action === '次へ ▶' && !failed) clickWithVoice(ui, sound);
+  });
+}
+
+for (const failed of [false, true]) for (const route of ['home', 'teacher', 'other', 'replay']) {
+  test(`音声の準備待ち中の${route}: 古い${failed ? '失敗' : '成功'}は移動先へ影響しない`, async () => {
+    const { ui, requests, finish } = pendingVoice(); startLesson(ui);
+    ui.button('🔇 音声オフ').dispatch('click');
+    const old = requests.slice();
+    if (route === 'home') ui.button('← ボード一覧').dispatch('click');
+    if (route === 'teacher') {
+      ui.button('先生をかえる').dispatch('click'); ui.button('まる先生').dispatch('click');
+    }
+    if (route === 'other') { ui.win.location = new URL('file:///app/index.html?board=lens'); ui.fire('popstate'); }
+    if (route === 'replay') {
+      ui.button('とばして自分で動かす').dispatch('click'); ui.button('もう一度、説明を見る').dispatch('click');
+    }
+    const before = ui.host.textContent;
+    finish(old, failed); await settle();
+    assert.equal(ui.host.textContent, before);
+    ui.audios.forEach(audio => assert.equal(audio.calls.includes('play'), false));
+    if (!failed) assert.equal(ui.revoked.length, old.length);
+    if (route === 'teacher') {
+      assert.equal(ui.button('準備中').disabled, true);
+      finish(requests.filter(item => item.url.includes('/A/'))); await settle();
+      clickWithVoice(ui, ui.button('音声ありで見る'));
+      assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.A);
+    }
+  });
+}
+
+for (const skip of [false, true]) {
+  test(`${skip ? 'すぐ動かす' : '音声なし'}でも音声を準備し、失敗は音声を選ぶまで知らせない`, async () => {
+    const { ui, requests, finish } = pendingVoice(); ui.api.app.start(ui.host);
+    ui.button(skip ? '説明をとばして、すぐ動かす' : '音声なしで見る').dispatch('click');
+    assert.equal(requests.length, scripts.BOARDS.reflect.length);
+    finish(undefined, true); await settle();
+    assert.equal(ui.find(el => el.className === 'voice-message').hidden, true);
+    assert.equal(ui.audios[0].calls.includes('play'), false);
+    if (!skip) {
+      ui.button('🔇 音声オフ').dispatch('click');
+      assert.equal(ui.button('🔇 音声オフ').disabled, false);
+      const message = ui.find(el => el.className === 'voice-message');
+      assert.equal(message.hidden, false);
+      assert.equal(message.textContent, '音声を読みこめませんでした。文字だけで続けます。');
+      assert.equal(ui.audios[0].calls.includes('play'), false);
+      assert.equal(requests.length, scripts.BOARDS.reflect.length);
+    }
+  });
+}
+
+for (const value of ['3.2', -1, Infinity]) for (const rate of [.5, 1, 2]) {
+  test(`音声長${String(value)}（${typeof value}）・${rate}倍: 描画・play・終了待ちは同じ代替秒数を使う`, async () => {
+    const data = structuredClone(voiceData), timelines = [], plays = [];
+    data.CLIPS.reflect.E[0][1] = value;
+    const voice = require('../js/voice.js');
+    const ui = screen('?board=reflect', 600, { saved: JSON.stringify({ rate }), voiceData: data,
+      explain: { ...explain, buildTimeline(...args) {
+        const timeline = explain.buildTimeline(...args); timelines.push(timeline); return timeline;
+      } },
+      voice: { ...voice, createPlayer(options) {
+        const player = voice.createPlayer(options);
+        return { ...player, play(...args) { plays.push(args); return player.play(...args); } };
+      } },
+    });
+    ui.api.app.start(ui.host); await settle(); clickWithVoice(ui, ui.button('音声ありで見る'));
+    const seconds = (Array.from(scripts.BOARDS.reflect[0].lines.E).length * 180 + 1000) / 1000;
+    const step = timelines.at(-1).steps[0], timeout = seconds * 1000 / rate + 4000;
+    assert.equal(plays[0][0], 0); assert.equal(plays[0][1], seconds); assert.equal(plays[0][2], rate);
+    assert.ok(Math.abs(step.drawDuration - seconds * 1000 * .8) < 1e-7);
+    assert.equal(step.duration, seconds * 1000 + 1500);
+    assert.equal([...ui.timers.values()][0].at, timeout);
+    const words = currentWords(ui);
+    ui.advance(timeout - 1); assert.equal(currentWords(ui), words); assert.equal(plays.length, 1);
+    ui.advance(1); assert.equal(currentWords(ui), words); assert.equal(ui.audios[0].onended, null);
+    ui.advance(1500 / rate - 1); assert.equal(currentWords(ui), words);
+    ui.advance(1); assert.notEqual(currentWords(ui), words); assert.equal(plays.length, 2);
+  });
+}

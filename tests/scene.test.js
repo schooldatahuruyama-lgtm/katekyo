@@ -49,6 +49,7 @@ function inside(result) {
     for (const key of ['y1', 'y2']) assert.ok(ray[key] >= 0 && ray[key] <= 420);
     assert.ok(['solid', 'dashed'].includes(ray.style));
     assert.equal(typeof ray.arrow, 'boolean');
+    assert.equal(typeof ray.role, 'string');
   }
 }
 function valid(s) {
@@ -136,6 +137,76 @@ for (const id of ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'len
         assert.ok(mark.y >= 0 && mark.y <= 420, mark.key + ': y');
       }
     }
+  });
+}
+
+for (const [id, expected] of Object.entries({
+  straight: ['edge', 'edge'], reflect: ['incident', 'reflected'],
+  'mirror-image': ['to-mirror', 'to-eye', 'extension', 'to-mirror', 'to-eye', 'extension'],
+  refract: ['incident', 'refracted', 'reflected'],
+  lens: ['to-lens', 'to-focus', 'beyond-focus', 'to-lens', 'to-focus', 'beyond-focus', 'to-lens', 'to-focus', 'beyond-focus'],
+  'lens-image': ['ray1', 'ray1', 'ray2', 'ray2', 'ray3', 'ray3'],
+})) {
+  test(`${id}: 初期配置の光線に設計どおりの役割が付く`, () => {
+    assert.deepEqual(valid(boards.get(id).scene).rays.map(r => r.role), expected);
+  });
+}
+
+test('全反射には refracted がなく、像なしには ray3 がない。虚像の破線は extension', () => {
+  let s = scene.setOption(boards.get('refract').scene, 'direction', 'medium-to-air');
+  s = scene.moveElement(s, 'src', 'move', { x: 20, y: 240 });
+  assert.deepEqual(valid(s).rays.map(r => r.role), ['incident', 'reflected']);
+  s = scene.moveElement(boards.get('lens-image').scene, 'object', 'move', { x: 200, y: 210 });
+  assert.deepEqual(valid(s).rays.map(r => r.role), ['ray1', 'ray1', 'ray2', 'ray2']);
+  s = scene.moveElement(s, 'object', 'move', { x: 250, y: 210 });
+  const virtual = valid(s);
+  assert.deepEqual(virtual.rays.map(r => r.role), ['ray1', 'ray1', 'extension', 'ray2', 'ray2', 'extension', 'ray3', 'ray3', 'extension']);
+  assert.ok(virtual.rays.every(r => (r.role === 'extension') === (r.style === 'dashed')));
+});
+
+test('凸レンズの3本は光軸上も焦点でつながり、分割前と同じ道すじを通る', () => {
+  for (const focalLength of [60, 100, 160]) for (const offset of [20, 60, 100]) {
+    const s = boards.get('lens').scene, lens = part(s, 'lens'), src = part(s, 'source');
+    lens.focalLength = focalLength; src.y = lens.y - offset;
+    const rays = valid(s).rays;
+    assert.equal(rays.length, 9);
+    for (let i = 0; i < 3; i++) {
+      const incoming = rays[i * 3], before = rays[i * 3 + 1], after = rays[i * 3 + 2];
+      const height = [-offset, 0, offset][i];
+      near(incoming.x1, src.x); near(incoming.y1, lens.y + height);
+      near(incoming.x2, lens.x); near(incoming.y2, lens.y + height);
+      near(before.x1, lens.x); near(before.y1, lens.y + height);
+      near(before.x2, lens.x + focalLength); near(before.y2, lens.y);
+      near(after.x1, lens.x + focalLength); near(after.y1, lens.y);
+      const extent = height === 0 ? (600 - lens.x) / focalLength :
+        Math.min((600 - lens.x) / focalLength, (height < 0 ? 420 - before.y1 : before.y1) / Math.abs(height));
+      near(after.x2, lens.x + focalLength * extent);
+      near(after.y2, before.y1 - height * extent);
+      for (const r of [incoming, before, after]) { assert.equal(r.style, 'solid'); assert.equal(r.arrow, true); }
+    }
+  }
+});
+
+// 役割を付ける前の初期配置の座標・線種・矢印を固定しておく。
+for (const [id, expected] of Object.entries({
+  straight: [[80, 210, 550, 139.5], [80, 210, 550, 280.5]],
+  reflect: [[170, 100, 300, 270], [300, 270, 506.47058823529414, 0]],
+  'mirror-image': [[140, 140, 340, 205.71428571428572], [340, 205.71428571428572, 120, 278],
+    [340, 205.71428571428572, 540, 140, 'dashed'], [140, 140, 340, 217.14285714285714],
+    [340, 217.14285714285714, 120, 302], [340, 217.14285714285714, 540, 140, 'dashed']],
+  refract: [[180, 70, 300, 210], [300, 210, 417.8257241777912, 420], [300, 210, 480, 0]],
+  'lens-image': [[100, 160, 300, 160], [300, 160, 600, 310], [100, 160, 300, 210],
+    [300, 210, 600, 285], [100, 160, 300, 260], [300, 260, 600, 260]],
+})) {
+  test(`${id}: 役割を付けても光線の数・座標・線種・矢印は変わらない`, () => {
+    const result = valid(boards.get(id).scene);
+    assert.equal(result.rays.length, expected.length);
+    result.rays.forEach((ray, index) => {
+      const values = expected[index];
+      ['x1', 'y1', 'x2', 'y2'].forEach((key, i) => near(ray[key], values[i]));
+      assert.equal(ray.style, values[4] || 'solid');
+      assert.equal(ray.arrow, values[4] !== 'dashed');
+    });
   });
 }
 
@@ -402,7 +473,7 @@ test('凸レンズ: 平行光が焦点で交わり、焦点距離を動かせる
   const lens = part(s, 'lens');
   const result = valid(s);
   near(result.measures.focalLength, 140);
-  assert.equal(result.rays.length, 6);
+  assert.equal(result.rays.length, 9);
   for (const r of result.rays.filter(r => r.x1 === lens.x)) {
     near(geometry.distancePointToLine({ x: lens.x + lens.focalLength, y: lens.y },
       { x: r.x1, y: r.y1 }, { x: r.x2, y: r.y2 }), 0);
@@ -510,7 +581,7 @@ test('凸レンズ: 光源を上・下の端へ引いても3本ともレンズ�
     const lens = part(moved, 'lens'), src = part(moved, 'source'), result = valid(moved);
     const offset = y < 0 ? Math.min(config.motion.maxBeamOffset, config.lensHalfHeight) : config.motion.minBeamOffset;
     near(lens.y - src.y, offset);
-    assert.equal(result.rays.length, 6);
+    assert.equal(result.rays.length, 9);
     for (const ray of result.rays.filter(r => r.x1 === lens.x)) {
       assert.ok(Math.abs(ray.y1 - lens.y) <= config.lensHalfHeight);
       near(geometry.distancePointToLine({ x: lens.x + lens.focalLength, y: lens.y },

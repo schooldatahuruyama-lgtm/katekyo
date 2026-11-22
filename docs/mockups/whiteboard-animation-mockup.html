@@ -1,0 +1,414 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>モックアップ: 描きながらの説明（ホワイトボードアニメーション）</title>
+<style>
+  :root { --bg: #EEF3FF; --ink: #1B2430; --sub: #5B6676; --line: #C9D5F0; --blue: #1A5CFF; --soft: #DCE6FF;
+    --paper: #FAF7EE; --ray: #B45C00; --penb: #176AA3; --penr: #B23A36; --normal: #67748B; --green: #216E43;
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R", "Hiragino Maru Gothic ProN", "Yu Gothic UI", Meiryo, sans-serif; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); line-height: 1.65;
+    font-family: "Hiragino Sans", "Yu Gothic UI", Meiryo, system-ui, sans-serif; }
+  main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  p.note { color: var(--sub); font-size: 14px; margin: 0 0 14px; }
+  .frame { background: var(--bg); border-radius: 20px; box-shadow: 0 2px 10px rgba(26,60,140,.16); overflow: hidden; }
+  .bar { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #fff; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 44px; color: var(--ink); cursor: pointer; }
+  .title { font-weight: 700; font-size: 17px; }
+  .spacer { flex: 1; }
+  .chip { font-size: 14px; padding: 5px 12px; border-radius: 999px; border: 1px solid var(--line); background: #fff; color: var(--sub); }
+  .chip.ok { color: var(--green); }
+  .learn { display: grid; grid-template-columns: 64fr 36fr; gap: 12px; padding: 12px; }
+  .board { background: var(--paper); background-image: radial-gradient(#EEE7D7 1px, transparent 1px); background-size: 28px 28px;
+    border-radius: 16px; box-shadow: 0 2px 10px rgba(26,60,140,.12); overflow: hidden; display: flex; flex-direction: column; }
+  .heading { padding: 12px 16px 0; }
+  .heading span { font-family: var(--hand); font-weight: 700; font-size: 22px; background: linear-gradient(transparent 62%, #ffd24d 62%); }
+  .board { position: relative; }
+  .start { position: absolute; inset: 0; z-index: 2; background: rgba(250,247,238,.95); display: flex; flex-direction: column;
+    gap: 12px; align-items: center; justify-content: center; text-align: center; padding: 16px; }
+  .board .start svg { width: 64px; height: 64px; flex: none; }
+  .pick { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px; border-radius: 14px;
+    border: 3px solid transparent; background: #fff; font: inherit; font-size: 14px; font-weight: 700; color: var(--ink); cursor: pointer;
+    box-shadow: 0 1px 4px rgba(26,60,140,.10); }
+  .pick button[aria-checked="true"] { border-color: var(--blue); background: var(--soft); }
+  .pick button small { font-weight: 400; font-size: 12px; color: var(--sub); }
+  .board .speech svg { width: 48px; height: 48px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start .startNote { font-size: 14px; font-weight: 400; color: var(--sub); }
+  .speech { display: flex; gap: 10px; align-items: center; margin: 10px 14px 0; padding: 8px 14px 8px 8px; min-height: 64px;
+    background: #fff; border-radius: 16px; box-shadow: 0 1px 4px rgba(26,60,140,.10); }
+  .speech svg { flex: 0 0 48px; }
+  .speech p { margin: 0; font-size: 18px; font-weight: 700; }
+  .board svg { display: block; width: 100%; height: auto; touch-action: none; user-select: none; -webkit-user-select: none; }
+  .board svg text { font-family: var(--hand); paint-order: stroke; stroke: var(--paper); stroke-width: 4px; stroke-linejoin: round; }
+  .board svg line, .board svg path { vector-effect: non-scaling-stroke; }
+  .cap { border-top: 1px dashed #E3DBC8; padding: 10px 16px 12px; min-height: 52px; font-size: 18px; font-weight: 700; display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
+  .cap small { font-size: 16px; font-weight: 400; color: var(--sub); }
+  .voiceMsg { margin: 0 12px 10px; padding: 10px 14px; border-radius: 12px; background: #FFF1C2; color: #1B2430; font-size: 15px; font-weight: 700; }
+  .controls { display: flex; gap: 8px; align-items: center; padding: 10px 12px; background: #fff; border-top: 1px solid var(--line); flex-wrap: wrap; }
+  .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft); color: var(--ink);
+    font: inherit; font-size: 16px; font-weight: 700; cursor: pointer; }
+  .btn.main { background: var(--blue); color: #fff; }
+  .btn:disabled { opacity: .45; cursor: default; }
+  .speed { display: inline-flex; align-items: center; gap: 6px; font-size: 15px; color: var(--sub); }
+  .speed b { min-width: 64px; text-align: center; font-size: 17px; color: var(--ink); }
+  .speed .btn { min-width: 48px; padding: 0; font-size: 22px; }
+  .dots { display: flex; gap: 6px; flex: 1; min-width: 120px; align-items: center; }
+  .dots i { flex: 1; height: 6px; border-radius: 3px; background: var(--line); }
+  .dots i.done { background: var(--blue); }
+  .dots i.now { background: #7FA2FF; }
+  .panel { background: #fff; border-radius: 16px; box-shadow: 0 2px 10px rgba(26,60,140,.12); padding: 14px 16px; display: flex; flex-direction: column; gap: 10px; min-height: 320px; }
+  .say { display: flex; gap: 10px; align-items: flex-start; }
+  .say svg { flex: 0 0 48px; }
+  .say p { margin: 0; font-size: 17px; }
+  .say p { font-size: 15px; font-weight: 700; }
+  .say.old p { font-weight: 400; color: var(--sub); }
+  .label { font-size: 15px; color: var(--sub); font-weight: 700; margin-top: 4px; }
+  .try { display: flex; gap: 10px; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try.done { color: var(--green); font-weight: 700; }
+  .ask { border: 1px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 14px; background: #F4F6FA; }
+  .panel .btn { margin-top: auto; }
+  [hidden] { display: none !important; }
+  body.rec h1, body.rec p.note { display: none; }
+  body.rec main { padding-top: 12px; max-width: 1256px; }
+  @media (max-width: 900px) { .learn { grid-template-columns: 1fr; } .panel { min-height: 0; } }
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute"><defs><symbol id="tutorA" viewBox="86 158 350 350"><circle cx="261" cy="333" r="175" fill="#E5F9F6"/><circle cx="124" cy="230" r="14" fill="#80DCD3" opacity=".42"/><circle cx="394" cy="402" r="10" fill="#80DCD3" opacity=".55"/><g transform="translate(261,337)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#80DCD3" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><circle cx="0" cy="-6" r="124"/></g><ellipse cx="-47" cy="-96" rx="35" ry="9" transform="rotate(-18 -47 -96)" fill="white" opacity=".24"/><path d="M -57 -119 Q -24 -166 8 -127 Q 31 -156 64 -124 Q 17 -135 -14 -119 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -25 29 Q 0 56 25 29 Z" fill="#2A3A55"/><path d="M -14 35 Q 0 41 14 35" stroke="white" stroke-width="3" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 116 -105 L 122 -120 M 133 -86 L 148 -90 M 124 -64 L 135 -54" stroke="#F3B84C" stroke-width="8" stroke-linecap="round"/></g></symbol><symbol id="tutorB" viewBox="588 158 350 350"><circle cx="763" cy="333" r="175" fill="#EEE9FF"/><circle cx="626" cy="230" r="14" fill="#B6A7FF" opacity=".42"/><circle cx="896" cy="402" r="10" fill="#B6A7FF" opacity=".55"/><g transform="translate(763,337)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#B6A7FF" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><path d="M 0 -150 C -47 -101 -125 -53 -126 19 C -125 88 -70 127 0 127 C 76 127 127 83 126 19 C 125 -44 51 -105 0 -150 Z"/></g><path d="M -42 -112 Q -25 -157 8 -133 Q 35 -156 45 -119 Q 15 -135 -5 -119 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -19 29 Q 0 46 20 29" stroke="#263854" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><circle cx="113" cy="-93" r="15" fill="none" stroke="#8E7BF5" stroke-width="5"/><circle cx="132" cy="-122" r="6" fill="#8E7BF5"/></g></symbol><symbol id="tutorC" viewBox="1090 158 350 350"><circle cx="1265" cy="333" r="175" fill="#FFF5DE"/><circle cx="1128" cy="230" r="14" fill="#FFC96A" opacity=".42"/><circle cx="1398" cy="402" r="10" fill="#FFC96A" opacity=".55"/><g transform="translate(1265,337)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#FFC96A" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><rect x="-119" y="-142" width="238" height="269" rx="104"/></g><ellipse cx="-47" cy="-96" rx="35" ry="9" transform="rotate(-18 -47 -96)" fill="white" opacity=".24"/><path d="M -55 -132 Q -19 -172 14 -135 Q 41 -153 55 -127 Q 2 -137 -22 -123 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -25 29 Q 0 56 25 29 Z" fill="#2A3A55"/><path d="M -14 35 Q 0 41 14 35" stroke="white" stroke-width="3" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 129 -95 L 136 -77 L 155 -74 L 140 -63 L 143 -45 L 129 -56 L 114 -45 L 117 -63 L 103 -74 L 122 -77 Z" fill="#F2AF41"/></g></symbol><symbol id="tutorD" viewBox="86 661 350 350"><circle cx="261" cy="836" r="175" fill="#FFF0ED"/><circle cx="124" cy="733" r="14" fill="#FFAAA2" opacity=".42"/><circle cx="394" cy="905" r="10" fill="#FFAAA2" opacity=".55"/><g transform="translate(261,840)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#FFAAA2" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><path d="M -96 -91 C -143 -90 -153 -25 -127 -2 C -159 51 -116 102 -72 105 C -39 143 37 141 67 112 C 143 123 162 49 126 11 C 163 -38 118 -103 74 -96 C 38 -156 -45 -151 -69 -105 C -75 -99 -86 -95 -96 -91 Z"/></g><path d="M -57 -129 Q -32 -170 -4 -139 Q 20 -164 52 -118 Q 9 -137 -27 -120 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -19 29 Q 0 46 20 29" stroke="#263854" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 134 -102 C 118 -118 110 -91 125 -83 C 139 -78 152 -94 134 -102 Z" fill="#FF8E8F"/></g></symbol><symbol id="tutorE" viewBox="588 661 350 350"><circle cx="763" cy="836" r="175" fill="#E9F2FF"/><circle cx="626" cy="733" r="14" fill="#88B8FF" opacity=".42"/><circle cx="896" cy="905" r="10" fill="#88B8FF" opacity=".55"/><g transform="translate(763,840)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#88B8FF" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><rect x="-120" y="-128" width="240" height="253" rx="64"/></g><ellipse cx="-47" cy="-96" rx="35" ry="9" transform="rotate(-18 -47 -96)" fill="white" opacity=".24"/><path d="M -54 -123 Q -14 -171 17 -126 Q 37 -154 65 -124 Q 12 -141 -19 -114 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -25 29 Q 0 56 25 29 Z" fill="#2A3A55"/><path d="M -14 35 Q 0 41 14 35" stroke="white" stroke-width="3" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 116 -105 L 122 -120 M 133 -86 L 148 -90 M 124 -64 L 135 -54" stroke="#F3B84C" stroke-width="8" stroke-linecap="round"/></g></symbol><symbol id="tutorF" viewBox="1090 661 350 350"><circle cx="1265" cy="836" r="175" fill="#EFF9E9"/><circle cx="1128" cy="733" r="14" fill="#B5E59F" opacity=".42"/><circle cx="1398" cy="905" r="10" fill="#B5E59F" opacity=".55"/><g transform="translate(1265,840)"><ellipse cx="0" cy="131" rx="101" ry="17" fill="#8795ac" opacity=".15"/><ellipse cx="-56" cy="122" rx="24" ry="14" fill="#34435F"/><ellipse cx="56" cy="122" rx="24" ry="14" fill="#34435F"/><g><g fill="#B5E59F" stroke="#283A56" stroke-width="6" stroke-linejoin="round"><path d="M -106 -78 C -83 -130 -14 -141 32 -124 C 98 -132 131 -81 119 -27 C 157 30 113 103 65 106 C 27 142 -53 133 -80 103 C -135 99 -158 23 -119 -29 C -125 -49 -119 -67 -106 -78 Z"/></g><path d="M -49 -120 Q -19 -166 7 -130 Q 37 -154 53 -118 Q 15 -137 -17 -113 Z" fill="#283A56"/><ellipse cx="-81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="81" cy="5" rx="19" ry="12" fill="#F59DA3" opacity=".65"/><ellipse cx="-44" cy="-28" rx="11" ry="16" fill="#25364E"/><ellipse cx="44" cy="-28" rx="11" ry="16" fill="#25364E"/><circle cx="-47" cy="-34" r="4" fill="white"/><circle cx="41" cy="-34" r="4" fill="white"/><rect x="-85" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><rect x="9" y="-59" rx="20" width="76" height="63" fill="none" stroke="#23324A" stroke-width="7"/><path d="M -9 -34 Q 0 -42 9 -34" stroke="#23324A" stroke-width="7" fill="none" stroke-linecap="round"/><path d="M -19 29 Q 0 46 20 29" stroke="#263854" stroke-width="5" stroke-linecap="round" fill="none"/><path d="M -87 67 Q -115 73 -117 108 Q -117 128 -94 127 L 94 127 Q 116 128 117 108 Q 115 73 87 67 L 34 73 L 0 108 L -34 73 Z" fill="white" stroke="#34425E" stroke-width="5" stroke-linejoin="round"/><path d="M -35 72 L -8 91 L -34 111 L -62 77 Z M 35 72 L 8 91 L 34 111 L 62 77 Z" fill="#E7EFF9" stroke="#34425E" stroke-width="4" stroke-linejoin="round"/><path d="M 0 106 L 0 126" stroke="#34425E" stroke-width="3"/><circle cx="12" cy="115" r="3.5" fill="#526481"/><path d="M 62 99 L 85 99 L 85 109 L 62 109 Z" fill="none" stroke="#34425E" stroke-width="3"/><circle cx="73" cy="104" r="3" fill="#F0A96D"/></g><path d="M 131 -110 L 138 -93 L 155 -87 L 138 -79 L 131 -61 L 124 -79 L 106 -87 L 124 -93 Z" fill="#71BC60"/></g></symbol></defs></svg>
+<main>
+  <h1>モックアップ: 描きながらの説明</h1>
+  <p class="note">盤を開くと、キューブ先生が話しながら、図を 1 手ずつ描いていきます。終わると、今までどおり自分で動かせます。見た目と動きを確かめるための見本で、反射の盤だけを作っています。</p>
+
+  <div class="frame">
+    <div class="bar">
+      <button class="back">← ボード一覧</button><span class="title">反射</span><span class="spacer"></span>
+      <span class="chip ok">● オンライン</span><span class="chip">AI は準備中</span>
+    </div>
+    <div class="learn">
+      <div class="board">
+        <div class="start" id="start">
+          <p>だれに教えてもらう？</p>
+          <div class="pick" id="pick" role="radiogroup" aria-label="先生をえらぶ"></div>
+          <p class="startNote" id="pickNote"></p>
+          <button class="btn main" id="bVoice">🔊 音声ありで見る</button>
+          <button class="btn" id="bMute">音声なしで見る</button>
+          <p class="startNote">音声: VOICEVOX Nemo</p>
+        </div>
+        <div class="heading"><span>はね返る角度をくらべよう</span></div>
+        <div class="speech" id="speech" aria-live="polite"><svg width="48" height="48"><use id="face" href="#tutorE"/></svg><p id="speechText"></p></div>
+        <svg id="b" viewBox="0 0 600 360" aria-label="反射の盤">
+          <line id="mirror" stroke="#1B2430" stroke-width="4" stroke-linecap="round"/>
+          <g id="ticks" stroke="#1B2430" stroke-width="2" stroke-linecap="round"></g>
+          <text id="tMirror" font-size="17" fill="#5B6676"></text>
+          <line id="normal" stroke="#67748B" stroke-width="2.5" stroke-dasharray="8 7"/>
+          <text id="tNormal" font-size="17" fill="#5B6676"></text>
+          <path id="arcIn" fill="rgba(23,106,163,.12)" stroke="#176AA3" stroke-width="2.5"/>
+          <path id="arcOut" fill="rgba(178,58,54,.12)" stroke="#B23A36" stroke-width="2.5"/>
+          <line id="rayIn" stroke="#B45C00" stroke-width="4.5" stroke-linecap="round"/>
+          <line id="rayOut" stroke="#B45C00" stroke-width="4.5" stroke-linecap="round"/>
+          <polygon id="arrIn" fill="#B45C00"/><polygon id="arrOut" fill="#B45C00"/>
+          <text id="nIn" font-size="17" fill="#176AA3"></text><text id="vIn" font-size="22" font-weight="700" fill="#176AA3"></text>
+          <text id="nOut" font-size="17" fill="#B23A36"></text><text id="vOut" font-size="22" font-weight="700" fill="#B23A36"></text>
+          <g id="src"><circle id="halo" r="30" fill="rgba(180,92,0,.16)"/><circle r="14" fill="#B45C00" stroke="#1B2430" stroke-width="2"/></g>
+          <text id="tSrc" font-size="17" fill="#1B2430"></text>
+          <g id="pen" hidden><circle r="6" fill="#1B2430"/><path d="M4 -4 L26 -26 L32 -20 L10 2 Z" fill="#ffd24d" stroke="#1B2430" stroke-width="2" stroke-linejoin="round"/></g>
+        </svg>
+        <div class="cap" id="cap"></div>
+        <div class="voiceMsg" id="voiceMsg" role="status" hidden></div>
+        <div class="controls" id="controls">
+          <button class="btn" id="bBack" aria-label="1 つ前にもどる">◀ もどる</button>
+          <button class="btn main" id="bPlay">⏸ 止める</button>
+          <button class="btn" id="bNext">次へ ▶</button>
+          <span class="dots" id="dots" aria-hidden="true"></span>
+          <span class="speed" role="group" aria-label="速さ"><span>速さ</span><button class="btn" id="bSlow" aria-label="おそくする">−</button><b id="rateText">1 倍</b><button class="btn" id="bFast" aria-label="はやくする">＋</button></span>
+          <button class="btn" id="bSound" aria-pressed="false">🔇 音声オフ</button>
+          <button class="btn" id="bTeacher">先生をかえる</button>
+          <button class="btn" id="bSkip">とばして自分で動かす</button>
+        </div>
+      </div>
+      <div class="panel">
+        <div id="talk"></div>
+        <div id="after" hidden>
+          <div class="label">ためしてみよう</div>
+          <div class="try" id="try1"><span id="try1m">□</span><span>入射角を 60° にして、反射角を見てみよう。</span></div>
+          <div class="try"><span>□</span><span>光を鏡に垂直に当てて、来た道を戻してみよう。</span></div>
+          <div class="ask" style="margin-top:10px">先生への質問は準備中です（今は使えません）</div>
+        </div>
+        <p class="note" style="margin:auto 0 0">音声: VOICEVOX Nemo（女声 2・3・4、男声 1・2・3）</p>
+        <button class="btn" id="bReplay" hidden>▶ もう一度、説明を見る</button>
+      </div>
+    </div>
+  </div>
+</main>
+
+<script>
+(function () {
+  var P = { x: 300, y: 300 }, R = 220, deg = 37, interactive = false;
+  var reduce = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function $(id) { return document.getElementById(id); }
+  function pt(r, d, side) { var a = d * Math.PI / 180; return { x: P.x + side * r * Math.sin(a), y: P.y - r * Math.cos(a) }; }
+  function lerp(a, b, p) { return { x: a.x + (b.x - a.x) * p, y: a.y + (b.y - a.y) * p }; }
+  function vis(el, on) { el.style.display = on ? '' : 'none'; }
+  var pen = $('pen');
+  function penAt(q) { if (interactive) return; pen.hidden = false; pen.setAttribute('transform', 'translate(' + q.x.toFixed(1) + ',' + q.y.toFixed(1) + ')'); }
+
+  // 1 手ずつの描き方。p は 0（まだ）〜1（描き終わり）。位置は今の deg から毎回計算する
+  function line(el, from, to) { return function (p) {
+    vis(el, p > 0); if (p <= 0) return; var a = from(), b = lerp(a, to(), p);
+    el.setAttribute('x1', a.x); el.setAttribute('y1', a.y); el.setAttribute('x2', b.x); el.setAttribute('y2', b.y);
+    if (p < 1) penAt(b);
+  }; }
+  function text(el, str, pos, anchor) { return function (p) {
+    vis(el, p > 0); if (p <= 0) return; var s = str(), q = pos();
+    el.textContent = s.slice(0, Math.ceil(s.length * p));
+    el.setAttribute('x', q.x); el.setAttribute('y', q.y); el.setAttribute('text-anchor', (anchor && anchor()) || 'start');
+    if (p < 1) penAt({ x: q.x + (anchor && anchor() === 'end' ? -4 : s.length * 17 * p), y: q.y });
+  }; }
+  function arc(el, side) { return function (p) {
+    vis(el, p > 0); if (p <= 0) return; var r = 54, e = pt(r, deg * p, side);
+    el.setAttribute('d', 'M' + P.x + ' ' + P.y + ' L' + P.x + ' ' + (P.y - r) + ' A' + r + ' ' + r + ' 0 0 ' + (side < 0 ? 0 : 1) + ' ' + e.x + ' ' + e.y + ' Z');
+    if (p < 1) penAt(e);
+  }; }
+  function arrow(el, from, to, t) { return function (p) {
+    vis(el, p > 0); if (p <= 0) return; var a = from(), b = to(), m = lerp(a, b, t), g = Math.atan2(b.y - a.y, b.x - a.x), s = 14 * Math.min(1, p * 1.5);
+    function q(da, r) { return (m.x + r * Math.cos(g + da)).toFixed(1) + ',' + (m.y + r * Math.sin(g + da)).toFixed(1); }
+    el.setAttribute('points', q(0, s) + ' ' + q(2.5, s) + ' ' + q(-2.5, s));
+  }; }
+  function pop(el, where) { return function (p) {
+    vis(el, p > 0); if (p <= 0) return; var q = where();
+    el.setAttribute('transform', 'translate(' + q.x + ',' + q.y + ') scale(' + (0.4 + 0.6 * p).toFixed(2) + ')'); el.style.opacity = p;
+  }; }
+  function ticks(p) {
+    var g = $('ticks'); vis(g, p > 0); if (p <= 0) return;
+    if (!g.childNodes.length) for (var i = 0; i < 8; i++) { var l = document.createElementNS('http://www.w3.org/2000/svg', 'line'), x = 112 + i * 54;
+      l.setAttribute('x1', x); l.setAttribute('y1', P.y + 4); l.setAttribute('x2', x - 12); l.setAttribute('y2', P.y + 18); g.appendChild(l); }
+    for (var k = 0; k < 8; k++) vis(g.childNodes[k], k < Math.ceil(p * 8));
+  }
+  function S() { return pt(R, deg, -1); } function O() { return pt(R, deg, 1); }
+  function lab(side, dy) { return function () {
+    var q = deg >= 45 ? pt(96, deg / 2, side) : pt(104, deg + 14, side); return { x: q.x, y: q.y + dy }; }; }
+  function anc(side) { return function () { return deg >= 45 ? 'middle' : (side < 0 ? 'end' : 'start'); }; }
+  function halo(p) { $('halo').style.opacity = p; }
+
+  var STEPS = [
+    { say: '順番にいこう。まず、鏡を描くよ。', acts: [
+      [700, line($('mirror'), function () { return { x: 80, y: P.y }; }, function () { return { x: 520, y: P.y }; })],
+      [500, ticks],
+      [300, text($('tMirror'), function () { return '鏡'; }, function () { return { x: 84, y: P.y + 42 }; })] ] },
+    { say: '光源から、鏡に光を当ててみよう。', acts: [
+      [350, pop($('src'), S)],
+      [300, text($('tSrc'), function () { return '光源'; }, function () { var s = S(); return { x: s.x + 24, y: s.y + 6 }; })],
+      [900, line($('rayIn'), S, function () { return P; })],
+      [200, arrow($('arrIn'), S, function () { return P; }, 0.3)] ] },
+    { say: '鏡に垂直な線を引くよ。これを「法線」というんだ。', acts: [
+      [800, line($('normal'), function () { return P; }, function () { return { x: P.x, y: 60 }; })],
+      [350, text($('tNormal'), function () { return '法線'; }, function () { return { x: P.x + 8, y: 78 }; })] ] },
+    { say: '光は鏡ではね返る。これが「反射」。', acts: [
+      [900, line($('rayOut'), function () { return P; }, O)],
+      [200, arrow($('arrOut'), function () { return P; }, O, 0.78)] ] },
+    { say: '法線と、入ってくる光の間の角が「入射角」。', acts: [
+      [600, arc($('arcIn'), -1)],
+      [400, text($('nIn'), function () { return '入射角'; }, lab(-1, -24), anc(-1))],
+      [300, text($('vIn'), function () { return Math.round(deg) + '°'; }, lab(-1, 0), anc(-1))] ] },
+    { say: '法線と、はね返った光の間の角が「反射角」。くらべてみると…', acts: [
+      [600, arc($('arcOut'), 1)],
+      [400, text($('nOut'), function () { return '反射角'; }, lab(1, -24), anc(1))],
+      [300, text($('vOut'), function () { return Math.round(deg) + '°'; }, lab(1, 0), anc(1))] ] },
+    { say: 'ここがポイント。入射角と反射角は、いつも同じ。光源を動かして、たしかめてみよう。', acts: [ [500, halo] ] }
+  ];
+  var HOLD = 1500;   // 1 つの手のあと、次へ進むまでの間（読む時間）
+
+  // 先生は生徒がえらぶ。理科の中身（用語・順番・描くもの）は同じで、言い回しと声だけが先生ごとに変わる
+  var TEACHERS = [
+    { id: 'A', name: 'まる先生', tone: 'ていねい', pitch: 1.0, rate: 0.95 },
+    { id: 'B', name: 'しずく博士', tone: 'のんびり', pitch: 1.1, rate: 0.9 },
+    { id: 'C', name: 'ぷにカプセル', tone: '元気', pitch: 1.25, rate: 1.05 },
+    { id: 'D', name: 'もくもく先生', tone: 'ゆったり', pitch: 0.85, rate: 0.9 },
+    { id: 'E', name: 'キューブ先生', tone: 'きっちり', pitch: 1.0, rate: 1.0 },
+    { id: 'F', name: 'まめ博士', tone: 'わくわく', pitch: 1.2, rate: 1.0 }
+  ];
+  var LINES = {
+    A: ['だいじょうぶ、いっしょに見ていきましょう。まず、鏡を描きますよ。', '光源から、鏡に光を当ててみましょう。', '鏡に垂直な線を引きます。これを「法線」といいますよ。',
+      '光は鏡ではね返ります。これが「反射」ですよ。', '法線と、入ってくる光の間の角が「入射角」です。', '法線と、はね返った光の間の角が「反射角」です。くらべてみましょう。',
+      '入射角と反射角は、いつも同じですよ。光源を動かして、たしかめてみましょう。'],
+    B: ['よーく見てごらん。まず、鏡を描くよ。', '光源から、鏡に光を当ててみようかなあ。', '鏡に垂直な線を引くよ。これが「法線」だねえ。',
+      '光が鏡ではね返ったねえ。これが「反射」。', '法線と、入ってくる光の間の角が「入射角」だよ。', '法線と、はね返った光の間の角が「反射角」。くらべると、どうかなあ。',
+      '入射角と反射角は、いつも同じなんだねえ。光源を動かして、よーく見てごらん。'],
+    C: ['やってみよう！ まず、鏡を描くよ！', '光源から、鏡に光を当ててみよう！', '鏡に垂直な線を引くよ。これが「法線」だ！',
+      '光が鏡ではね返った！ これが「反射」だよ！', '法線と、入ってくる光の間の角が「入射角」だよ！', '法線と、はね返った光の間の角が「反射角」。くらべてみよう！',
+      '入射角と反射角は、いつも同じ！ 光源を動かして、やってみよう！'],
+    D: ['大きく考えよう。まず、鏡を描いてみるよ。', '光源から、鏡に光を当ててごらん。', '鏡に垂直な線を引くよ。これを「法線」というんだなあ。',
+      '光は鏡ではね返る。これが「反射」なんだなあ。', '法線と、入ってくる光の間の角が「入射角」。', '法線と、はね返った光の間の角が「反射角」。くらべてごらん。',
+      '入射角と反射角は、いつも同じなんだなあ。光源を動かして、たしかめてごらん。'],
+    E: ['順番にいこう。まず、鏡を描くよ。', '光源から、鏡に光を当ててみよう。', '鏡に垂直な線を引くよ。これを「法線」というんだ。',
+      '光は鏡ではね返る。これが「反射」。', '法線と、入ってくる光の間の角が「入射角」。', '法線と、はね返った光の間の角が「反射角」。くらべてみると…',
+      'ここがポイント。入射角と反射角は、いつも同じ。光源を動かして、たしかめてみよう。'],
+    F: ['のぞいてみよう。まず、鏡を描くよ。', '光源から、鏡に光を当ててみるね。', '鏡に垂直な線を引くよ。これは「法線」っていうんだって！',
+      '見つけた！ 光が鏡ではね返ったよ。これが「反射」。', '法線と、入ってくる光の間の角が「入射角」なんだって。', '法線と、はね返った光の間の角が「反射角」。くらべてみると… ふしぎだねえ。',
+      '入射角と反射角は、いつも同じなんだって！ 光源を動かして、たしかめてみよう。']
+  };
+  var teacher = TEACHERS[4];   // 「光の世界」のはじめの先生はキューブ先生
+  function L(k) { return LINES[teacher.id][k]; }
+  function choose(t) {
+    teacher = t; $('face').setAttribute('href', '#tutor' + t.id);
+    Array.prototype.forEach.call($('pick').children, function (b) { b.setAttribute('aria-checked', b.dataset.id === t.id ? 'true' : 'false'); });
+    $('pickNote').textContent = t.name + 'が、描きながら説明するよ。';
+    if (step !== undefined) talk(step);   // 出ている言葉も、えらんだ先生の言い回しに直す
+  }
+  TEACHERS.forEach(function (t) {
+    var b = document.createElement('button'); b.type = 'button'; b.setAttribute('role', 'radio'); b.dataset.id = t.id;
+    b.innerHTML = '<svg width="64" height="64"><use href="#tutor' + t.id + '"/></svg>';
+    var n = document.createElement('span'); n.textContent = t.name; var s = document.createElement('small'); s.textContent = t.tone;
+    b.appendChild(n); b.appendChild(s); b.addEventListener('click', function () { choose(t); }); $('pick').appendChild(b);
+  });
+
+  var dots = $('dots'); STEPS.forEach(function () { dots.appendChild(document.createElement('i')); });
+  function cap() {
+    var c = $('cap'); c.textContent = '';
+    if (step >= 5 || interactive) {
+      var a = document.createElement('span'), e = document.createElement('span'), b = document.createElement('span'), n = Math.round(deg);
+      a.textContent = '入射角 ' + n + '°'; a.style.color = '#176AA3'; e.textContent = '＝'; b.textContent = '反射角 ' + n + '°'; b.style.color = '#B23A36';
+      c.appendChild(a); c.appendChild(e); c.appendChild(b);
+    }
+    if (interactive) { var s = document.createElement('small'); s.textContent = 'オレンジの丸（光源）は指で動かせるよ'; c.appendChild(s); }
+  }
+  function talk(i) {
+    $('speechText').textContent = L(i);   // 今の言葉は、盤のすぐ上に出す（1 列の画面でも見える）
+    var box = $('talk'); box.textContent = '';
+    var h = document.createElement('div'); h.className = 'label'; h.textContent = 'ここまでの説明'; box.appendChild(h);
+    for (var k = 0; k <= i; k++) {            // 横のパネルには、ここまでの説明を番号つきで残す
+      var d = document.createElement('div'); d.className = 'say' + (k < i ? ' old' : '');
+      var p = document.createElement('p'); p.textContent = (k + 1) + '. ' + L(k); d.appendChild(p); box.appendChild(d);
+    }
+  }
+  function mark() { for (var k = 0; k < STEPS.length; k++) dots.childNodes[k].className = k < step ? 'done' : (k === step ? 'now' : ''); }
+  function runStep(k, p) { STEPS[k].acts.forEach(function (a) { a[1](p); }); }
+  function showUpTo(k) { for (var s = 0; s < STEPS.length; s++) runStep(s, s < k ? 1 : 0); pen.hidden = true; }
+
+  // 音声: あらかじめ作った音声ファイル（VOICEVOX Nemo）を再生する。1 手につき 1 ファイル
+  // DUR は各ファイルの長さ（秒）。描く速さを声の長さに合わせるために使う
+  var DUR = {"A":[5.24,3.31,4.38,4.27,4.35,5.81,6.34],"B":[3.56,3.32,3.78,4.16,4.09,6.08,6.45],"C":[3.23,3.26,3.7,3.97,4.36,5.3,5.66],"D":[3.98,3.03,4.13,3.86,3.96,5.01,6.18],"E":[3.7,3.13,3.9,3.65,3.83,4.97,7.25],"F":[3.4,3.18,4.26,4.81,4.59,6.28,6.33]};
+  var RATES = [0.5, 0.75, 1, 1.25, 1.5, 1.75, 2], rate = 1;   // 速さ: 0.5 倍〜2 倍、0.25 きざみ
+  var audio = new Audio(); audio.preload = 'auto';
+  var voiceOn = false, speaking = false, started = false, token = 0, fallback = 0;
+  function quiet() { token++; speaking = false; clearTimeout(fallback); audio.pause(); }
+  function speak(k) {
+    quiet(); if (!voiceOn) return;
+    var mine = token;
+    function end() { if (mine === token) { speaking = false; clearTimeout(fallback); } }
+    audio.onended = end;
+    audio.onerror = function () { end(); voiceFail('音声ファイルを読みこめませんでした'); };                    // 読みこめないときは、文字だけで先へ進む
+    audio.src = 'voice-samples/reflect/' + teacher.id + '/' + (k + 1) + '.mp3';
+    audio.defaultPlaybackRate = rate; audio.playbackRate = rate;
+    speaking = true; fallback = setTimeout(end, (DUR[teacher.id][k] / rate + 4) * 1000);   // 終わりの合図が来ないときのため
+    var p = audio.play();
+    if (p && p.catch) p.catch(function (e) { end(); voiceOn = false; soundLabel(); voiceFail('この画面では音を出せませんでした（' + ((e && e.name) || '理由不明') + '）'); });   // 再生を断られたら、音声をオフにして続ける
+  }
+  // 音が出せなかったときは、だまって消さずに、目に見える形で知らせる
+  function voiceFail(why) { var m = $('voiceMsg'); m.textContent = why + '。文字だけで続けます。Chrome か Edge でこのページをじかに開くと、声が聞けます。'; m.hidden = false; }
+  function soundLabel() { $('bSound').textContent = voiceOn ? '🔊 音声オン' : '🔇 音声オフ'; $('bSound').setAttribute('aria-pressed', voiceOn ? 'true' : 'false'); }
+  function rateLabel() {
+    $('rateText').textContent = rate + ' 倍'; $('bSlow').disabled = rate <= RATES[0]; $('bFast').disabled = rate >= RATES[RATES.length - 1];
+    audio.defaultPlaybackRate = rate; audio.playbackRate = rate;   // 再生中の声にも、すぐ反映する
+  }
+  function stepRate(d) { var i = RATES.indexOf(rate) + d; if (i >= 0 && i < RATES.length) { rate = RATES[i]; rateLabel(); } }
+  $('bSlow').addEventListener('click', function () { stepRate(-1); });
+  $('bFast').addEventListener('click', function () { stepRate(1); });
+  // 1 手を描く時間の倍率: 声があるときは、声の長さの 8 割で描き終わるように引きのばす
+  function stretch(k) {
+    var sum = STEPS[k].acts.reduce(function (a, b) { return a + b[0]; }, 0);
+    return voiceOn ? Math.max(1, DUR[teacher.id][k] * 800 / sum) : 1;
+  }
+
+  var step = 0, act = 0, t0 = 0, playing = true, holdUntil = 0, raf = 0;
+  function begin(k) { step = k; act = 0; t0 = 0; holdUntil = 0; showUpTo(k); talk(k); mark(); cap(); $('bBack').disabled = k === 0; if (started) speak(k); }
+  rateLabel();
+  function start(withVoice) { voiceOn = !!withVoice; started = true; $('start').hidden = true; soundLabel(); speak(step); }
+  choose(teacher);
+  $('bTeacher').addEventListener('click', function () {   // 先生をかえると、説明は 1 手目からやり直す
+    quiet(); started = false; playing = true; $('bPlay').textContent = '⏸ 止める'; $('start').hidden = false; begin(0);
+  });
+  $('bVoice').addEventListener('click', function () { start(true); });
+  $('bMute').addEventListener('click', function () { start(false); });
+  $('bSound').addEventListener('click', function () { voiceOn = !voiceOn; soundLabel(); if (voiceOn) speak(step); else quiet(); });
+  function finishStep() { runStep(step, 1); pen.hidden = true; act = STEPS[step].acts.length; cap(); }
+  function tick(now) {
+    raf = requestAnimationFrame(tick);
+    if (interactive || !playing || !started) return;
+    var acts = STEPS[step].acts;
+    if (act < acts.length) {
+      if (!t0) t0 = now;
+      var dur = reduce ? 1 : acts[act][0] * stretch(step) / rate, p = Math.min(1, (now - t0) / dur);
+      acts[act][1](p);
+      if (p >= 1) { act++; t0 = 0; if (act >= acts.length) { pen.hidden = true; holdUntil = now + HOLD / rate; cap(); } }
+    } else if (now >= holdUntil && !speaking) {   // 描き終わりと、読み終わりの両方を待つ
+      if (step + 1 < STEPS.length) begin(step + 1); else finish();
+    }
+  }
+  function finish() {
+    quiet(); showUpTo(STEPS.length); interactive = true; pen.hidden = true; step = STEPS.length - 1; mark();
+    dots.childNodes[step].className = 'done';
+    $('controls').hidden = true; $('after').hidden = false; $('bReplay').hidden = false;
+    talk(STEPS.length - 1); cap(); $('src').style.cursor = 'grab';
+  }
+  $('bPlay').addEventListener('click', function () { playing = !playing; t0 = 0; this.textContent = playing ? '⏸ 止める' : '▶ 再生'; if (voiceOn && speaking) { if (playing) audio.play(); else audio.pause(); } });
+  $('bNext').addEventListener('click', function () {
+    if (act < STEPS[step].acts.length) { quiet(); finishStep(); holdUntil = performance.now() + HOLD; return; }
+    if (step + 1 < STEPS.length) begin(step + 1); else finish();
+  });
+  $('bBack').addEventListener('click', function () { if (step > 0) begin(act === 0 || step === 0 ? step - 1 : step - 1); });
+  $('bSkip').addEventListener('click', finish);
+  $('bReplay').addEventListener('click', function () {
+    interactive = false; deg = 37; playing = true; $('bPlay').textContent = '⏸ 止める';
+    $('controls').hidden = false; $('after').hidden = true; $('bReplay').hidden = true; $('src').style.cursor = ''; begin(0);
+  });
+
+  // 説明が終わったあと: 自分で動かす
+  var dragging = false, svg = $('b');
+  $('src').addEventListener('pointerdown', function (e) { if (!interactive) return; dragging = true; $('src').setPointerCapture(e.pointerId); });
+  $('src').addEventListener('pointermove', function (e) {
+    if (!dragging) return; var r = svg.getBoundingClientRect();
+    var x = (e.clientX - r.left) * 600 / r.width, y = (e.clientY - r.top) * 360 / r.height;
+    deg = Math.min(80, Math.max(0, Math.atan2(P.x - x, P.y - y) * 180 / Math.PI));
+    showUpTo(STEPS.length); cap();
+    if (Math.abs(deg - 60) <= 2) { $('try1').className = 'try done'; $('try1m').textContent = '✓'; }
+  });
+  function up() { dragging = false; }
+  $('src').addEventListener('pointerup', up); $('src').addEventListener('pointercancel', up);
+
+  // 録画用: 時刻 ms（ミリ秒）の画面を、その場で 1 枚描く（動画を作る道具から呼ぶ。ふだんの動きには関係しない）
+  window.__mock = {
+    timeline: function (teacherId) {
+      choose(TEACHERS.filter(function (x) { return x.id === teacherId; })[0] || teacher); voiceOn = true;
+      var t = 0;
+      return STEPS.map(function (s, k) {
+        var draw = s.acts.reduce(function (a, b) { return a + b[0]; }, 0) * stretch(k), len = Math.max(draw, DUR[teacher.id][k] * 1000) + HOLD;
+        var o = { start: t, draw: Math.round(draw), len: Math.round(len) }; t += len; return o;
+      });
+    },
+    renderAt: function (ms, teacherId) {
+      cancelAnimationFrame(raf); started = true; interactive = false; document.body.classList.add('rec');
+      var tl = this.timeline(teacherId), last = tl[tl.length - 1]; soundLabel();
+      $('controls').hidden = false; $('after').hidden = true; $('bReplay').hidden = true;
+      if (ms < 0) { $('start').hidden = false; step = 0; showUpTo(0); talk(0); mark(); cap(); return; }
+      $('start').hidden = true;
+      if (ms >= last.start + last.len) { finish(); return; }
+      var k = 0; while (k + 1 < tl.length && ms >= tl[k + 1].start) k++;
+      step = k; showUpTo(k); talk(k); mark();
+      var local = ms - tl[k].start, st = stretch(k), acc = 0, all = true;
+      STEPS[k].acts.forEach(function (a) { var d = a[0] * st, p = Math.max(0, Math.min(1, (local - acc) / d)); a[1](p); if (p < 1) all = false; acc += d; });
+      act = all ? STEPS[k].acts.length : 0; if (all) pen.hidden = true; cap();
+    }
+  };
+
+  begin(0); raf = requestAnimationFrame(tick);
+})();
+</script>
+</body>
+</html>

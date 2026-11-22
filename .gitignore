@@ -2,3 +2,7 @@ node_modules/
 *.local.json
 .superpowers/
 .claude/
+# 見本づくりの大きな生成物（音声入りの見本・動画・聞きくらべ用の音声）は入れない
+docs/mockups/video/
+docs/mockups/voice-samples/
+docs/mockups/whiteboard-animation-mockup-with-voice.html

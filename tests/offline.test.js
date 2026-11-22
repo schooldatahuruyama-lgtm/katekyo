@@ -60,7 +60,7 @@ test('install は必要なファイルをまとめてキャッシュする', asy
 
 test('activate は自分の古い版だけを消す', async () => {
   const deleted = [];
-  const sw = worker({ caches: { keys: async () => ['other-app', 'hikari-board-old', sw.value('CACHE_NAME')],
+  const sw = worker({ caches: { keys: async () => ['other-app', 'hikari-board-old', 'hikari-board-audio-v1', sw.value('CACHE_NAME')],
     delete: async key => { deleted.push(key); } } });
   let pending;
   sw.handlers.activate({ waitUntil: promise => { pending = promise; } });
@@ -113,4 +113,149 @@ test('Service Worker は http(s) だけで登録し、利用不可でも続け�
   assert.doesNotThrow(() => app.registerWorker(win)); assert.equal(warnings, 2);
   delete win.navigator.serviceWorker;
   assert.doesNotThrow(() => app.registerWorker(win)); assert.equal(warnings, 3);
+});
+
+test('説明用JSと先生6体を事前保存し、音声は事前保存しない。依存は描画・アプリより先に読む', () => {
+  const html = read('index.html'), cache = Array.from(worker().value('PRECACHE'));
+  const dependencies = ['content/scripts-light.js', 'content/voice-light.js', 'js/explain.js', 'js/prefs.js', 'js/voice.js'];
+  for (const file of dependencies) {
+    assert.ok(cache.includes(file), file);
+    assert.ok(html.indexOf(file) > html.indexOf('js/config.js'));
+    assert.ok(html.indexOf(file) < html.indexOf('js/board-view.js'));
+    assert.ok(html.indexOf(file) < html.indexOf('js/app.js'));
+  }
+  for (const id of 'ABCDEF') assert.ok(cache.includes('assets/mascots/mascot_' + id + '.svg'));
+  assert.ok(cache.every(file => !file.startsWith('assets/audio/')));
+  assert.equal(worker().value('AUDIO_CACHE'), 'hikari-board-audio-v1');
+});
+
+test('音声専用キャッシュを先に見て、通信せず返す', async () => {
+  const asset = { status: 200 }, opened = [];
+  const sw = worker({ caches: { open: async name => { opened.push(name); return { match: async () => asset }; } },
+    fetch: () => assert.fail('保存済み音声は通信しない') });
+  let response;
+  sw.handlers.fetch({ request: { url: 'https://example.test/app/assets/audio/light/reflect/E/01.mp3', method: 'GET' },
+    respondWith: promise => { response = promise; } });
+  assert.equal(await response, asset); assert.deepEqual(opened, ['hikari-board-audio-v1']);
+});
+
+for (const status of [200, 206, 404, 500]) {
+  test(`未保存の音声: status ${status} は200のときだけ保存する`, async () => {
+    const copy = {}, asset = { status, clone: () => copy }, put = [];
+    const request = { url: 'https://example.test/app/assets/audio/light/reflect/E/01.mp3', method: 'GET' };
+    const sw = worker({ caches: { open: async () => ({ match: async () => undefined,
+      put: async (...args) => put.push(args), keys: async () => [] }) }, fetch: async () => asset });
+    let response; sw.handlers.fetch({ request, respondWith: promise => { response = promise; } });
+    assert.equal(await response, asset);
+    assert.deepEqual(put, status === 200 ? [[request, copy]] : []);
+  });
+}
+
+test('未保存の音声が通信に失敗したら、失敗をアプリへ返す', async () => {
+  const failure = new Error('offline');
+  const sw = worker({ caches: { open: async () => ({ match: async () => undefined,
+    put: () => assert.fail('保存しない') }) }, fetch: async () => { throw failure; } });
+  let response;
+  sw.handlers.fetch({ request: { url: 'https://example.test/app/assets/audio/light/reflect/E/01.mp3', method: 'GET' },
+    respondWith: promise => { response = promise; } });
+  await assert.rejects(response, error => error === failure);
+});
+
+function audioCache(options = {}) {
+  const prefix = 'https://example.test/app/', file = prefix + 'assets/audio/light/reflect/E/01.mp3';
+  const entries = new Map(), opened = [], fetched = [], deleted = [], warnings = [];
+  const asset = new Response('new voice', { status: options.status || 200 });
+  const sw = worker({ console: { warn: (...args) => warnings.push(args) },
+    caches: { open: async name => {
+      opened.push(name);
+      return {
+        match: async (request, matchOptions = {}) => {
+          if (matchOptions.ignoreSearch) return [...entries].find(([url]) => url.split('?')[0] === request.url.split('?')[0])?.[1];
+          return entries.get(request.url);
+        },
+        put: async (request, response) => {
+          if (options.fail === 'put') throw new Error('full');
+          entries.set(request.url, response);
+        },
+        keys: async () => [...entries.keys()].map(url => ({ url })),
+        delete: async request => {
+          if (options.fail === 'delete') throw new Error('cannot delete');
+          deleted.push(request.url); return entries.delete(request.url);
+        },
+      };
+    } },
+    fetch: async request => {
+      fetched.push(request.url);
+      if (options.fail === 'fetch') throw new Error('offline');
+      return asset;
+    },
+  });
+  function request(url) {
+    let response;
+    sw.handlers.fetch({ request: { url, method: 'GET' }, respondWith: promise => { response = promise; } });
+    return response;
+  }
+  return { prefix, file, entries, opened, fetched, deleted, warnings, asset, request, sw };
+}
+
+test('新しい印の音声を通信で保存し、同じパスで印だけ違う古い音声を消す', async () => {
+  const f = audioCache(), old = new Response('old voice');
+  f.entries.set(f.file + '?h=aaa', old);
+  const unrelated = [f.file.replace('01.mp3', '02.mp3') + '?h=aaa', f.file + '?h=aaa&other=1'];
+  unrelated.forEach(url => f.entries.set(url, old));
+  const response = await f.request(f.file + '?h=bbb');
+  assert.equal(response, f.asset); assert.equal(await response.text(), 'new voice');
+  assert.deepEqual(f.fetched, [f.file + '?h=bbb']);
+  assert.deepEqual(f.deleted, [f.file + '?h=aaa']);
+  assert.equal(f.entries.has(f.file + '?h=aaa'), false);
+  assert.equal(await f.entries.get(f.file + '?h=bbb').clone().text(), 'new voice');
+  unrelated.forEach(url => assert.ok(f.entries.has(url)));
+  assert.deepEqual(f.warnings, []);
+});
+
+test('同じ印をもう一度求めると保存した音声を返し、通信しない', async () => {
+  const f = audioCache(), url = f.file + '?h=bbb';
+  await f.request(url);
+  assert.equal(await f.request(url), f.entries.get(url));
+  assert.deepEqual(f.fetched, [url]);
+  assert.deepEqual(f.opened, [f.sw.value('AUDIO_CACHE'), f.sw.value('AUDIO_CACHE')]);
+});
+
+for (const fail of ['put', 'delete']) {
+  test(`音声キャッシュの${fail}が失敗しても、通信の200応答をそのまま返す`, async () => {
+    const f = audioCache({ fail });
+    f.entries.set(f.file + '?h=aaa', new Response('old voice'));
+    const response = await f.request(f.file + '?h=bbb');
+    assert.equal(response, f.asset); assert.equal(response.status, 200);
+    assert.equal(await response.text(), 'new voice');
+    assert.equal(f.warnings.length, 1);
+    assert.equal(f.entries.has(f.file + '?h=aaa'), true);
+    assert.equal(f.entries.has(f.file + '?h=bbb'), fail === 'delete');
+  });
+}
+
+test('新しい印が未保存で通信に失敗したら、別の印の音声で代用しない', async () => {
+  const f = audioCache({ fail: 'fetch' });
+  f.entries.set(f.file + '?h=aaa', new Response('old voice'));
+  await assert.rejects(f.request(f.file + '?h=bbb'), /offline/);
+  assert.equal(f.entries.has(f.file + '?h=bbb'), false);
+  assert.deepEqual(f.deleted, []);
+});
+
+test('新しい印の404応答は保存せず、そのまま返して古い保存も残す', async () => {
+  const f = audioCache({ status: 404 });
+  f.entries.set(f.file + '?h=aaa', new Response('old voice'));
+  assert.equal(await f.request(f.file + '?h=bbb'), f.asset);
+  assert.equal(f.entries.has(f.file + '?h=bbb'), false);
+  assert.deepEqual(f.deleted, []);
+});
+
+test('音声以外はアプリ本体のキャッシュを使い、未保存なら通信の応答を返す', async () => {
+  const f = audioCache(), url = f.prefix + 'js/scene.js', cached = new Response('app');
+  f.entries.set(url, cached);
+  assert.equal(await f.request(url), cached); assert.deepEqual(f.fetched, []);
+  const missing = f.prefix + 'js/app.js';
+  assert.equal(await f.request(missing), f.asset);
+  assert.deepEqual(f.fetched, [missing]); assert.equal(f.entries.has(missing), false);
+  assert.deepEqual(f.opened, [f.sw.value('CACHE_NAME'), f.sw.value('CACHE_NAME')]);
 });
