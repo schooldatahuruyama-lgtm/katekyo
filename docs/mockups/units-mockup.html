@@ -1,0 +1,619 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ほかの単元（中 1 音の世界）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+
+<h1>ほかの単元 モックアップ（最初は中 1「音の世界」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>設計書: <code>docs/superpowers/specs/2026-11-25-more-units-design.md</code> ／ 先生向けの一覧（案）: <code>docs/reports/sound-boards-draft.md</code></p>
+  <p>見てほしい点（設計書 2 章の表）:</p>
+  <ol>
+    <li><b>表 1</b>: 最初に足す単元を「中 1 音の世界」（盤 3 種類）にすること。</li>
+    <li><b>表 3</b>: 単元をえらぶ画面は作らず、ホームの 1 ページに単元ごとの見出しで並べること（案 A）。比較用に案 B も置いています。</li>
+    <li><b>表 6</b>: 音の世界は、はじめは文字だけの説明（先生の声なし）にすること。先生をえらぶ画面に「🔊 音声ありで見る」を出さず、「この単元の音声は準備中です（文字で説明します）」を出すこと。文は読み終える時間が過ぎるまで次へ進みません。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（波の数と Hz、振幅と目もり、680 m と 2.0 秒と 340 m/s）。先生の絵は、丸や四角の簡単な図で代えています。</p>
+</div>
+
+<!-- ============================== 1. ホーム 案 A ============================== -->
+<h2 class="sec">1. ホーム 案 A（すすめる案）</h2>
+<p class="note">1 ページに、単元ごとの見出しで盤を並べます。盤を開くまでに押すのは今と同じ 1 回。URL（<code>?board=…</code>）と戻る操作も今のまま。</p>
+
+<h3 class="sub">パソコンの幅</h3>
+<p class="narrow-note">この画面の幅では、パソコンの幅の見本を省いています。下の「幅 375px」の見本を見てください。</p>
+<div class="frame wide wide-only">
+  <header class="bar"><div class="brand">ひかりボード</div>
+    <div class="statuses"><span class="chip online"><span class="dot"></span>オンライン</span><span class="chip wait">AI は準備中</span></div></header>
+  <section class="home">
+    <h1 class="hero">つまずいたら、<span class="mark">動かして確かめよう。</span></h1>
+    <p class="lead">盤の上の部品を指で動かすと、図や値がその場で変わります。</p>
+    <section class="list">
+      <h2>中 1 光の世界 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">直進</span><span class="question">光はどう進む？ 影はなぜできる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">反射</span><span class="question">鏡ではね返る光のきまりは？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">鏡の像</span><span class="question">鏡の奥に見えるものは、どこにある？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">屈折・全反射</span><span class="question">水に入ると、光はなぜ曲がる？ 出られなくなるのはいつ？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">凸レンズ</span><span class="question">虫めがねは、なぜ光を集める？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">実像と虚像</span><span class="question">スクリーンに映る像と、映らない像のちがいは？</span><span class="arrow">→</span></button>
+    </section>
+    <section class="list">
+      <h2>中 1 音の世界 ― ボードをえらぶ<span class="new">NEW</span></h2>
+      <button class="rowb" type="button"><span class="name">音の大きさと高さ</span><span class="question">大きい音と高い音は、波の形のどこがちがう？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">弦の音</span><span class="question">弦をどうすると、音は高くなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">音の速さ</span><span class="question">花火は、なぜ光ってから音が聞こえる？</span><span class="arrow">→</span></button>
+    </section>
+    <p class="foot">一度開けば、通信がなくても使えます。</p>
+    <p class="foot">音声: VOICEVOX Nemo（女声 2・3・4、男声 1・2・3）</p>
+  </section>
+</div>
+<p class="note">「NEW」の印は案です（なくてもよい）。盤の名前の列は、音の盤の名前が長いので、今の 110px より広げています（設計書 3.1 節）。</p>
+
+<h3 class="sub">幅 375px（スマートフォン）</h3>
+<div class="frame phone">
+  <header class="bar"><div class="brand">ひかりボード</div>
+    <div class="statuses"><span class="chip online"><span class="dot"></span>オンライン</span><span class="chip wait">AI は準備中</span></div></header>
+  <section class="home">
+    <h1 class="hero">つまずいたら、<br><span class="mark">動かして確かめよう。</span></h1>
+    <p class="lead">盤の上の部品を指で動かすと、図や値がその場で変わります。</p>
+    <section class="list">
+      <h2>中 1 光の世界 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">直進</span><span class="question">光はどう進む？ 影はなぜできる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">反射</span><span class="question">鏡ではね返る光のきまりは？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">鏡の像</span><span class="question">鏡の奥に見えるものは、どこにある？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">屈折・全反射</span><span class="question">水に入ると、光はなぜ曲がる？ 出られなくなるのはいつ？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">凸レンズ</span><span class="question">虫めがねは、なぜ光を集める？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">実像と虚像</span><span class="question">スクリーンに映る像と、映らない像のちがいは？</span><span class="arrow">→</span></button>
+    </section>
+    <section class="list">
+      <h2>中 1 音の世界 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">音の大きさと高さ</span><span class="question">大きい音と高い音は、波の形のどこがちがう？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">弦の音</span><span class="question">弦をどうすると、音は高くなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">音の速さ</span><span class="question">花火は、なぜ光ってから音が聞こえる？</span><span class="arrow">→</span></button>
+    </section>
+    <p class="foot">一度開けば、通信がなくても使えます。</p>
+  </section>
+</div>
+<p class="note">幅 375px では、名前と問いかけを 2 行に分けて、横にはみ出さないようにします。</p>
+
+<!-- ============================== 2. ホーム 案 B ============================== -->
+<h2 class="sec">2. ホーム 案 B（比較用）</h2>
+<p class="note"><b>ちがい</b>: 案 B は、盤を開くまでに押す回数が 1 回ふえる（単元 → 盤）。戻る操作も 1 段ふえる。案 A は今と同じ 1 回。</p>
+<div class="frame small">
+  <header class="bar"><div class="brand">ひかりボード</div></header>
+  <section class="home">
+    <p class="hero" style="font-size:20px">単元をえらぶ</p>
+    <button class="unit-card" type="button"><b>中 1 光の世界</b><span>6 つのボード（直進・反射・屈折 など）</span><i>→</i></button>
+    <button class="unit-card" type="button"><b>中 1 音の世界</b><span>3 つのボード（音の大きさと高さ・弦・音の速さ）</span><i>→</i></button>
+    <p class="foot">単元を押すと、その単元のボードの一覧が出ます。</p>
+  </section>
+</div>
+
+<!-- ============================== 3. sound-wave ============================== -->
+<h2 class="sec">3. 盤「音の大きさと高さ」（<code>sound-wave</code>）— 自分で動かす状態</h2>
+<p class="note">はじめの配置: 振動数 250 Hz、振幅 目もり 2 つ分。横軸は 10 目もりで 1 目もり 0.001 秒（全体 0.01 秒）。250 Hz × 0.01 秒 ＝ 波 2.5 回（1 回の振動 ＝ 4 目もり ＝ 0.004 秒）。</p>
+<p class="note">つまみの位置: 振幅のつまみ（↕）は、左から 9 目もりの縦線の上に固定で、高さが振幅を表します（山の高さの破線の上）。振動数を変えても横には動かないので、波が 1 回しか入らない 100 Hz でも盤の中にあります。この見本の 250 Hz では、ちょうど 3 つ目の山の頂上に重なっています。振動数のつまみ（↔）は 1 回目の振動の終わりで、1000 Hz で左から 1 目もり、100 Hz で右のはしです。</p>
+
+<h3 class="sub">パソコンの幅</h3>
+<p class="narrow-note">この画面の幅では、パソコンの幅の見本を省いています。下の「幅 375px」の見本を見てください。</p>
+<div class="frame wide wide-only">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の大きさと高さ</h1>
+    <div class="statuses"><span class="chip online"><span class="dot"></span>オンライン</span><span class="chip wait">AI は準備中</span></div></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>波の形で音をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="振動数 250 ヘルツ、振幅 目もり 2 つ分の波形">
+          <path d="M50 70V390M102 70V390M154 70V390M206 70V390M258 70V390M310 70V390M362 70V390M414 70V390M466 70V390M518 70V390M570 70V390" stroke="#E3DBC8" stroke-width="1.5" fill="none"/>
+          <path d="M50 70H570M50 110H570M50 150H570M50 190H570M50 270H570M50 310H570M50 350H570M50 390H570" stroke="#E3DBC8" stroke-width="1.5" fill="none"/>
+          <path d="M50 230H570" stroke="#67748B" stroke-width="2.5"/>
+          <!-- 音源（おんさ）と振動の印 -->
+          <path d="M22 14v30a10 10 0 0 0 20 0v-30M32 54v12" stroke="#1B2430" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M12 20q-6 8 0 16M52 20q6 8 0 16" stroke="#176AA3" stroke-width="2.5" fill="none"/>
+          <text x="62" y="42" font-size="19">音源（おんさ）</text>
+          <text x="586" y="42" font-size="19" text-anchor="end">振動数 250 Hz</text>
+          <!-- 1 回の振動の区切り -->
+          <path d="M50 118v14M50 125H258M258 118v14" stroke="#216E43" stroke-width="2.5" fill="none"/>
+          <text x="154" y="112" font-size="19" text-anchor="middle" style="fill:#216E43">1 回の振動（4 目もり）</text>
+          <!-- 波形: 2.5 回 -->
+          <path d="M50 230c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80c16.96 40.98 33.26 80 52 80c18.74 0 35.04 -39.02 52 -80c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80c16.96 40.98 33.26 80 52 80c18.74 0 35.04 -39.02 52 -80c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80" stroke="#176AA3" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <!-- 振幅の矢印 -->
+          <path d="M30 150H518" stroke="#67748B" stroke-width="2" stroke-dasharray="6 5"/>
+          <path d="M30 156V224" stroke="#B23A36" stroke-width="3"/>
+          <polygon points="30,144 24,156 36,156" fill="#B23A36"/><polygon points="30,236 24,224 36,224" fill="#B23A36"/>
+          <text x="10" y="262" font-size="19" style="fill:#B23A36">振幅</text>
+          <!-- つまみ: 振幅（左から 9 目もりの縦線の上に固定。高さ ＝ 振幅）と振動数（1 回目の振動の終わり） -->
+          <circle class="knob" cx="518" cy="150" r="28"/><text class="knob-mark" x="518" y="157" font-size="22" text-anchor="middle">↕</text>
+          <circle class="knob" cx="258" cy="230" r="28"/><text class="knob-mark" x="258" y="237" font-size="22" text-anchor="middle">↔</text>
+          <text x="50" y="414" font-size="19">1 目もり ＝ 0.001 秒</text>
+          <text x="570" y="414" font-size="19" text-anchor="end">0.01 秒</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>振動数 250 Hz</span><span>振幅 目もり 2 つ分</span></div>
+        <span class="how">白い丸で、振幅（上下）と振動数（左右）を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>振幅を目もり 4 つ分にして、大きい音にしてみよう。</span></li>
+        <li class="try done"><span class="box">✓</span><span>振動数を 500 Hz にして、波の数が 2 倍になるのを見よう。 できた！</span></li>
+        <li class="try"><span class="box">□</span><span>振動数を 100 Hz にして、いちばん低い音にしてみよう。</span></li>
+      </ul>
+      <div class="ask">先生への質問は準備中です（今は使えません）</div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+      <button class="btn" type="button">▶ もう一度、説明を見る</button>
+    </aside>
+  </div>
+</div>
+<p class="note">（見本の「できた ✓」は、一度 500 Hz にしてから 250 Hz にもどした状態の例。✓ は動かしても消えません。今の盤と同じ。）</p>
+
+<h3 class="sub">幅 375px（スマートフォン）</h3>
+<p class="note">盤が縮んでも、盤の中の文字は実表示で 16px 以上、つまみは半径 24px 以上に見えるように、盤の表示幅から大きさを計算します（今の <code>js/view-math.js</code> の <code>sizes()</code> と同じ考え方）。この見本は、盤の表示幅 300px 以上で文字 16px・つまみ半径 24px 以上になる大きさで描いています。</p>
+<div class="frame phone">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の大きさと高さ</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>波の形で音をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="振動数 250 ヘルツ、振幅 目もり 2 つ分の波形（スマートフォンの幅）">
+          <path d="M50 70V390M102 70V390M154 70V390M206 70V390M258 70V390M310 70V390M362 70V390M414 70V390M466 70V390M518 70V390M570 70V390" stroke="#E3DBC8" stroke-width="2" fill="none"/>
+          <path d="M50 70H570M50 110H570M50 150H570M50 190H570M50 270H570M50 310H570M50 350H570M50 390H570" stroke="#E3DBC8" stroke-width="2" fill="none"/>
+          <path d="M50 230H570" stroke="#67748B" stroke-width="4"/>
+          <path d="M22 14v30a10 10 0 0 0 20 0v-30M32 54v12" stroke="#1B2430" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M12 20q-6 8 0 16M52 20q6 8 0 16" stroke="#176AA3" stroke-width="4" fill="none"/>
+          <text x="62" y="46" font-size="32">音源</text>
+          <text x="586" y="46" font-size="32" text-anchor="end">250 Hz</text>
+          <path d="M50 116v18M50 125H258M258 116v18" stroke="#216E43" stroke-width="4" fill="none"/>
+          <text x="154" y="110" font-size="32" text-anchor="middle" style="fill:#216E43">1 回の振動</text>
+          <path d="M50 230c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80c16.96 40.98 33.26 80 52 80c18.74 0 35.04 -39.02 52 -80c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80c16.96 40.98 33.26 80 52 80c18.74 0 35.04 -39.02 52 -80c16.96 -40.98 33.26 -80 52 -80c18.74 0 35.04 39.02 52 80" stroke="#176AA3" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M30 150H518" stroke="#67748B" stroke-width="3" stroke-dasharray="8 6"/>
+          <path d="M30 160V220" stroke="#B23A36" stroke-width="5"/>
+          <polygon points="30,144 21,162 39,162" fill="#B23A36"/><polygon points="30,236 21,218 39,218" fill="#B23A36"/>
+          <text x="6" y="274" font-size="32" style="fill:#B23A36">振幅</text>
+          <circle class="knob" cx="518" cy="150" r="48" style="stroke-width:5"/><text class="knob-mark" x="518" y="162" font-size="34" text-anchor="middle">↕</text>
+          <circle class="knob" cx="258" cy="230" r="48" style="stroke-width:5"/><text class="knob-mark" x="258" y="242" font-size="34" text-anchor="middle">↔</text>
+          <text x="50" y="416" font-size="32">1 目もり＝0.001 秒</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>振動数 250 Hz</span><span>振幅 目もり 2 つ分</span></div>
+        <span class="how">白い丸で、振幅（上下）と振動数（左右）を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>振幅を目もり 4 つ分にして、大きい音にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>振動数を 500 Hz にして、波の数が 2 倍になるのを見よう。</span></li>
+        <li class="try"><span class="box">□</span><span>振動数を 100 Hz にして、いちばん低い音にしてみよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+<p class="note">盤の表示幅 300px のとき: 文字 32 × 300 ÷ 600 ＝ 16px、つまみ 48 × 300 ÷ 600 ＝ 半径 24px。幅 375px の画面では盤の表示幅は約 335px なので、文字は約 18px、つまみは半径約 27px。</p>
+
+<!-- ============================== 4. sound-string ============================== -->
+<h2 class="sec">4. 盤「弦の音」（<code>sound-string</code>）— 自分で動かす状態</h2>
+<p class="note">はじめの配置: 長さ 80（いちばん長いときを 100）、細い弦、張りが弱い、はじく強さ 2。この配置の音は波 2.5 回（中の計算で 250 Hz 相当。数は生徒に見せない）。盤の下の値は、はじめとくらべた言葉で出します。見本は、はじめの配置のままの状態です。</p>
+
+<h3 class="sub">パソコンの幅</h3>
+<p class="narrow-note">この画面の幅では、パソコンの幅の見本を省いています。下の「幅 375px」の見本を見てください。</p>
+<div class="frame wide wide-only">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">弦の音</h1>
+    <div class="statuses"><span class="chip online"><span class="dot"></span>オンライン</span><span class="chip wait">AI は準備中</span></div></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>弦をかえて音をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="モノコードと、その音の波形">
+          <!-- モノコード -->
+          <rect x="40" y="118" width="520" height="44" rx="6" fill="#F1E6CF" stroke="#5B6676" stroke-width="2.5"/>
+          <polygon points="60,100 52,118 68,118" fill="#5B6676"/>
+          <path d="M60 100H540" stroke="#1B2430" stroke-width="3"/>
+          <circle cx="540" cy="100" r="5" fill="#1B2430"/>
+          <!-- 弦のふるえ（ことじまで） -->
+          <path d="M60 100Q252 60 444 100M60 100Q252 140 444 100" stroke="#176AA3" stroke-width="2.5" fill="none"/>
+          <polygon points="444,100 430,118 458,118" fill="#67748B"/>
+          <text x="500" y="88" font-size="19" text-anchor="middle">弦</text>
+          <text x="290" y="66" font-size="19">はじく強さ</text>
+          <text x="444" y="192" font-size="19" text-anchor="middle">ことじ</text>
+          <!-- その音の波形 -->
+          <text x="50" y="220" font-size="19">この音の波の形</text>
+          <path d="M50 230V390M102 230V390M154 230V390M206 230V390M258 230V390M310 230V390M362 230V390M414 230V390M466 230V390M518 230V390M570 230V390" stroke="#E3DBC8" stroke-width="1.5" fill="none"/>
+          <path d="M50 230H570M50 270H570M50 350H570M50 390H570" stroke="#E3DBC8" stroke-width="1.5" fill="none"/>
+          <path d="M50 310H570" stroke="#67748B" stroke-width="2.5"/>
+          <path d="M50 310c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40c16.96 20.49 33.26 40 52 40c18.74 0 35.04 -19.51 52 -40c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40c16.96 20.49 33.26 40 52 40c18.74 0 35.04 -19.51 52 -40c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40" stroke="#176AA3" stroke-width="4" fill="none" stroke-linecap="round"/>
+          <path d="M30 274V306" stroke="#B23A36" stroke-width="3"/>
+          <polygon points="30,264 24,276 36,276" fill="#B23A36"/><polygon points="30,316 24,304 36,304" fill="#B23A36"/>
+          <text x="8" y="342" font-size="19" style="fill:#B23A36">振幅</text>
+          <!-- つまみ: はじく強さ、ことじ -->
+          <circle class="knob" cx="252" cy="80" r="28"/><text class="knob-mark" x="252" y="87" font-size="22" text-anchor="middle">↕</text>
+          <circle class="knob" cx="444" cy="140" r="28"/><text class="knob-mark" x="444" y="147" font-size="22" text-anchor="middle">↔</text>
+          <text x="50" y="414" font-size="19">横の 1 目もり ＝ 0.001 秒</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>音の高さ はじめと同じ</span><span>音の大きさ はじめと同じ</span></div>
+        <span class="how">白い丸で、ことじとはじく強さを動かせるよ。下の切り替えもためそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>弦を短くしたり張りを強くしたりして、はじめより高い音にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>弦を太いものに替えて、音の高さをくらべよう。</span></li>
+        <li class="try"><span class="box">□</span><span>強くはじいて、はじめより大きい音にしてみよう。</span></li>
+      </ul>
+      <div class="seg" role="group" aria-label="弦の太さ"><span class="seg-name">弦の太さ</span>
+        <button type="button" aria-pressed="true">✓ 細い</button><button type="button" aria-pressed="false">太い</button></div>
+      <div class="seg" role="group" aria-label="弦の張り"><span class="seg-name">弦の張り</span>
+        <button type="button" aria-pressed="true">✓ 弱い</button><button type="button" aria-pressed="false">強い</button></div>
+      <div class="ask">先生への質問は準備中です（今は使えません）</div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+      <button class="btn" type="button">▶ もう一度、説明を見る</button>
+    </aside>
+  </div>
+</div>
+<p class="note">切り替えは、えらんでいるものを青の塗りと「✓」で示します（色だけで区別しない）。4 通り（細い・太い × 弱い・強い）と長さのはし（50・100）で、波の数は 1〜約 5.7 回に入ります（設計書 3.2 節）。</p>
+
+<h3 class="sub">幅 375px（スマートフォン）</h3>
+<div class="frame phone">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">弦の音</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>弦をかえて音をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="モノコードと、その音の波形（スマートフォンの幅）">
+          <rect x="40" y="118" width="520" height="44" rx="6" fill="#F1E6CF" stroke="#5B6676" stroke-width="4"/>
+          <polygon points="60,100 52,118 68,118" fill="#5B6676"/>
+          <path d="M60 100H540" stroke="#1B2430" stroke-width="5"/>
+          <circle cx="540" cy="100" r="7" fill="#1B2430"/>
+          <path d="M60 100Q252 60 444 100M60 100Q252 140 444 100" stroke="#176AA3" stroke-width="4" fill="none"/>
+          <polygon points="444,100 430,118 458,118" fill="#67748B"/>
+          <text x="520" y="82" font-size="32" text-anchor="middle">弦</text>
+          <text x="310" y="44" font-size="32">はじく強さ</text>
+          <text x="444" y="224" font-size="32" text-anchor="middle">ことじ</text>
+          <text x="50" y="224" font-size="32">この音の波の形</text>
+          <path d="M50 230V390M102 230V390M154 230V390M206 230V390M258 230V390M310 230V390M362 230V390M414 230V390M466 230V390M518 230V390M570 230V390" stroke="#E3DBC8" stroke-width="2" fill="none"/>
+          <path d="M50 230H570M50 270H570M50 350H570M50 390H570" stroke="#E3DBC8" stroke-width="2" fill="none"/>
+          <path d="M50 310H570" stroke="#67748B" stroke-width="4"/>
+          <path d="M50 310c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40c16.96 20.49 33.26 40 52 40c18.74 0 35.04 -19.51 52 -40c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40c16.96 20.49 33.26 40 52 40c18.74 0 35.04 -19.51 52 -40c16.96 -20.49 33.26 -40 52 -40c18.74 0 35.04 19.51 52 40" stroke="#176AA3" stroke-width="7" fill="none" stroke-linecap="round"/>
+          <path d="M30 278V302" stroke="#B23A36" stroke-width="5"/>
+          <polygon points="30,264 21,280 39,280" fill="#B23A36"/><polygon points="30,316 21,300 39,300" fill="#B23A36"/>
+          <text x="6" y="354" font-size="32" style="fill:#B23A36">振幅</text>
+          <circle class="knob" cx="252" cy="80" r="48" style="stroke-width:5"/><text class="knob-mark" x="252" y="92" font-size="34" text-anchor="middle">↕</text>
+          <circle class="knob" cx="444" cy="140" r="48" style="stroke-width:5"/><text class="knob-mark" x="444" y="152" font-size="34" text-anchor="middle">↔</text>
+          <text x="50" y="416" font-size="32">1 目もり＝0.001 秒</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>音の高さ はじめと同じ</span><span>音の大きさ はじめと同じ</span></div>
+        <span class="how">白い丸で、ことじとはじく強さを動かせるよ。下の切り替えもためそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>弦を短くしたり張りを強くしたりして、はじめより高い音にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>弦を太いものに替えて、音の高さをくらべよう。</span></li>
+        <li class="try"><span class="box">□</span><span>強くはじいて、はじめより大きい音にしてみよう。</span></li>
+      </ul>
+      <div class="seg" role="group" aria-label="弦の太さ"><span class="seg-name">弦の太さ</span>
+        <button type="button" aria-pressed="true">✓ 細い</button><button type="button" aria-pressed="false">太い</button></div>
+      <div class="seg" role="group" aria-label="弦の張り"><span class="seg-name">弦の張り</span>
+        <button type="button" aria-pressed="true">✓ 弱い</button><button type="button" aria-pressed="false">強い</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<!-- ============================== 5. sound-speed ============================== -->
+<h2 class="sec">5. 盤「音の速さ」（<code>sound-speed</code>）— 自分で動かす状態</h2>
+<p class="note">はじめの配置: 花火から 680 m。この「花火から」の距離は、花火（音源）から見る人の耳までのまっすぐな距離（音が進む道のり）で、地面の上の水平の距離ではありません。680 m ÷ 340 m/s ＝ 2.0 秒。見る人は 34 m きざみ（0.1 秒きざみ）で動くので、表示の秒はいつもちょうど小数 1 けたです。光は一瞬で届くとみなします。</p>
+<table class="mini" aria-label="距離と時間の例">
+  <tr><th>距離（音源から耳まで）</th><th>聞こえるまで</th></tr>
+  <tr><td>170 m（いちばん近い・境界）</td><td>0.5 秒</td></tr>
+  <tr><td>340 m</td><td>1.0 秒</td></tr>
+  <tr><td>680 m（はじめ）</td><td>2.0 秒</td></tr>
+  <tr><td>1700 m（いちばん遠い・境界）</td><td>5.0 秒</td></tr>
+</table>
+
+<h3 class="sub">パソコンの幅</h3>
+<p class="narrow-note">この画面の幅では、パソコンの幅の見本を省いています。下の「幅 375px」の見本を見てください。</p>
+<div class="frame wide wide-only">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の速さ</h1>
+    <div class="statuses"><span class="chip online"><span class="dot"></span>オンライン</span><span class="chip wait">AI は準備中</span></div></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>音がとどくまでの時間をはかろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="花火から 680 メートルの所に見る人。音は 2.0 秒後に聞こえる">
+          <!-- 地面 -->
+          <path d="M20 330H580" stroke="#67748B" stroke-width="3"/>
+          <!-- 花火（音源） -->
+          <path d="M80 150V330" stroke="#67748B" stroke-width="2" stroke-dasharray="3 7"/>
+          <path d="M90 120H110M70 120H50M80 110V90M80 130V150M87.1 112.9L101.2 98.8M72.9 112.9L58.8 98.8M87.1 127.1L101.2 141.2M72.9 127.1L58.8 141.2" stroke="#B23A36" stroke-width="3" stroke-linecap="round"/>
+          <text x="80" y="62" font-size="19" text-anchor="middle">花火（音源）</text>
+          <!-- 広がる音の波 -->
+          <path d="M134.38 145.36A60 60 0 0 1 95.53 177.95M188.76 170.71A120 120 0 0 1 111.06 235.91M243.13 196.07A180 180 0 0 1 126.58 293.86" stroke="#176AA3" stroke-width="3" fill="none" stroke-dasharray="10 6"/>
+          <!-- 光（点線） -->
+          <path d="M80 120L272 262" stroke="#B45C00" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+          <!-- 見る人 -->
+          <circle cx="272" cy="262" r="12" fill="none" stroke="#1B2430" stroke-width="3"/>
+          <path d="M272 274V305M272 305L260 330M272 305L284 330M258 286H286" stroke="#1B2430" stroke-width="3" stroke-linecap="round"/>
+          <text x="308" y="268" font-size="19">2.0 秒後に聞こえる</text>
+          <text x="308" y="300" font-size="19">見る人</text>
+          <!-- 距離: 音源から見る人（耳）までの斜めの道のりに沿わせる。地面の上の水平の距離ではない -->
+          <path d="M102.6 89.4L112.2 76.6M280.3 250.7L304.2 218.6M115.8 91.7L288.6 219.5" stroke="#216E43" stroke-width="2.5"/>
+          <polygon points="106.2,84.6 119.4,86.9 112.2,96.5" fill="#216E43"/><polygon points="298.2,226.6 292.2,214.7 285,224.3" fill="#216E43"/>
+          <text x="214" y="148" font-size="19" style="fill:#216E43">680 m</text>
+          <!-- 凡例（色だけで区別しない） -->
+          <rect x="372" y="14" width="214" height="78" rx="8" fill="#FFFFFF" stroke="#E3DBC8"/>
+          <path d="M386 40H424" stroke="#B45C00" stroke-width="3" stroke-dasharray="2 7" stroke-linecap="round"/>
+          <text x="434" y="46" font-size="19">光（すぐに届く）</text>
+          <path d="M386 72H424" stroke="#176AA3" stroke-width="3" stroke-dasharray="10 6"/>
+          <text x="434" y="78" font-size="19">音の波</text>
+          <!-- つまみ: 見る人 -->
+          <circle class="knob" cx="272" cy="300" r="28" style="fill-opacity:.85"/><text class="knob-mark" x="272" y="307" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>花火まで 680 m</span><span>聞こえるまで 2.0 秒</span><span>音の速さ 約 340 m/s</span></div>
+        <span class="how">白い丸で、見る人の位置を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>花火にいちばん近づいて、聞こえるまで 0.5 秒にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>聞こえるまでが 1.0 秒になる所に立ってみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>花火からいちばん遠くへ行って、何秒かかるか見よう。</span></li>
+      </ul>
+      <div class="ask">先生への質問は準備中です（今は使えません）</div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+      <button class="btn" type="button">▶ もう一度、説明を見る</button>
+    </aside>
+  </div>
+</div>
+<p class="note">「680 m」の矢印は、花火（音源）から見る人の耳までの斜めの道のりに沿って引きます（光の点線のすぐ上に、同じ向きで）。地面の上には距離の矢印を引きません。見る人の左右の位置は、この距離が長いほど右になるように決めます（170 m → 左から 128、680 m → 272、1700 m → 560。盤の座標は画面に出しません）。盤は縮尺どおりの図ではないので（花火の高さは変えません）、盤の上の矢印の長さは距離に比例しません。距離と時間は、盤の上の長さからではなく、決めた値（680 m など）から出します。</p>
+
+<h3 class="sub">幅 375px（スマートフォン）</h3>
+<div class="frame phone">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の速さ</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>音がとどくまでの時間をはかろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="花火から 680 メートルの所に見る人（スマートフォンの幅）">
+          <path d="M20 330H580" stroke="#67748B" stroke-width="5"/>
+          <path d="M80 150V330" stroke="#67748B" stroke-width="3" stroke-dasharray="4 9"/>
+          <path d="M90 120H110M70 120H50M80 110V90M80 130V150M87.1 112.9L101.2 98.8M72.9 112.9L58.8 98.8M87.1 127.1L101.2 141.2M72.9 127.1L58.8 141.2" stroke="#B23A36" stroke-width="5" stroke-linecap="round"/>
+          <text x="112" y="58" font-size="32" text-anchor="middle">花火（音源）</text>
+          <path d="M134.38 145.36A60 60 0 0 1 95.53 177.95M188.76 170.71A120 120 0 0 1 111.06 235.91M243.13 196.07A180 180 0 0 1 126.58 293.86" stroke="#176AA3" stroke-width="5" fill="none" stroke-dasharray="14 9"/>
+          <path d="M80 120L272 262" stroke="#B45C00" stroke-width="5" stroke-dasharray="2 11" stroke-linecap="round"/>
+          <circle cx="272" cy="262" r="13" fill="none" stroke="#1B2430" stroke-width="5"/>
+          <path d="M272 275V305M272 305L260 330M272 305L284 330M258 286H286" stroke="#1B2430" stroke-width="5" stroke-linecap="round"/>
+          <text x="590" y="58" font-size="32" text-anchor="end">2.0 秒後に聞こえる</text>
+          <text x="330" y="304" font-size="32">見る人</text>
+          <path d="M102.6 89.4L112.2 76.6M280.3 250.7L304.2 218.6M120.7 95.3L283.7 215.9" stroke="#216E43" stroke-width="4"/>
+          <polygon points="106.2,84.6 126.1,88.1 115.3,102.5" fill="#216E43"/><polygon points="298.2,226.6 289.1,208.7 278.3,223.1" fill="#216E43"/>
+          <text x="216" y="146" font-size="32" style="fill:#216E43">680 m</text>
+          <circle class="knob" cx="272" cy="300" r="48" style="stroke-width:5;fill-opacity:.85"/><text class="knob-mark" x="272" y="312" font-size="34" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <p class="legend">点線（‥‥）＝ 光（すぐに届く）／ 破線（－ －）＝ 音の波</p>
+        <div class="readout"><span>花火まで 680 m</span><span>聞こえるまで 2.0 秒</span><span>音の速さ 約 340 m/s</span></div>
+        <span class="how">白い丸で、見る人の位置を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>花火にいちばん近づいて、聞こえるまで 0.5 秒にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>聞こえるまでが 1.0 秒になる所に立ってみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>花火からいちばん遠くへ行って、何秒かかるか見よう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+<p class="note">スマートフォンの幅では、凡例を盤の中ではなく盤のすぐ下の行に出し、時間の書きこみを盤の右上に置きます（文字が大きくなっても音の波と重ならないようにするため）。</p>
+
+<!-- ============================== 6. 先生をえらぶ画面 ============================== -->
+<h2 class="sec">6. 先生をえらぶ画面（音の世界）</h2>
+<p class="note">「🔊 音声ありで見る」は出しません。代わりに「この単元の音声は準備中です（文字で説明します）」を出します。黄色の帯（読みこみの失敗の知らせ）は出しません（失敗ではないため）。音声のクレジットも、この単元の画面では出しません。端末に覚えた「音声あり」の設定は書きかえません。</p>
+<div class="row2">
+  <div class="frame phone">
+    <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の大きさと高さ</h1></header>
+    <div class="learn">
+      <section class="board">
+        <h2 class="board-heading"><span>波の形で音をくらべよう</span></h2>
+        <div class="start">
+          <p>だれに教えてもらう？</p>
+          <div class="pick" role="radiogroup" aria-label="教えてもらう先生">
+            <button type="button" role="radio" aria-checked="false"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><circle cx="24" cy="24" r="20" fill="#DCE6FF" stroke="#5B6676" stroke-width="2"/></svg>まる先生<small>ていねい</small></button>
+            <button type="button" role="radio" aria-checked="false"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><path d="M24 4C34 18 40 26 40 32a16 16 0 0 1-32 0c0-6 6-14 16-28z" fill="#DCE6FF" stroke="#5B6676" stroke-width="2"/></svg>しずく博士<small>のんびり</small></button>
+            <button type="button" role="radio" aria-checked="false"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><rect x="12" y="4" width="24" height="40" rx="12" fill="#DCE6FF" stroke="#5B6676" stroke-width="2"/></svg>ぷにカプセル<small>元気</small></button>
+            <button type="button" role="radio" aria-checked="false"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="28" rx="21" ry="13" fill="#DCE6FF" stroke="#5B6676" stroke-width="2"/></svg>もくもく先生<small>ゆったり</small></button>
+            <button type="button" role="radio" aria-checked="true"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="6" width="36" height="36" rx="6" fill="#FFFFFF" stroke="#1A5CFF" stroke-width="3"/></svg>✓ キューブ先生<small>きっちり</small></button>
+            <button type="button" role="radio" aria-checked="false"><svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><ellipse cx="24" cy="24" rx="14" ry="20" fill="#DCE6FF" stroke="#5B6676" stroke-width="2"/></svg>まめ博士<small>わくわく</small></button>
+          </div>
+          <p style="font-weight:400">キューブ先生が、描きながら説明するよ。</p>
+          <p class="voice-none" role="status">🔇 この単元の音声は準備中です（文字で説明します）</p>
+          <button class="btn main" type="button">説明を見る</button>
+          <button class="start-skip" type="button">説明をとばして、すぐ動かす</button>
+        </div>
+      </section>
+    </div>
+  </div>
+
+  <div class="frame phone">
+    <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">音の大きさと高さ</h1></header>
+    <div class="learn">
+      <section class="board">
+        <h2 class="board-heading"><span>波の形で音をくらべよう</span></h2>
+        <div class="speech" aria-live="polite">
+          <svg width="48" height="48" viewBox="0 0 48 48" aria-hidden="true"><rect x="6" y="6" width="36" height="36" rx="6" fill="#FFFFFF" stroke="#1A5CFF" stroke-width="3"/></svg>
+          <p>順番にいこう。音を出すものを「<mark class="term">音源</mark>」という。ここでは、おんさが音源だ。</p>
+        </div>
+        <div class="controls-row">
+          <button class="btn" type="button" disabled>◀ もどる</button>
+          <button class="btn main" type="button">⏸ 止める</button>
+          <button class="btn" type="button">次へ ▶</button>
+          <span class="dots" aria-hidden="true"><i class="now"></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i><i></i></span>
+          <span>速さ</span><button class="btn" type="button" aria-label="おそくする">−</button><b>1 倍</b><button class="btn" type="button" aria-label="はやくする">＋</button>
+          <button class="btn" type="button">先生をかえる</button>
+          <button class="btn" type="button">とばして自分で動かす</button>
+        </div>
+      </section>
+    </div>
+  </div>
+</div>
+<p class="note">右は、説明中（文字だけ）の見本です。「🔊 音声オン／🔇 音声オフ」のボタンは出しません。1 手は、文を読み終える時間（1 字 0.15 秒、2.5 秒以上）が過ぎるまで自動では進みません。上の 35 字の文なら、1 倍の速さで約 5.3 秒 ＋ 間 1.5 秒。「⏸ 止める」で待つ時間も止まり、「次へ ▶」でいつでも先へ進めます（設計書 3.4 節）。</p>
+
+</main>
+</body>
+</html>
