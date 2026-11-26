@@ -16,6 +16,17 @@
   function labelData(board, result, size, handles = scene.handles(board.scene)) {
     const labels = [];
     const obstacles = handles.map(handle => ({ x: handle.x, y: handle.y, r: size.knobRadius }));
+    const padding = 3 * size.unitPerPx;
+    if (result.sound?.fork) {
+      const { x, y } = result.sound.fork;
+      obstacles.push({ left: x - 16 - padding, right: x + 16 + padding,
+        top: y - 65 - padding, bottom: y + 41 + padding });
+    }
+    if (result.sound?.listener) {
+      const { x, ear, feetY } = result.sound.listener;
+      obstacles.push({ left: x - 18 - padding, right: x + 18 + padding,
+        top: ear.y - 12 - padding, bottom: feetY + padding });
+    }
     const incoming = result.angles.find(angle => angle.key === 'in');
     const incomingLabel = incoming && { ...math.angleLabel(incoming, size),
       text: Math.round(math.angleValue(incoming.valueDeg)) + '°', fontSize: size.angleSize };
@@ -28,10 +39,12 @@
         priority: 2, fontSize: size.textSize, color, preferOwn: true });
     });
     handles.forEach(handle => {
+      if (result.sound && (handle.handle === 'frequency' || result.marks.some(mark => mark.text === handle.label))) return;
       const onAxis = (board.scene.kind === 'lens' && handle.handle === 'focus') ||
         (board.scene.kind === 'lens-image' && handle.handle === 'move');
       labels.push({ id: 'handle-' + handle.elementId + ':' + handle.handle,
         text: handle.label, x: handle.x, y: handle.y, priority: 1, fontSize: size.textSize, color: C.text,
+        ...(result.sound ? { searchBoard: true } : {}),
         ...(onAxis ? { prefer: 'below' } : {}) });
     });
     result.images.forEach((image, index) => {
@@ -40,15 +53,21 @@
         x: image.x, y: image.y - (image.height || 0), priority: 3, fontSize: size.textSize, color: C.redPen });
     });
     result.marks.forEach(mark => {
-      if (handles.some(h => h.label === mark.text) || (mark.key === 'eye' && handles.some(h => h.label === '見る人'))) return;
+      if (!result.sound && (handles.some(h => h.label === mark.text) || (mark.key === 'eye' && handles.some(h => h.label === '見る人')))) return;
       const focus = mark.key.startsWith('focus-');
       if (mark.key === 'focus-right' && board.id === 'lens') return;
       const box = math.markBox(mark, size);
       if (!box) return;
       labels.push({ id: 'mark-' + mark.key, text: mark.text,
+        ...(result.sound && mark.key === 'tuning-fork' && size.unitPerPx > 600 / 360 ? { lines: ['おんさ', '（音源）'] } : {}),
+        ...(result.sound && mark.key === 'period' && size.unitPerPx > 600 / 360 ? { lines: ['1 回の', '振動'] } : {}),
+        ...(result.sound && mark.key === 'time' ? { alternatives: [
+          { x: result.sound.listener.x < W / 2 ? W - 16 : 16, y: 130,
+            anchor: result.sound.listener.x < W / 2 ? 'end' : 'start' },
+        ] } : {}),
         x: Math.max(0, Math.min(W - box.width, box.x)),
         y: Math.max(0, Math.min(H - box.height, box.y)) + size.textSize,
-        priority: 4, fontSize: size.textSize, preferOwn: true,
+        priority: 4, fontSize: size.textSize, preferOwn: true, ...(result.sound ? { searchBoard: true } : {}),
         color: focus || mark.key === 'medium' ? C.bluePen : C.mutedText });
     });
     return { labels, obstacles };
@@ -57,6 +76,14 @@
   // 文字を重ねない面と軸。光線・延長線・角度の弧は含めない。
   function lineData(currentScene, result) {
     const lines = [];
+    if (result.sound?.distanceArrow) {
+      const { from, to } = result.sound.distanceArrow;
+      lines.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y }, ...result.rays);
+    }
+    if (result.sound?.wave) {
+      const points = result.sound.wave.points;
+      points.slice(1).forEach((p, i) => lines.push({ x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y }));
+    }
     for (const e of currentScene.elements) {
       if (e.type === 'boundary') lines.push({ x1: 0, y1: e.y, x2: W, y2: e.y });
       if (e.type === 'mirror') {
@@ -230,6 +257,95 @@
       ].map(point => point.join(',')).join(' '), fill: color }, art);
     }
 
+    // エンジンの点列・弧・両端を SVG の形に直す。振動や距離はここでは計算しない。
+    function drawSound(shapes, s) {
+      const ref = key => ({ source: 'sound', key });
+      const shape = (key, center, render) => pop(ref(key), center, render);
+      const path = (d, color = C.text, attrs = {}) => svgNode('path', { d, fill: 'none', stroke: color,
+        'stroke-width': s.thinWidth, 'stroke-linecap': 'round', 'stroke-linejoin': 'round', ...attrs }, art);
+      if (shapes.fork) shape('fork', shapes.fork, () => {
+        const { x, y } = shapes.fork;
+        path(`M${x - 16} ${y - 65} v50 a16 16 0 0 0 32 0 v-50 M${x} ${y + 1} v40`, C.text, { 'stroke-width': s.surfaceWidth });
+      });
+      if (shapes.box) shape('box', shapes.box, () => svgNode('rect', { ...shapes.box, rx: 4,
+        fill: C.normal, 'fill-opacity': .12, stroke: C.normal, 'stroke-width': s.thinWidth }, art));
+      if (shapes.string) shape('string', shapes.string.from, () =>
+        line(shapes.string.from, shapes.string.to, C.text, shapes.string.thick ? 5 : 2));
+      if (shapes.bridge) shape('bridge', shapes.bridge, () => {
+        const { x, y } = shapes.bridge;
+        svgNode('polygon', { points: `${x},${y} ${x - 14},${y + 30} ${x + 14},${y + 30}`, fill: C.normal }, art);
+      });
+      if (shapes.vibration) {
+        const { from: a, to: b, heightPx: h } = shapes.vibration, mid = (a.x + b.x) / 2;
+        const el = path(`M${a.x} ${a.y} Q${mid} ${a.y - 2 * h} ${b.x} ${b.y} Q${mid} ${a.y + 2 * h} ${a.x} ${a.y} Z`,
+          C.bluePen, { fill: C.bluePen, 'fill-opacity': .1 });
+        if (drawingState !== null) {
+          const clipId = filterId + '-vibration', clip = svgNode('clipPath', { id: clipId, clipPathUnits: 'userSpaceOnUse' }, clips);
+          const rect = svgNode('rect', { x: a.x - 4, y: a.y - h - 4, width: b.x - a.x + 8, height: h * 2 + 8 }, clip);
+          animate(el, [ref('vibration')], p => {
+            const t = math.ease(p), x = a.x + (b.x - a.x) * t;
+            attribute(rect, 'width', x - a.x + 4);
+            attribute(el, 'clip-path', p === 1 ? null : 'url(#' + clipId + ')');
+            return { x, y: a.y - 4 * h * t * (1 - t) };
+          });
+        }
+      }
+      if (shapes.grid) shape('grid', { x: shapes.grid.x, y: shapes.grid.axisY }, () => {
+        const g = shapes.grid;
+        for (let i = 0; i <= g.cols; i++) line({ x: g.x + i * g.cellW, y: g.y },
+          { x: g.x + i * g.cellW, y: g.y + g.height }, C.normal, .6, false, { opacity: .35 });
+        for (let i = 0; i <= g.rows; i++) line({ x: g.x, y: g.y + i * g.cellH },
+          { x: g.x + g.width, y: g.y + i * g.cellH }, C.normal, .6, false, { opacity: .35 });
+        line({ x: g.x, y: g.axisY }, { x: g.x + g.width, y: g.axisY }, C.normal, s.thinWidth);
+      });
+      if (shapes.wave) {
+        const points = shapes.wave.points;
+        const prefix = points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`);
+        const el = path(prefix.join(' '), C.bluePen, { 'stroke-width': s.rayWidth, 'data-sound': 'wave' });
+        animate(el, [ref('wave')], p => {
+          const position = math.ease(p) * (points.length - 1), index = Math.floor(position), a = points[index], b = points[Math.min(index + 1, points.length - 1)];
+          const tip = { x: a.x + (b.x - a.x) * (position - index), y: a.y + (b.y - a.y) * (position - index) };
+          attribute(el, 'd', prefix.slice(0, index + 1).join(' ') + (p < 1 ? ` L${tip.x} ${tip.y}` : ''));
+          return tip;
+        });
+      }
+      for (const key of ['amplitude', 'distanceArrow', 'period']) {
+        if (!shapes[key]) continue;
+        const { from: a, to: b, guide } = shapes[key];
+        growingLine(ref(key), a, b, C.normal, s.thinWidth);
+        const group = svgNode('g', {}, art); art = group;
+        if (key === 'period') {
+          for (const p of [a, b]) line({ x: p.x, y: p.y - 7 }, { x: p.x, y: p.y + 7 }, C.normal, s.thinWidth);
+        } else {
+          const distance = Math.hypot(b.x - a.x, b.y - a.y), length = Math.min(5 * s.unitPerPx, distance / 3);
+          arrow(a, b, C.normal, length, 1 - length / distance); arrow(b, a, C.normal, length, 1 - length / distance);
+        }
+        art = artRoot; animate(group, [ref(key)], undefined, p => p === 1);
+        if (guide) growingLine(ref(key), guide.from, guide.to, C.normal, s.thinWidth, false, { 'stroke-dasharray': '8 7' });
+      }
+      if (shapes.ground) shape('ground', shapes.ground.from, () => line(shapes.ground.from, shapes.ground.to, C.normal, s.thinWidth));
+      if (shapes.firework) shape('firework', shapes.firework, () => {
+        const { x, y } = shapes.firework;
+        path(`M${x - 28} ${y} h56 M${x} ${y - 28} v56 M${x - 20} ${y - 20} l40 40 M${x - 20} ${y + 20} l40 -40`, C.ray,
+          { 'stroke-width': s.surfaceWidth });
+      });
+      if (shapes.listener) shape('listener', shapes.listener.ear, () => {
+        const { x, ear, feetY } = shapes.listener;
+        svgNode('circle', { cx: x, cy: ear.y, r: 12, fill: C.paper, stroke: C.text, 'stroke-width': s.thinWidth }, art);
+        path(`M${x} ${ear.y + 12} V${feetY - 20} M${x - 18} ${ear.y + 35} L${x} ${ear.y + 20} L${x + 18} ${ear.y + 35} M${x - 14} ${feetY} L${x} ${feetY - 20} L${x + 14} ${feetY}`);
+      });
+      (shapes.waves || []).forEach((arc, index) => {
+        const point = degrees => ({ x: arc.cx + arc.r * Math.cos(degrees * Math.PI / 180), y: arc.cy + arc.r * Math.sin(degrees * Math.PI / 180) });
+        const a = point(arc.startDeg), end = point(arc.endDeg);
+        const d = b => `M${a.x} ${a.y} A${arc.r} ${arc.r} 0 0 1 ${b.x} ${b.y}`;
+        const el = path(d(end), C.bluePen, { 'stroke-dasharray': '8 7', 'data-sound': 'arc' });
+        animate(el, [{ ...ref('waves'), index }], p => {
+          const tip = point(arc.startDeg + (arc.endDeg - arc.startDeg) * math.ease(p));
+          attribute(el, 'd', d(tip)); return tip;
+        });
+      });
+    }
+
     function draw() {
       if (disposed) return;
       let width = svg.getBoundingClientRect().width;
@@ -261,7 +377,7 @@
       art = artRoot; artRoot.replaceChildren(); labels.replaceChildren();
 
       // 部品の外形は配置データ、光の道すじと像は trace の結果をそのまま描く。
-      for (const e of board.scene.elements) {
+      for (const e of (result.sound ? [] : board.scene.elements)) {
         if (e.type === 'lens') growingLine({ source: 'elements', id: e.id, part: 'axis' },
           { x: 20, y: e.y }, { x: W - 20, y: e.y }, C.normal, s.thinWidth);
         pop({ source: 'elements', id: e.id, part: 'body' }, { x: e.x ?? W / 2, y: e.y }, () => {
@@ -301,6 +417,7 @@
           }
         });
       }
+      if (result.sound) drawSound(result.sound, s);
       if (board.id === 'straight') {
         const screen = board.scene.elements.find(e => e.type === 'screen');
         pop({ source: 'elements', id: screen.id, part: 'shadow' }, screen, () =>
@@ -318,7 +435,8 @@
       result.rays.forEach((ray, index) => {
         const a = { x: ray.x1, y: ray.y1 }, b = { x: ray.x2, y: ray.y2 };
         const ref = { source: 'rays', index };
-        growingLine(ref, a, b, C.ray, s.rayWidth, true, ray.style === 'dashed' ? { 'stroke-dasharray': '8 7' } : {});
+        growingLine(ref, a, b, C.ray, s.rayWidth, true, ray.style === 'dashed' ? { 'stroke-dasharray': '8 7' } :
+          ray.style === 'dotted' ? { 'stroke-dasharray': '1 7' } : {});
         const p = math.arrowAt(ray, s);
         if (p) {
           const half = p.length / 2, halfWidth = p.width / 2;
@@ -370,6 +488,19 @@
             'data-element-id': handle.elementId, 'data-handle': handle.handle }, knobs);
           group.addEventListener('pointerdown', event => {
             if (drawingState !== null || dragging || event.button !== 0) return;
+            if (result.sound) {
+              const point = math.toBoardPoint(event.clientX, event.clientY, svg.getBoundingClientRect());
+              if (point) {
+                const nearest = scene.handles(board.scene).map(h => ({ h, distance: Math.hypot(h.x - point.x, h.y - point.y) }))
+                  .filter(item => item.distance <= math.sizes(svg.getBoundingClientRect().width).hitRadius)
+                  .sort((a, b) => a.distance - b.distance)[0]?.h;
+                if (nearest) {
+                  event.preventDefault(); handleNodes.get(nearest.elementId + ':' + nearest.handle).focus({ preventScroll: true });
+                  dragging = { pointerId: event.pointerId, elementId: nearest.elementId, handle: nearest.handle };
+                  svg.setPointerCapture(event.pointerId); return;
+                }
+              }
+            }
             event.preventDefault(); group.focus({ preventScroll: true });
             dragging = { pointerId: event.pointerId, elementId: handle.elementId, handle: handle.handle };
             svg.setPointerCapture(event.pointerId);
@@ -381,7 +512,10 @@
             const current = scene.handles(board.scene).find(h => h.elementId === handle.elementId && h.handle === handle.handle);
             if (!current) return;
             const [dx, dy] = steps[event.key];
-            board.scene = scene.moveElement(board.scene, current.elementId, current.handle, { x: current.x + dx, y: current.y + dy });
+            const next = result.sound ? scene.stepSoundHandle(board.scene, current.elementId, current.handle, event.key) :
+              scene.moveElement(board.scene, current.elementId, current.handle, { x: current.x + dx, y: current.y + dy });
+            if (next === board.scene) return;
+            board.scene = next;
             draw();
           });
           handleNodes.set(key, group);
@@ -392,6 +526,9 @@
         svgNode('circle', { r: s.hitRadius, fill: source ? C.ray : C.bluePen, opacity: .12 }, group);
         svgNode('circle', { class: 'knob', r: s.knobRadius, fill: source ? C.ray : 'white',
           stroke: C.text, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }, group);
+        if (result.sound) svgNode('text', { class: 'knob-mark', x: 0, y: s.textSize * .35, 'text-anchor': 'middle',
+          'font-size': s.textSize, fill: C.bluePen, 'aria-hidden': 'true', 'pointer-events': 'none' }, group,
+          ['amplitude', 'pluck'].includes(handle.handle) ? '↕' : '↔');
         svgNode('circle', { r: s.hitRadius, fill: 'transparent', 'pointer-events': 'all' }, group);
       });
       for (const [key, group] of handleNodes) {
@@ -417,6 +554,7 @@
         if (!handle) return [];
         const mark = result.marks.find(m => m.text === handle.label || (m.key === 'eye' && handle.label === '見る人'));
         return [{ source: 'handles', elementId: handle.elementId, handle: handle.handle, field: 'label' },
+          ...(result.sound ? [{ source: 'handles', elementId: handle.elementId, handle: handle.handle }] : []),
           ...(mark ? [{ source: 'marks', key: mark.key, field: 'text' }] : [])];
       }
       // 完成時の位置で、重要語句は切り抜き、それ以外は浮き上がるように出す。
@@ -424,7 +562,9 @@
         if (place.hidden) return;
         const label = data.labels[index];
         const el = svgNode('text', { x: place.x, y: place.y, 'text-anchor': place.anchor, fill: label.color,
-          'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400 }, labels, label.text);
+          'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400 }, labels, label.lines ? undefined : label.text);
+        if (label.lines) label.lines.forEach((text, index) => svgNode('tspan', {
+          x: place.x, dy: index ? label.fontSize * 1.2 : 0 }, el, text));
         if (drawingState === null) return;
         const box = math.labelBox({ ...label, ...place }), left = box.left - 4, width = box.right - box.left + 8;
         const clipId = filterId + '-text-' + index;
@@ -449,9 +589,14 @@
       });
       if (drawingState !== null) {
         const targets = [
-          ...board.scene.elements.map(target => ({ target, ref: { source: 'elements', id: target.id, part: 'highlight' } })),
+          ...board.scene.elements.filter(target => Number.isFinite(target.y)).map(target => ({ target, ref: { source: 'elements', id: target.id, part: 'highlight' } })),
+          ...Object.entries(result.sound || {}).flatMap(([key, value]) => {
+            const target = value?.points?.[Math.floor(value.points.length / 2)] || value?.from || value;
+            return Number.isFinite(target?.x) && Number.isFinite(target?.y) ?
+              [{ target, ref: { source: 'sound', key, part: 'highlight' } }] : [];
+          }),
           ...result.marks.map(target => ({ target, ref: { source: 'marks', key: target.key, part: 'highlight' } })),
-          ...(board.scene.kind === 'refract' ? Object.keys(board.scene.options).map(key => ({
+          ...(['refract', 'sound-string'].includes(board.scene.kind) ? Object.keys(board.scene.options).map(key => ({
             target: { x: W / 2, y: H - 25 }, ref: { source: 'options', key, part: 'highlight' },
           })) : []),
         ];
