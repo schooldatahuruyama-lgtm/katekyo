@@ -5,7 +5,8 @@ const assert = require('node:assert/strict');
 const explain = require('../js/explain.js');
 const scene = require('../js/scene.js');
 const boards = require('../js/boards.js');
-const scripts = { BOARDS: { ...require('../content/scripts-light.js').BOARDS, ...require('../content/scripts-sound.js').BOARDS } };
+const scripts = { BOARDS: { ...require('../content/scripts-light.js').BOARDS, ...require('../content/scripts-sound.js').BOARDS,
+  ...require('../content/scripts-force.js').BOARDS } };
 
 function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
 function setup(id = 'reflect') {
@@ -16,6 +17,57 @@ function timeline(draws, options = {}, id = 'reflect') {
   const { s, result, handles } = setup(id);
   return explain.buildTimeline(draws.map(draw => ({ draw })), s, result, handles, options);
 }
+
+test('力の複合描画は形・ラベル・切り替えを解決する', () => {
+  const cases = [
+    ['force-spring', 'el:stand', ['stand'], []], ['force-spring', 'el:spring', ['spring'], ['spring']],
+    ['force-spring', 'el:weights', ['weights'], ['weights']], ['force-spring', 'stretch', ['stretch'], ['stretch']],
+    ['force-spring', 'label:force', ['forceArrow'], ['force']], ['force-spring', 'graph', ['graph'], ['graph-x', 'graph-y']],
+    ['force-arrow', 'el:box', ['grid', 'box'], ['box']], ['force-arrow', 'application', ['application'], ['application']],
+    ['force-arrow', 'force', ['arrow'], []], ['force-arrow', 'direction', [], ['direction']],
+    ['force-arrow', 'magnitude', ['magnitude'], ['magnitude']], ['force-arrow', 'label:scale', [], ['scale']],
+    ['force-balance', 'el:card', ['grid', 'card'], ['scale', 'card']], ['force-balance', 'pull:left', ['pulls'], ['left']],
+    ['force-balance', 'pull:right', ['pulls'], ['right']], ['force-balance', 'line', ['lines'], []],
+    ['force-balance', 'label:state', [], ['state']],
+  ];
+  for (const [id, token, shapes, labels] of cases) {
+    const { s, result, handles } = setup(id), items = explain.resolve(token, s, result, handles).items;
+    assert.deepEqual(items.filter(i => i.ref.source === 'force').map(i => i.ref.key), shapes, token);
+    assert.deepEqual(items.filter(i => i.type === 'text').map(i => i.ref.key), labels, token);
+    items.forEach(item => checkRef(item, s, result, handles));
+  }
+  for (const [id, args, options] of [['force-spring', ['spring', 'weights', 'graph'], ['weights', 'spring']],
+    ['force-arrow', ['force'], []], ['force-balance', ['pulls', 'card', 'state'], ['line']]]) {
+    const { s, result, handles } = setup(id);
+    for (const arg of args) {
+      const items = explain.resolve('point:' + arg, s, result, handles).items;
+      assert.ok(items.length > 0); assert.ok(items.every(i => i.type === 'point'));
+      items.forEach(item => checkRef(item, s, result, handles));
+    }
+    for (const token of ['controls', 'point:controls']) assert.deepEqual(explain.resolve(token, s, result, handles).items.map(i => i.ref.key), options);
+    const bad = structuredClone(s); bad.elements = [];
+    assert.deepEqual(explain.resolve('controls', bad, scene.trace(bad), []).items, []);
+  }
+  for (const token of ['pull', 'pull:up', 'graph:line', 'label:unknown', 'point:unknown']) assert.equal(explain.parseDraw(token), null);
+});
+
+test('グラフは今の点と直線・残りの 5 点を分け、0 個ではのびと力の矢印を返さない', () => {
+  for (const spring of ['A', 'B']) for (let weights = 0; weights <= 5; weights++) {
+    const s = boards.get('force-spring').scene; s.options = { spring, weights };
+    const result = scene.trace(s), current = explain.resolve('graph-point', s, result, []).items;
+    const rest = explain.resolve('graph-line', s, result, []).items;
+    assert.deepEqual(current, [{ type: 'point', ref: { source: 'force', key: 'graph', part: 'points', index: weights } }]);
+    assert.equal(rest.length, 6);
+    assert.deepEqual(rest[0], { type: 'line', ref: { source: 'force', key: 'graph', part: 'line' } });
+    assert.deepEqual(rest.slice(1).map(i => i.ref.index), [0, 1, 2, 3, 4, 5].filter(n => n !== weights));
+    for (const token of ['stretch', 'label:force']) {
+      const items = explain.resolve(token, s, result, []).items;
+      assert.equal(items.filter(i => i.ref.source === 'force').length, weights ? 1 : 0);
+    }
+  }
+  const s = scene.setOption(boards.get('force-balance').scene, 'line', 'offset');
+  assert.deepEqual(explain.resolve('line', s, scene.trace(s), scene.handles(s)).items.map(i => i.ref.index), [0, 1]);
+});
 
 test('読む時間は Unicode の字数で数え、空や文字列以外は最小値、長文は上限なし', () => {
   for (const value of ['', null, undefined, [], {}, 100, NaN]) assert.equal(explain.readMs(value), 2500);
@@ -92,7 +144,8 @@ test('音の複合参照は形とラベルをそろえ、弧は内から外へ�
 
 test('draw の種類と引数を読み取り、知らない指定や文字列以外を拒む', () => {
   assert.deepEqual(explain.DRAW_KINDS, ['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
-    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label']);
+    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label',
+    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line']);
   assert.deepEqual(explain.parseDraw('ray:incident'), { kind: 'ray', arg: 'incident' });
   assert.deepEqual(explain.parseDraw('normal'), { kind: 'normal', arg: null });
   for (const token of ['', 'nope', 12, null, undefined, {}, 'ray', 'ray:', 'ray:unknown',
@@ -113,6 +166,12 @@ function checkRef(item, s, result, handles) {
     assert.ok(result.sound[ref.key]);
     if (ref.index !== undefined) assert.ok(result.sound[ref.key][ref.index]);
   }
+  else if (ref.source === 'force') {
+    let shape = result.force[ref.key];
+    assert.ok(shape);
+    if (ref.part && !['highlight', 'axes'].includes(ref.part)) { shape = shape[ref.part]; assert.ok(shape); }
+    if (ref.index !== undefined) assert.ok(shape[ref.index]);
+  }
   else assert.fail('参照先が不明: ' + JSON.stringify(ref));
 }
 
@@ -125,13 +184,13 @@ for (const { id } of boards.list()) {
       assert.ok(resolved.items.length > 0, token);
       resolved.items.forEach(item => checkRef(item, s, result, handles));
     }
-    assert.ok(steps.at(-1).draw.includes('handles'));
+    assert.ok(steps.at(-1).draw.includes(handles.length ? 'handles' : 'controls'));
     const tl = explain.buildTimeline(steps, s, result, handles, { clipSeconds: null, rate: 1 });
     const final = explain.finalState(tl);
     assert.equal(final.stepIndex, steps.length - 1);
     assert.equal(final.stepDone, true);
     assert.ok(final.parts.every(part => part.progress === 1));
-    assert.ok(final.parts.some(part => part.kind === 'handles' && part.items.length === handles.length));
+    if (handles.length) assert.ok(final.parts.some(part => part.kind === 'handles' && part.items.length === handles.length));
     if (id === 'refract') assert.ok(final.parts.some(part => part.kind === 'controls' && part.items.length === 2));
     assert.deepEqual({ s, result, handles, steps }, snapshot);
   });
@@ -310,6 +369,9 @@ function displayedText(item, result, handles) {
 }
 
 const keyWords = {
+  'force-spring': [[], [], [], [], [], [], [], [], []],
+  'force-arrow': [[], ['作用点'], [], ['力の向き'], [], [], [], []],
+  'force-balance': [[], [], [], [], [], [], [], [], []],
   'sound-wave': [[], [], [], [], ['振幅'], [], [], [], []],
   'sound-string': [['弦'], [], [], [], ['振幅'], [], [], [], []],
   'sound-speed': [[], [], [], [], [], [], [], [], []],

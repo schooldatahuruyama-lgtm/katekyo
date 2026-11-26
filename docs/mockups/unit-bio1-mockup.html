@@ -1,0 +1,336 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 1 生物の観察と分類）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 1「生物の観察と分類」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 1 生物の観察と分類」（盤 3 種類）にすること。</li>
+    <li>盤の中身: 花のつくり／植物のなかま分け／動物のなかま分け。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">この単元の盤は、つまみではなく切り替えのボタンで条件を変えます。図は、えらんだ特徴となかまが合う形で描いています。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 1 生物の観察と分類 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">花のつくり</span><span class="question">花は、どんな部分からできている？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">植物のなかま分け</span><span class="question">植物は、どこを見ればなかま分けできる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">動物のなかま分け</span><span class="question">背骨のある動物は、どう分けられる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「花のつくり」（<code>bio-flower</code>）</h2>
+<p class="note">アブラナの花を縦に切った図。花は外側から がく・花弁・おしべ・めしべ の順についている。「部分」を切り替えると、その部分に色がつき、名前とはたらきが盤の下に出る。「植物」をマツ（裸子植物）に切り替えると、図が雌花と雄花のりん片に変わり、胚珠が子房の中ではなく、むき出しでついていることが分かる（マツのときは「部分」が 雌花のりん片／雄花のりん片 の 2 つになる）。はじめは アブラナ・めしべ。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">花のつくり</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>花のつくりをしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="アブラナの花の断面。めしべに色がついている。めしべの根もとの子房の中に胚珠がある">
+          <!-- くき -->
+          <path d="M230 405V344" stroke="#216E43" stroke-width="6" stroke-linecap="round"/>
+          <!-- がく -->
+          <g fill="#E3DBC8" stroke="#67748B" stroke-width="2.5" stroke-linejoin="round"><path d="M210 348Q150 350 105 305Q125 365 210 356Z"/><path d="M250 348Q310 350 355 305Q335 365 250 356Z"/></g>
+          <!-- 花弁 -->
+          <g fill="#FFFFFF" stroke="#67748B" stroke-width="2.5" stroke-linejoin="round"><path d="M206 336Q150 300 110 200Q95 150 60 130Q50 200 90 270Q130 330 206 344Z"/><path d="M254 336Q310 300 350 200Q365 150 400 130Q410 200 370 270Q330 330 254 344Z"/></g>
+          <!-- おしべ -->
+          <g fill="none" stroke="#67748B" stroke-width="3"><path d="M214 334Q190 280 180 215"/><path d="M246 334Q270 280 280 215"/></g>
+          <g fill="#FFFFFF" stroke="#67748B" stroke-width="2.5"><ellipse cx="178" cy="205" rx="8" ry="14"/><ellipse cx="282" cy="205" rx="8" ry="14"/></g>
+          <!-- めしべ（えらんだ部分） -->
+          <g fill="#B23A36" fill-opacity=".2" stroke="#B23A36" stroke-width="3.5"><ellipse cx="230" cy="292" rx="15" ry="40"/><rect x="226" y="182" width="8" height="70"/><ellipse cx="230" cy="174" rx="12" ry="8"/></g>
+          <g fill="#FFFFFF" stroke="#B23A36" stroke-width="2"><circle cx="230" cy="270" r="4.5"/><circle cx="230" cy="285" r="4.5"/><circle cx="230" cy="300" r="4.5"/><circle cx="230" cy="315" r="4.5"/></g>
+          <!-- 名前 -->
+          <text x="20" y="40" font-size="22" style="fill:#B23A36">えらんだ部分: めしべ</text>
+          <text x="230" y="150" font-size="19" text-anchor="middle" style="fill:#B23A36">柱頭</text>
+          <g stroke="#67748B" stroke-width="1.5"><path d="M290 205L432 200M362 244H432M330 346L432 360"/></g>
+          <g stroke="#B23A36" stroke-width="1.5"><path d="M246 292H432M236 315L432 322"/></g>
+          <text x="438" y="206" font-size="19" style="fill:#67748B">おしべ</text>
+          <text x="438" y="250" font-size="19" style="fill:#67748B">花弁</text>
+          <text x="438" y="298" font-size="19" style="fill:#B23A36">子房</text>
+          <text x="438" y="330" font-size="19" style="fill:#B23A36">胚珠</text>
+          <text x="438" y="366" font-size="19" style="fill:#67748B">がく</text>
+          <text x="20" y="402" font-size="19">アブラナの花の断面</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>えらんだ部分 めしべ</span><span>はたらき 花粉がつくと、子房は果実に、胚珠は種子になる</span><span>胚珠は子房の中</span></div>
+        <span class="how">下のボタンで、部分と植物を切り替えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>「おしべ」をえらんで、花粉が入っている所（やく）をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>4 つの部分を外側から順にえらんで、がく → 花弁 → おしべ → めしべ の順をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>植物を「マツ」に切り替えて、胚珠がむき出しであることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">部分</span><button type="button" aria-pressed="true">✓ めしべ</button><button type="button">おしべ</button><button type="button">花弁</button><button type="button">がく</button></div>
+      <div class="seg"><span class="seg-name">植物</span><button type="button" aria-pressed="true">✓ アブラナ（被子植物）</button><button type="button">マツ（裸子植物）</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「植物のなかま分け」（<code>bio-plants</code>）</h2>
+<p class="note">特徴をえらぶと、なかまが 1 つに決まる。種子でふえる・胚珠が子房の中・子葉 2 枚 → 双子葉類（葉脈は網状脈、根は主根と側根）。子葉 1 枚 → 単子葉類（葉脈は平行脈、根はひげ根）。胚珠がむき出し → 裸子植物。胞子でふえる・根と茎と葉の区別がある → シダ植物、区別がない → コケ植物。ありえない組み合わせは選べない（ボタンが使えなくなり、下に理由が出る）。裸子植物・シダ植物・コケ植物のときは、3 つの図が体のつくりの図に変わる。はじめは 種子・子房の中・子葉 2 枚（双子葉類）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">植物のなかま分け</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>特徴をえらんで、植物をなかま分けしよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="なかまは被子植物の双子葉類。子葉は 2 枚、葉脈は網状脈、根は主根と側根">
+          <text x="300" y="48" font-size="24" text-anchor="middle" style="fill:#216E43">なかま: 双子葉類（被子植物）</text>
+          <path d="M200 80V395M400 80V395" stroke="#E3DBC8" stroke-width="2" stroke-dasharray="6 6"/>
+          <!-- 芽ばえ -->
+          <text x="105" y="104" font-size="19" text-anchor="middle">芽ばえ</text>
+          <path d="M40 330H170" stroke="#67748B" stroke-width="3" stroke-linecap="round"/>
+          <path d="M105 330V232" stroke="#216E43" stroke-width="4"/>
+          <g fill="#FFFFFF" stroke="#216E43" stroke-width="3"><ellipse cx="78" cy="216" rx="30" ry="14" transform="rotate(-25 78 216)"/><ellipse cx="132" cy="216" rx="30" ry="14" transform="rotate(25 132 216)"/></g>
+          <text x="105" y="380" font-size="19" text-anchor="middle">子葉 2 枚</text>
+          <!-- 葉 -->
+          <text x="300" y="104" font-size="19" text-anchor="middle">葉</text>
+          <path d="M300 130Q370 180 350 270Q330 320 300 330Q270 320 250 270Q230 180 300 130Z" fill="#FFFFFF" stroke="#216E43" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M300 136V348" stroke="#216E43" stroke-width="3"/>
+          <g fill="none" stroke="#216E43" stroke-width="2"><path d="M300 190L338 172M300 190L262 172M300 232L346 212M300 232L254 212M300 274L340 256M300 274L260 256M300 308L322 296M300 308L278 296"/><path d="M320 181L326 218M280 181L274 218M324 222L320 264M276 222L280 264M318 266L312 300M282 266L288 300"/></g>
+          <text x="300" y="380" font-size="19" text-anchor="middle">葉脈は網状脈</text>
+          <!-- 根 -->
+          <text x="495" y="104" font-size="19" text-anchor="middle">根</text>
+          <path d="M425 150H565" stroke="#67748B" stroke-width="3" stroke-linecap="round"/>
+          <path d="M495 122V150" stroke="#216E43" stroke-width="4"/>
+          <path d="M495 150V335" stroke="#B45C00" stroke-width="5" stroke-linecap="round"/>
+          <g fill="none" stroke="#B45C00" stroke-width="2.5" stroke-linecap="round"><path d="M495 185L455 215M495 185L535 215M495 225L450 262M495 225L540 262M495 268L465 298M495 268L525 298"/></g>
+          <text x="495" y="380" font-size="19" text-anchor="middle">主根と側根</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>なかま 被子植物の双子葉類</span><span>葉脈 網状脈</span><span>根 主根と側根</span></div>
+        <span class="how">下のボタンで、特徴をえらべるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>子葉を「1 枚」にして、葉脈が平行脈、根がひげ根に変わることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>胚珠を「むき出し」にして、裸子植物にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>ふえ方を「胞子」にして、シダ植物とコケ植物のちがいを 1 つ見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">ふえ方</span><button type="button" aria-pressed="true">✓ 種子</button><button type="button">胞子</button></div>
+      <div class="seg"><span class="seg-name">胚珠</span><button type="button" aria-pressed="true">✓ 子房の中</button><button type="button">むき出し</button></div>
+      <div class="seg"><span class="seg-name">子葉</span><button type="button">1 枚</button><button type="button" aria-pressed="true">✓ 2 枚</button></div>
+      <div class="seg"><span class="seg-name">根・茎・葉の区別</span><button type="button" aria-pressed="true">✓ ある</button><button type="button" disabled style="background:var(--disabled);color:var(--sub)">ない（選べない）</button></div>
+      <p class="legend">選べない理由: 種子でふえる植物には、根・茎・葉の区別があるから。</p>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「動物のなかま分け」（<code>bio-animals</code>）</h2>
+<p class="note">背骨のある動物（脊椎動物）の 5 つのなかまを、3 つの特徴で分ける。表の中で、えらんだ特徴と合う所が太いわくになり、3 つとも合ったなかまが「あてはまるなかま」になる。合うなかまがない組み合わせ（例: えら・羽毛・胎生）は「あてはまるなかまがありません」と出す。両生類の親は、肺と皮ふで呼吸する。はじめは えら・うろこ・卵生で殻なし（魚類）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">動物のなかま分け</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>特徴をえらんで、動物をなかま分けしよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="えら、うろこ、卵生で殻なしをえらんだ。3 つとも合うのは魚類">
+          <text x="300" y="40" font-size="24" text-anchor="middle" style="fill:#216E43">あてはまるなかま: 魚類</text>
+          <rect x="10" y="60" width="580" height="312" fill="#FFFFFF" stroke="#67748B" stroke-width="2"/>
+          <g stroke="#67748B" stroke-width="1.5"><path d="M110 60V372M206 60V372M302 60V372M398 60V372M494 60V372M10 100H590M10 176H590M10 252H590M10 328H590"/></g>
+          <!-- えらんだ特徴と合う所 -->
+          <g fill="none" stroke="#216E43" stroke-width="3"><rect x="116" y="106" width="84" height="64" rx="6"/><rect x="116" y="182" width="84" height="64" rx="6"/><rect x="116" y="258" width="84" height="64" rx="6"/><rect x="212" y="258" width="84" height="64" rx="6"/><rect x="308" y="182" width="84" height="64" rx="6"/></g>
+          <rect x="110" y="60" width="96" height="312" fill="none" stroke="#216E43" stroke-width="5"/>
+          <!-- 見出し -->
+          <g font-size="19" text-anchor="middle"><text x="158" y="87">魚類</text><text x="254" y="87">両生類</text><text x="350" y="87">は虫類</text><text x="446" y="87">鳥類</text><text x="542" y="87">哺乳類</text></g>
+          <g font-size="19" text-anchor="middle"><text x="60" y="145">呼吸</text><text x="60" y="221">体の表面</text><text x="60" y="297">うまれ方</text><text x="60" y="357">合う数</text></g>
+          <!-- 呼吸 -->
+          <g font-size="19" text-anchor="middle"><text x="158" y="145">えら</text><text x="254" y="130">子はえら</text><text x="254" y="158">親は肺</text><text x="350" y="145">肺</text><text x="446" y="145">肺</text><text x="542" y="145">肺</text></g>
+          <!-- 体の表面 -->
+          <g font-size="19" text-anchor="middle"><text x="158" y="221">うろこ</text><text x="254" y="206">しめった</text><text x="254" y="234">皮ふ</text><text x="350" y="221">うろこ</text><text x="446" y="221">羽毛</text><text x="542" y="221">毛</text></g>
+          <!-- うまれ方 -->
+          <g font-size="19" text-anchor="middle"><text x="158" y="282">卵生</text><text x="158" y="310">殻なし</text><text x="254" y="282">卵生</text><text x="254" y="310">殻なし</text><text x="350" y="282">卵生</text><text x="350" y="310">殻あり</text><text x="446" y="282">卵生</text><text x="446" y="310">殻あり</text><text x="542" y="297">胎生</text></g>
+          <!-- 合う数 -->
+          <g font-size="19" text-anchor="middle"><text x="158" y="357" style="fill:#216E43">3 つ</text><text x="254" y="357">1 つ</text><text x="350" y="357">1 つ</text><text x="446" y="357">0</text><text x="542" y="357">0</text></g>
+          <text x="20" y="404" font-size="19">太いわく ＝ えらんだ特徴と合う所</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>あてはまるなかま 魚類</span><span>合った特徴 3 つ</span><span>例 メダカ・フナ</span></div>
+        <span class="how">下のボタンで、3 つの特徴をえらべるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>「肺」「羽毛」「卵生で殻あり」をえらんで、鳥類にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>特徴を 3 つえらんで、哺乳類にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>両生類とは虫類で、ちがう特徴を 3 つたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">呼吸</span><button type="button" aria-pressed="true">✓ えら</button><button type="button">子はえら・親は肺</button><button type="button">肺</button></div>
+      <div class="seg"><span class="seg-name">体の表面</span><button type="button" aria-pressed="true">✓ うろこ</button><button type="button">しめった皮ふ</button><button type="button">羽毛</button><button type="button">毛</button></div>
+      <div class="seg"><span class="seg-name">うまれ方</span><button type="button" aria-pressed="true">✓ 卵生で殻なし</button><button type="button">卵生で殻あり</button><button type="button">胎生</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（知らない部分の名前、種子なのに「区別がない」など）</td><td>丸めたり近い値に直したりせず、「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>植物のなかま分けで、ありえない組み合わせ</td><td>ボタンを使えない状態にし、すぐ下に理由を 1 文で出す。胞子のときは「胚珠」「子葉」、種子のときは「区別がない」、裸子植物のときは「子葉」が選べない</td></tr>
+  <tr><td>動物のなかま分けで、合うなかまがないとき</td><td>どの列も太いわくで囲まず、「あてはまるなかまがありません」と出す。合う数の行はそのまま見せる</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 ①（花）</td><td>花の例をアブラナ、裸子植物の例をマツにしてよいか。花柱・やく・花粉のう・りん片の名前を、どこまで出すか</td></tr>
+  <tr><td>先生に確かめてほしい点 ②（植物）</td><td>シダ植物とコケ植物を「根・茎・葉の区別」で分ける切り替えを 1 つ足した（案の 3 つだけでは 2 つを分けられないため）。これでよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 ③（動物）</td><td>両生類の親の呼吸を、ボタンでは「親は肺」とし、説明で「肺と皮ふ」と補う形でよいか。動物の例（メダカ・フナなど）はどれにするか</td></tr>
+</table>
+</main>
+</body>
+</html>

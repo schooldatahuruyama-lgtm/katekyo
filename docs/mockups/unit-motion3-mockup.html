@@ -1,0 +1,407 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 3 運動とエネルギー）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 3「運動とエネルギー」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>中 3「運動とエネルギー」を、盤 4 種類で作ること。</li>
+    <li>盤の中身: 力の合成と分解／斜面を下る運動／仕事と仕事の原理／力学的エネルギーの保存。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（右へ 4 N と上へ 3 N の合力は 5 N、仕事 ＝ 力 × 距離、位置エネルギーと運動エネルギーの和は一定）。斜面の盤の数値は見本用（暫定）です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 3 運動とエネルギー ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">力の合成と分解</span><span class="question">2 つの力を 1 つにまとめると、どうなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">斜面を下る運動</span><span class="question">斜面のかたむきを大きくすると、速さの変わり方はどうなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">仕事と仕事の原理</span><span class="question">道具を使うと、仕事は小さくなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">力学的エネルギーの保存</span><span class="question">ふりこの速さは、どこでいちばん速い？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「力の合成と分解」（<code>motion-compose</code>）</h2>
+<p class="note">1 点（作用点）にはたらく 2 つの力 A・B を矢印で表す。2 つの矢印を 2 辺とする平行四辺形の対角線が合力になる。矢印の先の白い丸を引くと、力の先が方眼の交点に止まる（1 目もり ＝ 1 N。作用点から右へ 0〜5 目もり、上へ 0〜3 目もり。大きさ 0 にはできない）。力の大きさは、矢印が横か縦にまっすぐなときと、きりのよい組（右へ 4・上へ 3 → 5 N、右へ 3・上へ 4 → 5 N、右へ 8・上へ 6 → 10 N）のときだけ N で出し、それ以外は「右へ ○ 目もり・上へ ○ 目もり」で出す。切り替えを「分解」にすると、白い丸は 1 つの力（赤）の先に移り（右へ 0〜10 目もり、上へ 0〜6 目もり）、横と縦の 2 つの分力が出る。はじめは「合成」で、力 A 右へ 4 N・力 B 上へ 3 N（合力 5 N）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">力の合成と分解</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>2 つの力を 1 つの力にまとめよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="作用点から右へ 4 ニュートンの力 A と、上へ 3 ニュートンの力 B。平行四辺形の対角線が合力で、5 ニュートン">
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M60 10V410M100 10V410M140 10V410M180 10V410M220 10V410M260 10V410M300 10V410M340 10V410M380 10V410M420 10V410M460 10V410M500 10V410M540 10V410M20 50H580M20 90H580M20 130H580M20 170H580M20 210H580M20 250H580M20 290H580M20 330H580M20 370H580"/></g>
+          <!-- 平行四辺形の残りの 2 辺 -->
+          <path d="M300 330V210M140 210H300" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6" fill="none"/>
+          <!-- 力 A（右へ 4） -->
+          <path d="M140 330H288" stroke="#176AA3" stroke-width="5"/><polygon points="300,330 282,320 282,340" fill="#176AA3"/>
+          <!-- 力 B（上へ 3） -->
+          <path d="M140 330V222" stroke="#216E43" stroke-width="5"/><polygon points="140,210 130,228 150,228" fill="#216E43"/>
+          <!-- 合力（対角線） -->
+          <path d="M140 330L290.4 217.2" stroke="#B23A36" stroke-width="5"/><polygon points="300,210 291.6,228.8 279.6,212.8" fill="#B23A36"/>
+          <circle cx="140" cy="330" r="7" fill="#1B2430"/>
+          <text x="112" y="362" font-size="19" text-anchor="middle">作用点</text>
+          <text x="220" y="362" font-size="19" text-anchor="middle" style="fill:#176AA3">力 A 4 N</text>
+          <text x="124" y="282" font-size="19" text-anchor="end" style="fill:#216E43">力 B 3 N</text>
+          <text x="316" y="204" font-size="19" style="fill:#B23A36">合力 5 N</text>
+          <text x="586" y="40" font-size="19" text-anchor="end">平行四辺形の対角線が合力</text>
+          <text x="400" y="400" font-size="19">1 目もり ＝ 1 N</text>
+          <circle class="knob" cx="300" cy="330" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="300" y="337" font-size="20" text-anchor="middle">✥</text>
+          <circle class="knob" cx="140" cy="210" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="140" y="217" font-size="20" text-anchor="middle">✥</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>力 A 4 N（右へ 4 目もり）</span><span>力 B 3 N（上へ 3 目もり）</span><span>合力 5 N（右へ 4・上へ 3 目もり）</span></div>
+        <span class="how">矢印の先の白い丸を引くと、力の大きさと向きを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>力 A を右へ 5 N、力 B を右へ 3 N にして、合力が 8 N になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>力 A を「右へ 1・上へ 2」、力 B を「右へ 2・上へ 2」にして、合力を 5 N にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「分解」にして、5 N の力（右へ 4・上へ 3）を、右へ 4 N と上へ 3 N の分力に分けよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">見るもの</span><button type="button" aria-pressed="true">✓ 合成</button><button type="button">分解</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「斜面を下る運動」（<code>motion-slope</code>）</h2>
+<p class="note">台車（重力 10 N）を斜面に置く。重力を、斜面に平行な分力と斜面に垂直な分力に分ける（1 N を 14 の長さで描く）。斜面のかたむきは 10°・20°・30° の切り替え。斜面に平行な分力は 1.7 N・3.4 N・5.0 N、垂直な分力は 9.8 N・9.4 N・8.7 N（作図で求めた値。暫定）。右のグラフは、記録タイマーのテープを 0.1 秒ごとに切ってならべたもの。テープは一定の割合で長くなり、1 本ごとに 1.7 cm・3.4 cm・5.0 cm ずつ長くなる（1 本目は 0.9 cm・1.7 cm・2.5 cm。見本用の暫定の値。まさつや空気の抵抗は考えない）。斜面に平行な分力が大きいほど、速さのふえ方が大きい。はじめは 20°（平行な分力 3.4 N、テープは 1.7・5.1・8.5・11.9・15.3 cm）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">斜面を下る運動</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>斜面のかたむきと速さのふえ方をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="かたむき 20 度の斜面の台車。重力 10 ニュートンを、斜面に平行な分力 3.4 ニュートンと垂直な分力 9.4 ニュートンに分けた図。テープは 0.1 秒ごとに 3.4 センチメートルずつ長くなる">
+          <!-- 斜面 -->
+          <polygon points="30,175 290,270 30,270" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M240 270A50 50 0 0 1 243 252.9" stroke="#1B2430" stroke-width="2" fill="none"/>
+          <!-- 台車 -->
+          <g transform="translate(150,219) rotate(20)"><rect x="-24" y="-34" width="48" height="26" rx="4" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/><circle cx="-14" cy="-6" r="6" fill="#67748B"/><circle cx="14" cy="-6" r="6" fill="#67748B"/></g>
+          <!-- 分力を作る平行四辺形の残りの 2 辺 -->
+          <path d="M157.2 339.3L201.9 215.6M157.2 339.3L112.2 323" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5" fill="none"/>
+          <!-- 重力 -->
+          <path d="M157.2 199.3V327" stroke="#B23A36" stroke-width="4"/><polygon points="157.2,339.3 150.2,325.3 164.2,325.3" fill="#B23A36"/>
+          <!-- 斜面に垂直な分力 -->
+          <path d="M157.2 199.3L116.3 311.7" stroke="#176AA3" stroke-width="4"/><polygon points="112.2,323 122.6,311.9 111.4,307.7" fill="#176AA3"/>
+          <!-- 斜面に平行な分力 -->
+          <path d="M157.2 199.3L190.6 211.5" stroke="#B45C00" stroke-width="4"/><polygon points="201.9,215.6 186.7,216.4 190.8,205.2" fill="#B45C00"/>
+          <circle cx="157.2" cy="199.3" r="5" fill="#1B2430"/>
+          <text x="96" y="160" font-size="19">台車</text>
+          <text x="176" y="170" font-size="19" style="fill:#B45C00">平行な分力 3.4 N</text>
+          <text x="170" y="345" font-size="19" style="fill:#B23A36">重力 10 N</text>
+          <text x="14" y="376" font-size="19" style="fill:#176AA3">垂直な分力 9.4 N</text>
+          <text x="245" y="292" font-size="19" text-anchor="middle">かたむき 20°</text>
+          <!-- テープのグラフ -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M390 290H590M390 240H590M390 190H590M390 140H590M390 90H590"/></g>
+          <path d="M390 80V340H590" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2"><rect x="396" y="323" width="34" height="17"/><rect x="430" y="289" width="34" height="51"/><rect x="464" y="255" width="34" height="85"/><rect x="498" y="221" width="34" height="119"/><rect x="532" y="187" width="34" height="153"/></g>
+          <path d="M413 323L549 187" stroke="#176AA3" stroke-width="3"/>
+          <g fill="#176AA3"><circle cx="413" cy="323" r="5"/><circle cx="447" cy="289" r="5"/><circle cx="481" cy="255" r="5"/><circle cx="515" cy="221" r="5"/><circle cx="549" cy="187" r="5"/></g>
+          <text x="350" y="60" font-size="19">テープの長さ〔cm〕</text>
+          <text x="382" y="346" font-size="19" text-anchor="end">0</text><text x="382" y="246" font-size="19" text-anchor="end">10</text><text x="382" y="146" font-size="19" text-anchor="end">20</text>
+          <text x="408" y="120" font-size="19" style="fill:#176AA3">3.4 cm ずつ長くなる</text>
+          <text x="481" y="366" font-size="19" text-anchor="middle">0.1 秒ごとのテープ</text>
+          <text x="481" y="394" font-size="19" text-anchor="middle">値は暫定</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>斜面のかたむき 20°</span><span>斜面に平行な分力 3.4 N（暫定）</span><span>テープは 0.1 秒ごとに 3.4 cm ずつ長くなる（暫定）</span></div>
+        <span class="how">下のボタンで、斜面のかたむきを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>かたむきを 30° にして、斜面に平行な分力が 5.0 N になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>かたむきを 10° にして、テープが 1.7 cm ずつ長くなるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>10°・20°・30° をくらべて、5 本目のテープが 22.5 cm になるかたむきを見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">かたむき</span><button type="button">10°</button><button type="button" aria-pressed="true">✓ 20°</button><button type="button">30°</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「仕事と仕事の原理」（<code>motion-work</code>）</h2>
+<p class="note">重力 20 N の物体を、ゆっくり 1 m 持ち上げる。引き上げ方は 3 つの切り替え: そのまま引き上げる（力 20 N・距離 1 m）／動滑車 1 個（力 10 N・ひもを引く距離 2 m）／斜面（長さ 2 m・高さ 1 m。力 10 N・引く距離 2 m）。どれも 仕事 ＝ 力 × 距離 ＝ 20 J で同じ（仕事の原理）。右の図は、たてを力、横を距離にした長方形で、面積が仕事を表す。かかった時間は 2 秒・4 秒・5 秒の切り替えで、仕事率 ＝ 仕事 ÷ 時間 は 10 W・5 W・4 W。滑車やひもの重さ、まさつは考えない。左の図の矢印は 1 N を 4 の長さで描く。はじめは 動滑車 1 個・4 秒（10 N × 2 m ＝ 20 J、5 W）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">仕事と仕事の原理</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>道具を使ったときの仕事をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="動滑車 1 個で 20 ニュートンの物体を 1 メートル上げる。引く力は 10 ニュートン、ひもを引く距離は 2 メートル、仕事は 20 ジュール">
+          <!-- 天井とひも、動滑車 -->
+          <path d="M60 60H300" stroke="#67748B" stroke-width="5" stroke-linecap="round"/>
+          <circle cx="180" cy="220" r="30" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/>
+          <path d="M150 60V220A30 30 0 0 0 210 220V120" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <path d="M180 220V270" stroke="#1B2430" stroke-width="3"/>
+          <circle cx="180" cy="220" r="5" fill="#1B2430"/>
+          <!-- 物体 -->
+          <rect x="150" y="270" width="60" height="50" rx="5" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <!-- 重力 20 N -->
+          <path d="M180 295V363" stroke="#B23A36" stroke-width="4"/><polygon points="180,375 173,361 187,361" fill="#B23A36"/>
+          <!-- 引く力 10 N -->
+          <path d="M210 120V92" stroke="#176AA3" stroke-width="4"/><polygon points="210,80 203,94 217,94" fill="#176AA3"/>
+          <text x="138" y="226" font-size="19" text-anchor="end">動滑車</text>
+          <text x="140" y="302" font-size="19" text-anchor="end">物体</text>
+          <text x="224" y="100" font-size="19" style="fill:#176AA3">引く力 10 N</text>
+          <text x="224" y="160" font-size="19" style="fill:#216E43">ひもを 2 m 引く</text>
+          <text x="194" y="368" font-size="19" style="fill:#B23A36">重力 20 N</text>
+          <text x="14" y="398" font-size="19" style="fill:#216E43">物体は 1 m 上がる</text>
+          <!-- 力 × 距離 の長方形 -->
+          <rect x="380" y="230" width="180" height="100" fill="#176AA3" fill-opacity=".25" stroke="#176AA3" stroke-width="3"/>
+          <rect x="380" y="130" width="90" height="200" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <path d="M380 110V330H590" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <text x="480" y="60" font-size="19" text-anchor="middle">仕事 ＝ 力 × 距離</text>
+          <text x="384" y="100" font-size="19">力〔N〕</text>
+          <text x="372" y="236" font-size="19" text-anchor="end">10</text><text x="372" y="136" font-size="19" text-anchor="end">20</text>
+          <text x="470" y="354" font-size="19" text-anchor="middle">1</text><text x="560" y="354" font-size="19" text-anchor="middle">2</text>
+          <text x="480" y="386" font-size="19" text-anchor="middle">引く距離〔m〕</text>
+          <text x="425" y="180" font-size="19" text-anchor="middle">そのまま</text>
+          <text x="515" y="288" font-size="19" text-anchor="middle" style="fill:#176AA3">20 J</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>力 10 N × 距離 2 m</span><span>仕事 20 J</span><span>仕事率 5 W（4 秒）</span></div>
+        <span class="how">下のボタンで、引き上げ方とかかった時間を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>「そのまま」にして、力 20 N・距離 1 m・仕事 20 J をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「斜面」にして、力が 10 N、引く距離が 2 m で、仕事が 20 J のままなのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>かかった時間を 2 秒にして、仕事率を 10 W にしよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">引き上げ方</span><button type="button">そのまま</button><button type="button" aria-pressed="true">✓ 動滑車 1 個</button><button type="button">斜面（長さ 2 m）</button></div>
+      <div class="seg"><span class="seg-name">かかった時間</span><button type="button">2 秒</button><button type="button" aria-pressed="true">✓ 4 秒</button><button type="button">5 秒</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「力学的エネルギーの保存」（<code>motion-energy</code>）</h2>
+<p class="note">ふりこ（糸の長さ 60 cm）のおもりを、左のはしで静かにはなす。おもり（白い丸）を引くと、ふりこの道すじの上で、高さが 5 cm ごとの位置に止まる（左のはし〜いちばん下〜右のはし）。位置エネルギーは高さ 5 cm につき 1 目もり（いちばん下を 0 とする）。位置エネルギーと運動エネルギーの和（力学的エネルギー）はいつも同じなので、運動エネルギーは「和 − 位置エネルギー」。運動エネルギーが大きいほど速く、いちばん下で速さが最大、両はしで速さが 0。はじめの高さは 10 cm・15 cm・20 cm の切り替え（和は 2・3・4 目もり）。まさつや空気の抵抗は考えない。はじめは、はじめの高さ 20 cm で、おもりは左がわの高さ 5 cm の位置（位置エネルギー 1・運動エネルギー 3）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">力学的エネルギーの保存</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>ふりこの高さと速さの関係をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="はじめの高さ 20 センチメートルのふりこ。おもりは左がわの高さ 5 センチメートルの位置。位置エネルギー 1 目もり、運動エネルギー 3 目もり、和は 4 目もり">
+          <!-- 高さの線 -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M20 194H372M20 212H372M20 230H372M20 248H372"/></g>
+          <path d="M20 266H372" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <!-- ささえと道すじ -->
+          <path d="M120 50H260" stroke="#67748B" stroke-width="5" stroke-linecap="round"/>
+          <path d="M29 194A216 216 0 0 0 351 194" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5" fill="none"/>
+          <g fill="#67748B"><circle cx="29" cy="194" r="4"/><circle cx="47.1" cy="212" r="4"/><circle cx="70.6" cy="230" r="4"/><circle cx="190" cy="266" r="4"/><circle cx="276.3" cy="248" r="4"/><circle cx="309.4" cy="230" r="4"/><circle cx="332.9" cy="212" r="4"/><circle cx="351" cy="194" r="4"/></g>
+          <!-- 糸 -->
+          <path d="M190 50L103.7 248" stroke="#1B2430" stroke-width="2.5"/>
+          <circle cx="190" cy="50" r="5" fill="#1B2430"/>
+          <path d="M190 274V308" stroke="#67748B" stroke-width="2"/>
+          <text x="14" y="166" font-size="19">左のはし</text>
+          <text x="366" y="166" font-size="19" text-anchor="end">右のはし</text>
+          <text x="378" y="172" font-size="19">高さ</text>
+          <text x="378" y="200" font-size="19">20 cm</text>
+          <text x="378" y="236" font-size="19">10 cm</text>
+          <text x="378" y="272" font-size="19">0 cm</text>
+          <text x="104" y="300" font-size="19" text-anchor="middle">おもり</text>
+          <text x="240" y="330" font-size="19" text-anchor="middle">いちばん下（速さが最大）</text>
+          <!-- エネルギーの棒グラフ（1 目もり ＝ 40） -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M455 290H585M455 250H585M455 210H585"/></g>
+          <path d="M455 170H585" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <rect x="467" y="290" width="40" height="40" fill="#176AA3"/>
+          <rect x="527" y="210" width="40" height="120" fill="#B45C00"/>
+          <path d="M455 150V330H585" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <text x="517" y="140" font-size="19" text-anchor="middle">和は 4 目もり</text>
+          <text x="487" y="282" font-size="19" text-anchor="middle" style="fill:#176AA3">1</text>
+          <text x="547" y="202" font-size="19" text-anchor="middle" style="fill:#B45C00">3</text>
+          <text x="487" y="354" font-size="19" text-anchor="middle" style="fill:#176AA3">位置</text>
+          <text x="547" y="354" font-size="19" text-anchor="middle" style="fill:#B45C00">運動</text>
+          <text x="517" y="382" font-size="19" text-anchor="middle">エネルギー</text>
+          <circle class="knob" cx="103.7" cy="248" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="103.7" y="255" font-size="20" text-anchor="middle">✥</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>高さ 5 cm</span><span>位置エネルギー 1 目もり</span><span>運動エネルギー 3 目もり（速い）</span></div>
+        <span class="how">おもり（白い丸）を引くと、ふりこの位置を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>おもりをいちばん下に動かして、運動エネルギーを 4 目もり（速さが最大）にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>おもりを右のはしに動かして、位置エネルギー 4 目もり・運動エネルギー 0 をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>はじめの高さを 10 cm にして、どの位置でも和が 2 目もりのままなのをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">はじめの高さ</span><button type="button">10 cm</button><button type="button">15 cm</button><button type="button" aria-pressed="true">✓ 20 cm</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（力の先が方眼の外、かたむき 25°、時間 3 秒、高さ 7 cm など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>力の合成で、合力の大きさがきりのよい数にならないとき</td><td>N の数は出さず、「右へ ○ 目もり・上へ ○ 目もり」で出す（ルートの数や小数に丸めた値は出さない）</td></tr>
+  <tr><td>先生に確かめてほしい点 1（力の合成）</td><td>「右へ 4・上へ 3 → 5 N」のような組だけ数で出す決め方でよいか（三平方の定理は数学で習う前かもしれない。図で長さをはかる読み方にするか）。力の向きを右と上だけにしぼってよいか（反対向きの 2 力は入れていない）</td></tr>
+  <tr><td>先生に確かめてほしい点 2（斜面）</td><td>台車の重力 10 N、分力 1.7 N・3.4 N・5.0 N（作図の値）と、テープの長くなり方 1.7 cm・3.4 cm・5.0 cm は見本用の暫定の値。実験の値や教科書の値に合わせるか。かたむきは 10°・20°・30° でよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 3（エネルギー）</td><td>位置エネルギーと運動エネルギーを J ではなく「目もり」（高さ 5 cm ＝ 1 目もり）で表してよいか。速さは数で出さず、「運動エネルギーが大きいほど速い」「いちばん下で最大」と言葉で出してよいか</td></tr>
+  <tr><td>仕事の盤で考えないもの</td><td>滑車やひもの重さ、まさつは考えない（画面に 1 行で書く）。100 g の物体にはたらく重力を 1 N とする</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と VOICEVOX Nemo の声を入れる。ほかの単元と同じ</td></tr>
+</table>
+</main>
+</body>
+</html>

@@ -37,6 +37,19 @@
           listenerMinX: 128, listenerMaxX: 560, earY: 300, eyeY: 294, handleY: 330, arrowOffset: 24 }),
       }),
     }),
+    force: Object.freeze({
+      gramsPerNewton: 100, weightGrams: 20, weightTenths: 2,
+      weights: Object.freeze({ min: 0, max: 5, initial: 3 }),
+      newtons: Object.freeze({ min: 1, max: 5, initial: 3 }),
+      stretchMm: Object.freeze({ A: 10, B: 20 }),
+      layout: Object.freeze({
+        spring: Object.freeze({ x: 150, y: 50, naturalLength: 100, cmPx: 10,
+          halfWidth: 15, turns: 10, weightWidth: 32, weightHeight: 14, forceStep: 13,
+          graphX: 370, graphY: 326, graphStepX: 36, graphCmPx: 22 }),
+        arrow: Object.freeze({ x: 300, y: 210, cell: 32, boxSize: 64, magnitudeOffset: 40, verticalOffset: 16 }),
+        balance: Object.freeze({ x: 300, y: 210, cell: 32, cardSize: 100, offset: 30 }),
+      }),
+    }),
     explain: Object.freeze({
       elementMs: 350, lineMs: 800, textCharMs: 90, textMinMs: 300, textFadeMs: 400, arcMs: 600, pointMs: 600,
       penSizePx: 36, penTransferMs: 150, penFadeMs: 200, penMaxDeltaMs: 1000,

@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 2 電流とその利用）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 2「電流とその利用」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 2 電流とその利用」（盤 4 種類）にすること。</li>
+    <li>盤の中身: オームの法則／直列回路と並列回路／電力と発熱／電流と磁界。</li>
+    <li>見た目と進め方はほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（3 V ÷ 10 Ω ＝ 0.3 A、直列の 2 V ＋ 4 V ＝ 6 V、6 W × 180 秒 ＝ 1080 J、電流・磁界・力の向き）。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 2 電流とその利用 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">オームの法則</span><span class="question">電圧を大きくすると、電流はどうなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">直列回路と並列回路</span><span class="question">直列と並列で、電流と電圧はどうちがう？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">電力と発熱</span><span class="question">電力が大きいと、水の温度はどうなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">電流と磁界</span><span class="question">電流が磁界から受ける力の向きは、何で決まる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「オームの法則」（<code>elec-ohm</code>）</h2>
+<p class="note">電源・抵抗・電流計・電圧計の回路。電流〔A〕＝ 電圧〔V〕÷ 抵抗〔Ω〕。電源の電圧は 1〜6 V（1 V きざみ）で、下の白い丸を左右に引いて変える。抵抗は 10 Ω・20 Ω・40 Ω の切り替え（どの組でも電流が mA で整数になるように、30 Ω ではなく 40 Ω にした）。はじめは 3 V・10 Ω（0.3 A ＝ 300 mA）。右のグラフに、今までにためした点が残り、原点を通る直線になる（電流は電圧に比例する）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">オームの法則</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>電圧と電流の関係をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="10 オームの抵抗に 3 ボルトの電圧を加えた回路。電流は 0.3 アンペア">
+          <!-- 回路 -->
+          <path d="M40 90H115M175 90H250V175M250 215V300H151M139 300H40V90" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <path d="M85 90V42H125M165 42H205V90" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <circle cx="85" cy="90" r="4.5" fill="#1B2430"/><circle cx="205" cy="90" r="4.5" fill="#1B2430"/>
+          <!-- 抵抗 -->
+          <rect x="115" y="78" width="60" height="24" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="145" y="128" font-size="19" text-anchor="middle">抵抗 10 Ω</text>
+          <!-- 電圧計 -->
+          <circle cx="145" cy="42" r="20" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="145" y="49" font-size="20" text-anchor="middle">V</text>
+          <text x="212" y="36" font-size="19" style="fill:#176AA3">電圧 3 V</text>
+          <!-- 電流計 -->
+          <circle cx="250" cy="195" r="20" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="250" y="202" font-size="20" text-anchor="middle">A</text>
+          <text x="222" y="202" font-size="19" text-anchor="end" style="fill:#B23A36">電流 0.3 A</text>
+          <!-- 電源 -->
+          <path d="M139 280V320" stroke="#1B2430" stroke-width="3"/><path d="M151 289V311" stroke="#1B2430" stroke-width="6"/>
+          <text x="145" y="345" font-size="19" text-anchor="middle">電源の電圧 3 V</text>
+          <!-- 電圧のつまみ -->
+          <path d="M50 380H250" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M50 372V388M90 372V388M130 372V388M170 372V388M210 372V388M250 372V388" stroke="#67748B" stroke-width="2"/>
+          <text x="40" y="412" font-size="19">1 V</text><text x="260" y="412" font-size="19" text-anchor="end">6 V</text>
+          <circle class="knob" cx="130" cy="380" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="130" y="387" font-size="22" text-anchor="middle">↔</text>
+          <!-- グラフ -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M378 60V340M416 60V340M454 60V340M492 60V340M530 60V340M568 60V340M340 295H580M340 250H580M340 205H580M340 160H580M340 115H580M340 70H580"/></g>
+          <path d="M340 60V340H580" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <path d="M340 340L568 70" stroke="#176AA3" stroke-width="3"/>
+          <g fill="#176AA3"><circle cx="340" cy="340" r="5"/><circle cx="378" cy="295" r="5"/><circle cx="416" cy="250" r="5"/></g>
+          <circle cx="454" cy="205" r="9" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <text x="548" y="72" font-size="19" text-anchor="end" style="fill:#176AA3">10 Ω</text>
+          <text x="336" y="44" font-size="19">電流〔mA〕</text>
+          <text x="332" y="212" font-size="19" text-anchor="end">300</text><text x="332" y="77" font-size="19" text-anchor="end">600</text>
+          <text x="340" y="366" font-size="19" text-anchor="middle">0</text><text x="454" y="366" font-size="19" text-anchor="middle">3</text><text x="568" y="366" font-size="19" text-anchor="middle">6</text>
+          <text x="460" y="398" font-size="19" text-anchor="middle">電圧〔V〕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>電圧 3 V</span><span>電流 0.3 A（300 mA）</span><span>抵抗 10 Ω</span></div>
+        <span class="how">白い丸を左右に引くと、電源の電圧を変えられるよ。抵抗は下のボタンで替えよう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>10 Ω のまま電圧を 6 V にして、電流を 0.6 A にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>抵抗を 20 Ω に替えて、電流を 0.3 A にしてみよう（電圧は何 V？）。</span></li>
+        <li class="try"><span class="box">□</span><span>抵抗を 40 Ω に替えて、電流を 0.1 A にしてみよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">抵抗</span><button type="button" aria-pressed="true">✓ 10 Ω</button><button type="button">20 Ω</button><button type="button">40 Ω</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「直列回路と並列回路」（<code>elec-circuit</code>）</h2>
+<p class="note">電源 6 V に、抵抗 A・B（10 Ω と 20 Ω）をつなぐ。切り替えは「直列・並列」と「抵抗のならび（A と B の入れ替え）」。直列: 電流はどこも同じ（6 V ÷ 30 Ω ＝ 0.2 A）、電圧は 10 Ω に 2 V・20 Ω に 4 V で、和が 6 V。全体の抵抗は 30 Ω。並列: 電圧はどちらも 6 V、電流は 10 Ω に 0.6 A・20 Ω に 0.3 A で、和が 0.9 A。全体の抵抗は 約 6.7 Ω（6 V ÷ 0.9 A。どちらの抵抗よりも小さい）。はじめは 直列・A 10 Ω・B 20 Ω。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">直列回路と並列回路</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>電流と電圧のきまりをくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="直列回路。10 オームと 20 オームの抵抗を 6 ボルトの電源につなぐ。電流はどこも 0.2 アンペア、電圧は 2 ボルトと 4 ボルト">
+          <text x="300" y="44" font-size="24" text-anchor="middle">直列回路</text>
+          <path d="M80 110H170M230 110H370M430 110H520V320H306M294 320H80V110" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <rect x="170" y="98" width="60" height="24" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <rect x="370" y="98" width="60" height="24" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="200" y="84" font-size="19" text-anchor="middle">抵抗 A 10 Ω</text>
+          <text x="400" y="84" font-size="19" text-anchor="middle">抵抗 B 20 Ω</text>
+          <text x="200" y="150" font-size="19" text-anchor="middle" style="fill:#176AA3">電圧 2 V</text>
+          <text x="400" y="150" font-size="19" text-anchor="middle" style="fill:#176AA3">電圧 4 V</text>
+          <!-- 電流の向きと大きさ -->
+          <g fill="#B23A36"><polygon points="80,192 73,206 87,206"/><polygon points="308,110 294,103 294,117"/><polygon points="520,208 513,194 527,194"/></g>
+          <text x="94" y="207" font-size="19" style="fill:#B23A36">電流 0.2 A</text>
+          <text x="300" y="146" font-size="19" text-anchor="middle" style="fill:#B23A36">0.2 A</text>
+          <text x="506" y="207" font-size="19" text-anchor="end" style="fill:#B23A36">電流 0.2 A</text>
+          <text x="300" y="250" font-size="19" text-anchor="middle" style="fill:#216E43">電流はどこも同じ</text>
+          <text x="300" y="282" font-size="19" text-anchor="middle" style="fill:#216E43">電圧は 2 V ＋ 4 V ＝ 6 V</text>
+          <!-- 電源 -->
+          <path d="M294 300V340" stroke="#1B2430" stroke-width="3"/><path d="M306 309V331" stroke="#1B2430" stroke-width="6"/>
+          <text x="300" y="368" font-size="19" text-anchor="middle">電源 6 V</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>全体の電圧 6 V</span><span>全体の電流 0.2 A</span><span>全体の抵抗 30 Ω</span></div>
+        <span class="how">下のボタンで、つなぎ方と抵抗のならびを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>直列で、抵抗 A と B の電圧をたすと 6 V になることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>並列に切り替えて、全体の電流を 0.9 A にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>直列で抵抗を入れ替えて、抵抗 A の電圧を 4 V にしてみよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">つなぎ方</span><button type="button" aria-pressed="true">✓ 直列</button><button type="button">並列</button></div>
+      <div class="seg"><span class="seg-name">抵抗のならび</span><button type="button" aria-pressed="true">✓ A 10 Ω・B 20 Ω</button><button type="button">A 20 Ω・B 10 Ω</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「電力と発熱」（<code>elec-power</code>）</h2>
+<p class="note">水の中の電熱線に 6 V の電圧を加える。電熱線は 6 W・9 W・18 W の切り替え（6 V で 1 A・1.5 A・3 A が流れる）。時間は 0〜5 分（1 分きざみ）で、下の白い丸を左右に引いて変える。熱量〔J〕＝ 電力〔W〕× 時間〔秒〕。水の上昇温度は、電力と時間に比例する。上昇温度は見本用の値（暫定）: 1 分あたり 6 W で 0.8 ℃、9 W で 1.2 ℃、18 W で 2.4 ℃。水のはじめの温度は 20.0 ℃。はじめは 6 W・3 分（1080 J、2.4 ℃ 上がって 22.4 ℃）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">電力と発熱</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>電力と水の温度の上がり方をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="6 ワットの電熱線で水を 3 分あたためた。熱量 1080 ジュール、水の温度は 2.4 度上がって 22.4 度">
+          <!-- 水と容器 -->
+          <rect x="72" y="190" width="156" height="138" fill="#176AA3" fill-opacity=".12"/>
+          <path d="M72 190H228" stroke="#176AA3" stroke-width="2.5"/>
+          <path d="M70 150V330H230V150" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <text x="150" y="235" font-size="19" text-anchor="middle">水</text>
+          <!-- 電熱線 -->
+          <path d="M110 110V285M190 110V285" stroke="#1B2430" stroke-width="2.5"/>
+          <polyline points="110,285 120,270 130,300 140,270 150,300 160,270 170,300 180,270 190,285" fill="none" stroke="#B45C00" stroke-width="3.5" stroke-linejoin="round"/>
+          <text x="150" y="96" font-size="19" text-anchor="middle">電源 6 V</text>
+          <text x="150" y="356" font-size="19" text-anchor="middle" style="fill:#B45C00">電熱線 6 W</text>
+          <!-- 温度計 -->
+          <rect x="208" y="120" width="8" height="180" rx="4" fill="#FFFFFF" stroke="#1B2430" stroke-width="2"/>
+          <path d="M212 296V230" stroke="#B23A36" stroke-width="3"/><circle cx="212" cy="300" r="6" fill="#B23A36"/>
+          <text x="240" y="140" font-size="19" style="fill:#B23A36">22.4 ℃</text>
+          <!-- 時間のつまみ -->
+          <path d="M60 392H240" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M60 384V400M96 384V400M132 384V400M168 384V400M204 384V400M240 384V400" stroke="#67748B" stroke-width="2"/>
+          <text x="254" y="399" font-size="19">時間 3 分</text>
+          <circle class="knob" cx="168" cy="392" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="168" y="399" font-size="22" text-anchor="middle">↔</text>
+          <!-- グラフ -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M394 60V340M438 60V340M482 60V340M526 60V340M570 60V340M350 293.3H580M350 246.7H580M350 200H580M350 153.3H580M350 106.7H580M350 60H580"/></g>
+          <path d="M350 60V340H580" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <path d="M350 340L570 246.7" stroke="#176AA3" stroke-width="3"/>
+          <g fill="#176AA3"><circle cx="350" cy="340" r="5"/><circle cx="394" cy="321.3" r="5"/><circle cx="438" cy="302.7" r="5"/></g>
+          <circle cx="482" cy="284" r="9" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <text x="575" y="232" font-size="19" text-anchor="end" style="fill:#176AA3">6 W</text>
+          <text x="330" y="36" font-size="19">水の上昇温度〔℃〕（暫定）</text>
+          <text x="342" y="253" font-size="19" text-anchor="end">4</text><text x="342" y="160" font-size="19" text-anchor="end">8</text><text x="342" y="67" font-size="19" text-anchor="end">12</text>
+          <text x="350" y="366" font-size="19" text-anchor="middle">0</text><text x="570" y="366" font-size="19" text-anchor="middle">5</text>
+          <text x="470" y="398" font-size="19" text-anchor="middle">時間〔分〕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>電力 6 W</span><span>熱量 1080 J</span><span>水の上昇温度 2.4 ℃（暫定）</span></div>
+        <span class="how">白い丸を左右に引くと、電流を流す時間を変えられるよ。電熱線は下のボタンで替えよう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>6 W のまま時間を 5 分にして、熱量を 1800 J にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>18 W に替えて、熱量が 1080 J になる時間をさがそう。</span></li>
+        <li class="try"><span class="box">□</span><span>9 W に替えて、水の上昇温度を 6.0 ℃ にしてみよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">電熱線</span><button type="button" aria-pressed="true">✓ 6 W</button><button type="button">9 W</button><button type="button">18 W</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「電流と磁界」（<code>elec-magnet</code>）</h2>
+<p class="note">U 字形磁石を横にたおして置き、極の間に導線（ブランコ）をつるしたところを、横から見た図。導線は図の手前から奥へのびていて、丸の中の × は「電流が手前から奥へ流れる」しるし（奥→手前のときは ・ にし、どちらも文字でも書く）。磁界の向きは N 極から S 極。切り替えは、電流の向き（手前→奥・奥→手前）、磁石の向き（N 極が上・S 極が上）、電流の大きさ（1 A・2 A）。電流か磁界の向きを 1 つ逆にすると力は逆向き、両方逆にすると元と同じ向き。電流を 2 A にすると力の矢印が 2 倍の長さになる（矢印の長さは見本用。暫定）。はじめは 手前→奥・N 極が上・1 A（力の向きは左 ＝ 磁石の外向き）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">電流と磁界</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>電流が磁界から受ける力の向きをしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="上が N 極、下が S 極の磁石の間の導線。電流は手前から奥。力の向きは左">
+          <text x="30" y="44" font-size="19">横から見た図</text>
+          <!-- 磁石 -->
+          <rect x="440" y="110" width="50" height="200" fill="#E3DBC8" stroke="#1B2430" stroke-width="3"/>
+          <rect x="180" y="110" width="260" height="50" fill="#FFFFFF" stroke="#B23A36" stroke-width="3"/>
+          <rect x="180" y="260" width="260" height="50" fill="#FFFFFF" stroke="#176AA3" stroke-width="3"/>
+          <text x="200" y="143" font-size="20" style="fill:#B23A36">N 極</text>
+          <text x="200" y="293" font-size="20" style="fill:#176AA3">S 極</text>
+          <!-- つるす線 -->
+          <path d="M240 60H340" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M290 60V194" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <text x="352" y="66" font-size="19">導線（ブランコ）</text>
+          <!-- 磁界 -->
+          <g stroke="#216E43" stroke-width="2.5" stroke-dasharray="6 5"><path d="M395 168V238M425 168V238"/></g>
+          <g fill="#216E43"><polygon points="395,252 388,238 402,238"/><polygon points="425,252 418,238 432,238"/></g>
+          <text x="335" y="345" font-size="19" text-anchor="middle" style="fill:#216E43">磁界の向き 上（N 極）→下（S 極）</text>
+          <!-- 導線の断面 -->
+          <circle cx="290" cy="210" r="16" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <path d="M281 201L299 219M299 201L281 219" stroke="#1B2430" stroke-width="3"/>
+          <text x="290" y="250" font-size="19" text-anchor="middle">電流 手前→奥</text>
+          <!-- 力 -->
+          <path d="M270 210H226" stroke="#B45C00" stroke-width="5"/><polygon points="212,210 228,201 228,219" fill="#B45C00"/>
+          <text x="172" y="217" font-size="19" text-anchor="end" style="fill:#B45C00">力の向き 左</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>電流の向き 手前→奥</span><span>磁界の向き 上→下</span><span>力の向き 左</span></div>
+        <span class="how">下のボタンで、電流の向き・磁石の向き・電流の大きさを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>電流の向きだけを逆にして、力の向きを右にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>電流と磁石の向きを両方逆にして、力の向きが左にもどることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>電流を 2 A にして、力の矢印が 2 倍の長さになることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">電流の向き</span><button type="button" aria-pressed="true">✓ 手前→奥</button><button type="button">奥→手前</button></div>
+      <div class="seg"><span class="seg-name">磁石の向き</span><button type="button" aria-pressed="true">✓ N 極が上</button><button type="button">S 極が上</button></div>
+      <div class="seg"><span class="seg-name">電流の大きさ</span><button type="button" aria-pressed="true">✓ 1 A</button><button type="button">2 A</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（7 V、30 Ω、6 分、12 W など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる（ほかの単元と同じ）</td></tr>
+  <tr><td>オームの法則の抵抗の値（先生に確かめたい）</td><td>10 Ω・20 Ω・40 Ω。1〜6 V のどの組でも電流が mA で整数になる（30 Ω だと 33.3… mA が出るため）。A と mA の両方で出す</td></tr>
+  <tr><td>並列回路の全体の抵抗（先生に確かめたい）</td><td>10 Ω と 20 Ω の並列は 6 V ÷ 0.9 A で「約 6.7 Ω」と出す。きりのよい値にしたいときは、抵抗の組を変える（例: 20 Ω と 30 Ω で 12 Ω）</td></tr>
+  <tr><td>水の上昇温度（先生に確かめたい）</td><td>見本用の値（6 W で 1 分あたり 0.8 ℃）。水の量や熱のにげ方で変わるので「暫定」と書く。実験の値に合わせるなら教えてください</td></tr>
+  <tr><td>電流と磁界の図（先生に確かめたい）</td><td>磁石を横から見た図にし、電流の向きは × と ・ のしるしに「手前→奥」「奥→手前」の文字をそえる。力の大きさは数値にせず、矢印の長さ（1 A と 2 A で 2 倍）で表す</td></tr>
+</table>
+</main>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 2 気象とそのはたらき）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 2「気象とそのはたらき」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 2 気象とそのはたらき」（盤 4 種類）にすること。</li>
+    <li>盤の中身: 圧力／湿度と露点／雲のでき方／前線と天気の変化。</li>
+    <li>見た目と進め方はほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（20 N ÷ 0.02 m² ＝ 1000 Pa、12.8 ÷ 23.1 ＝ 55 %、100 m で 1 ℃、前線面のかたむきと雲）。「暫定」と書いた値は見本用です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 2 気象とそのはたらき ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">圧力</span><span class="question">同じ力でも、へこみ方がちがうのはなぜ？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">湿度と露点</span><span class="question">空気を冷やすと、なぜ水滴ができる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">雲のでき方</span><span class="question">空気が上がると、なぜ雲ができる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">前線と天気の変化</span><span class="question">前線が通ると、天気はどう変わる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「圧力」（<code>weather-pressure</code>）</h2>
+<p class="note">スポンジの上に板を置き、おもりをのせる。圧力〔Pa〕＝ 面を垂直におす力〔N〕÷ 力がはたらく面積〔m²〕（1 Pa ＝ 1 N/m²）。力は 10〜50 N（10 N きざみ）で、上の白い丸を左右に引いて変える。板がスポンジにふれる面積は 0.01 m²・0.02 m²・0.05 m² の切り替え（どの組でも圧力が整数になる）。スポンジのへこみは圧力に比例して深くなる（へこみの深さは見本用。暫定）。板の重さは考えない。はじめは 20 N・0.02 m²（1000 Pa）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">圧力</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>力と面積とへこみ方をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="面積 0.02 平方メートルの板に 20 ニュートンのおもり。圧力は 1000 パスカル">
+          <!-- 力のつまみ -->
+          <text x="300" y="30" font-size="19" text-anchor="middle">おもりが板をおす力 20 N</text>
+          <path d="M140 70H460" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M140 62V78M220 62V78M300 62V78M380 62V78M460 62V78" stroke="#67748B" stroke-width="2"/>
+          <text x="140" y="118" font-size="19" text-anchor="middle">10 N</text><text x="460" y="118" font-size="19" text-anchor="middle">50 N</text>
+          <circle class="knob" cx="220" cy="70" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="220" y="77" font-size="22" text-anchor="middle">↔</text>
+          <!-- スポンジ（板の下が 10 だけへこむ） -->
+          <path d="M120 250H234Q244 250 244 260H356Q356 250 366 250H480V370H120Z" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="132" y="356" font-size="19">スポンジ</text>
+          <!-- 板とおもり -->
+          <rect x="244" y="248" width="112" height="12" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/>
+          <rect x="270" y="188" width="60" height="60" rx="4" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="262" y="215" font-size="19" text-anchor="end">おもり</text>
+          <text x="236" y="246" font-size="19" text-anchor="end">板</text>
+          <!-- 力 -->
+          <path d="M344 186V232" stroke="#B23A36" stroke-width="3.5"/><polygon points="344,246 337,232 351,232" fill="#B23A36"/>
+          <text x="360" y="215" font-size="19" style="fill:#B23A36">力 20 N</text>
+          <!-- 面積 -->
+          <path d="M244 276H356M244 268V284M356 268V284" stroke="#216E43" stroke-width="2.5"/>
+          <text x="300" y="308" font-size="19" text-anchor="middle" style="fill:#216E43">ふれる面積 0.02 m²</text>
+          <text x="300" y="402" font-size="22" text-anchor="middle" style="fill:#216E43">圧力 1000 Pa</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>力 20 N</span><span>面積 0.02 m²</span><span>圧力 1000 Pa</span></div>
+        <span class="how">白い丸を左右に引くと、おもりが板をおす力を変えられるよ。面積は下のボタンで替えよう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>力を 50 N にして、圧力を 2500 Pa にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>力は 20 N のまま面積を 0.01 m² に替えて、圧力を 2000 Pa にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>面積を 0.05 m² に替えて、圧力を 1000 Pa にしてみよう（力は何 N？）。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">ふれる面積</span><button type="button">0.01 m²</button><button type="button" aria-pressed="true">✓ 0.02 m²</button><button type="button">0.05 m²</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「湿度と露点」（<code>weather-humidity</code>）</h2>
+<p class="note">飽和水蒸気量のグラフ。値は見本用の表（暫定）: 0 ℃ 4.8、5 ℃ 6.8、10 ℃ 9.4、15 ℃ 12.8、20 ℃ 17.3、25 ℃ 23.1、30 ℃ 30.4（g/m³）。気温は 0〜30 ℃（5 ℃ きざみ）で、グラフの上の白い丸を左右に引いて変える。空気 1 m³ 中の水蒸気量は 6.8・9.4・12.8・17.3 g/m³ の切り替え（露点が 5・10・15・20 ℃ になる）。湿度〔%〕＝ 水蒸気量 ÷ その気温の飽和水蒸気量 × 100（小数第 1 位を四捨五入）。気温が露点より低いときは、湿度 100 % で、こえた分（水蒸気量 − 飽和水蒸気量）が水滴になる。はじめは 25 ℃・12.8 g/m³（湿度 55 %、露点 15 ℃、水滴 0 g）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">湿度と露点</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>空気を冷やして水滴ができる温度をさがそう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="気温 25 度、水蒸気量 12.8 グラム毎立方メートル。湿度 55 パーセント、露点 15 度">
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M165 60V350M240 60V350M315 60V350M390 60V350M465 60V350M540 60V350M90 310H560M90 270H560M90 230H560M90 190H560M90 150H560M90 110H560M90 70H560"/></g>
+          <path d="M90 60V350H560" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <!-- 飽和水蒸気量の曲線 -->
+          <polyline points="90,311.6 165,295.6 240,274.8 315,247.6 390,211.6 465,165.2 540,106.8" fill="none" stroke="#B23A36" stroke-width="3" stroke-linejoin="round"/>
+          <text x="440" y="140" font-size="19" text-anchor="end" style="fill:#B23A36">飽和水蒸気量（暫定）</text>
+          <!-- 今の水蒸気量 -->
+          <path d="M90 247.6H540" stroke="#176AA3" stroke-width="2" stroke-dasharray="6 5"/>
+          <path d="M465 350V247.6" stroke="#176AA3" stroke-width="6"/>
+          <path d="M465 247.6V165.2" stroke="#67748B" stroke-width="2.5" stroke-dasharray="5 5"/>
+          <text x="455" y="310" font-size="19" text-anchor="end" style="fill:#176AA3">12.8 g/m³</text>
+          <text x="480" y="205" font-size="19" style="fill:#67748B">あと 10.3 g</text>
+          <!-- 露点 -->
+          <path d="M315 247.6V350" stroke="#216E43" stroke-width="2.5" stroke-dasharray="5 5"/>
+          <circle cx="315" cy="247.6" r="7" fill="#216E43"/>
+          <text x="305" y="232" font-size="19" text-anchor="end" style="fill:#216E43">露点 15 ℃</text>
+          <text x="580" y="50" font-size="24" text-anchor="end">湿度 55 %</text>
+          <!-- 軸 -->
+          <text x="30" y="40" font-size="19">空気 1 m³ 中の水蒸気量〔g/m³〕</text>
+          <text x="82" y="277" font-size="19" text-anchor="end">10</text><text x="82" y="197" font-size="19" text-anchor="end">20</text><text x="82" y="117" font-size="19" text-anchor="end">30</text>
+          <text x="90" y="376" font-size="19" text-anchor="middle">0</text><text x="240" y="376" font-size="19" text-anchor="middle">10</text><text x="390" y="376" font-size="19" text-anchor="middle">20</text><text x="465" y="376" font-size="19" text-anchor="middle" style="fill:#176AA3">25 ℃</text><text x="540" y="376" font-size="19" text-anchor="middle">30</text>
+          <text x="315" y="408" font-size="19" text-anchor="middle">気温〔℃〕</text>
+          <circle class="knob" cx="465" cy="247.6" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="465" y="255" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>湿度 55 %</span><span>露点 15 ℃</span><span>水滴になる量 0 g</span></div>
+        <span class="how">白い丸を左右に引くと、気温を変えられるよ。水蒸気量は下のボタンで替えよう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>気温を 15 ℃ まで下げて、湿度を 100 % にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>気温を 10 ℃ まで下げて、空気 1 m³ あたり 3.4 g の水滴をつくろう。</span></li>
+        <li class="try"><span class="box">□</span><span>水蒸気量を 17.3 g/m³ に替えて、露点が 20 ℃ になることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">水蒸気量</span><button type="button">6.8 g/m³</button><button type="button">9.4 g/m³</button><button type="button" aria-pressed="true">✓ 12.8 g/m³</button><button type="button">17.3 g/m³</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「雲のでき方」（<code>weather-cloud</code>）</h2>
+<p class="note">山の斜面にそって上がる空気のかたまり。上空ほど気圧が低いので、かたまりは上がるほど膨張して（図の点線の円が大きくなる）、温度が下がる。下がり方は 100 m で 1 ℃（暫定）。温度が露点まで下がった高さから上で、水蒸気が水滴になって雲ができる（雲ができる高さ ＝（地上の気温 − 露点）× 100 m）。雲ができたあとの下がり方は 100 m で 0.5 ℃（暫定）。高さは 0〜2000 m（100 m きざみ）で、かたまりの白い丸を上下に引いて変える。切り替えは、地上の気温（20・25・30 ℃）と露点（10・15 ℃）。はじめは 地上 25 ℃・露点 15 ℃・高さ 400 m（かたまりの温度 21 ℃、雲ができる高さ 1000 m）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">雲のでき方</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>空気のかたまりを上げて雲をつくろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="地上の気温 25 度、露点 15 度。空気のかたまりは高さ 400 メートルで 21 度。雲ができる高さは 1000 メートル">
+          <!-- 山と地面 -->
+          <polygon points="200,380 560,80 600,80 600,380" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <path d="M20 380H600" stroke="#1B2430" stroke-width="3"/>
+          <text x="520" y="300" font-size="22" text-anchor="middle">山</text>
+          <!-- 高さの目もり -->
+          <path d="M50 380V80M44 305H56M44 230H56M44 155H56M44 80H56" stroke="#67748B" stroke-width="2.5"/>
+          <text x="58" y="372" font-size="19">0 m</text><text x="58" y="100" font-size="19">2000 m</text>
+          <!-- 雲ができる高さ -->
+          <path d="M50 230H380" stroke="#216E43" stroke-width="2.5" stroke-dasharray="7 5"/>
+          <text x="62" y="220" font-size="19" style="fill:#216E43">雲ができる高さ 1000 m</text>
+          <g fill="#FFFFFF" stroke="#67748B" stroke-width="2.5" stroke-dasharray="6 5"><ellipse cx="350" cy="160" rx="46" ry="26"/><ellipse cx="405" cy="135" rx="44" ry="26"/></g>
+          <text x="372" y="156" font-size="22" text-anchor="middle" style="stroke:#FFFFFF">雲</text>
+          <!-- 空気のかたまり -->
+          <path d="M50 320H149" stroke="#176AA3" stroke-width="2" stroke-dasharray="5 5"/>
+          <text x="58" y="312" font-size="19" style="fill:#176AA3">400 m</text>
+          <circle cx="185" cy="320" r="36" fill="none" stroke="#176AA3" stroke-width="2.5" stroke-dasharray="6 5"/>
+          <text x="185" y="272" font-size="19" text-anchor="middle">空気のかたまり</text>
+          <text x="140" y="50" font-size="19" style="fill:#B23A36">空気のかたまりの温度 21 ℃</text>
+          <text x="140" y="82" font-size="19">地上の気温 25 ℃・露点 15 ℃</text>
+          <circle class="knob" cx="185" cy="320" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="185" y="328" font-size="22" text-anchor="middle">↕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>高さ 400 m</span><span>空気の温度 21 ℃</span><span>雲 まだできない</span></div>
+        <span class="how">白い丸を上下に引くと、空気のかたまりの高さを変えられるよ。下の切り替えもためそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>高さを 1000 m にして、空気の温度を露点の 15 ℃ まで下げ、雲をつくろう。</span></li>
+        <li class="try"><span class="box">□</span><span>地上の気温を 30 ℃ に替えて、雲ができる高さが 1500 m になることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>地上の気温 20 ℃・露点 15 ℃ にして、高さ 500 m で雲をつくろう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">地上の気温</span><button type="button">20 ℃</button><button type="button" aria-pressed="true">✓ 25 ℃</button><button type="button">30 ℃</button></div>
+      <div class="seg"><span class="seg-name">露点</span><button type="button">10 ℃</button><button type="button" aria-pressed="true">✓ 15 ℃</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「前線と天気の変化」（<code>weather-front</code>）</h2>
+<p class="note">前線を横から見た断面図（左が西、右が東。前線は西から東へ進む）。切り替えは「寒冷前線・温暖前線」。寒冷前線: 寒気が暖気の下にもぐりこみ、前線面のかたむきが急。積乱雲ができ、せまい範囲に強い雨が短い時間ふる。通過後は気温が下がり、風は南寄りから北寄りに変わる。温暖前線: 暖気が寒気の上にはい上がり、前線面のかたむきがゆるやか。乱層雲ができ、前線の東側の広い範囲に弱い雨が長い時間ふる。通過後は気温が上がり、風は東寄りから南寄りに変わる。観測地点は、地面の白い丸を左右に引いて 3 か所（通過前・雨の範囲・通過後）から選ぶ。気温は見本用の値（暫定）。寒冷前線: 通過前 22 ℃・南寄り・雨なし／雨の範囲 16 ℃・北寄り・強い雨／通過後 14 ℃・北寄り・雨なし。温暖前線: 通過前 12 ℃・東寄り・雨なし／雨の範囲 13 ℃・東寄り・弱い雨／通過後 20 ℃・南寄り・雨なし。はじめは 寒冷前線・通過前。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">前線と天気の変化</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>前線が通るときの天気の変化をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="寒冷前線の断面図。寒気が暖気の下にもぐりこみ、積乱雲ができて強い雨がふる。観測地点は前線の通過前で、気温 22 度、南寄りの風、雨なし">
+          <text x="585" y="44" font-size="19" text-anchor="end" style="fill:#B45C00">前線の進む向き →</text>
+          <!-- 地面 -->
+          <path d="M20 340H580" stroke="#1B2430" stroke-width="3"/>
+          <path d="M130 340V352M350 340V352M470 340V352" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="30" y="374" font-size="19">西</text><text x="570" y="374" font-size="19" text-anchor="end">東</text>
+          <!-- 積乱雲 -->
+          <g fill="#FFFFFF" stroke="#67748B" stroke-width="2.5"><ellipse cx="350" cy="200" rx="45" ry="35"/><ellipse cx="340" cy="150" rx="50" ry="35"/><ellipse cx="330" cy="100" rx="60" ry="30"/></g>
+          <text x="340" y="157" font-size="19" text-anchor="middle" style="stroke:#FFFFFF">積乱雲</text>
+          <!-- 雨 -->
+          <path d="M318 245L310 330M338 245L330 330M358 245L350 330M378 245L370 330" stroke="#176AA3" stroke-width="2.5" stroke-dasharray="8 6"/>
+          <text x="340" y="374" font-size="19" text-anchor="middle" style="fill:#176AA3">強い雨（せまい範囲）</text>
+          <!-- 前線面 -->
+          <path d="M340 340Q330 220 230 110" stroke="#176AA3" stroke-width="4" fill="none"/>
+          <text x="222" y="104" font-size="19" text-anchor="end" style="fill:#176AA3">前線面</text>
+          <!-- 寒気と暖気 -->
+          <text x="120" y="290" font-size="22" text-anchor="middle" style="fill:#176AA3">寒気</text>
+          <path d="M60 318H196" stroke="#176AA3" stroke-width="3.5"/><polygon points="210,318 194,309 194,327" fill="#176AA3"/>
+          <text x="490" y="225" font-size="22" text-anchor="middle" style="fill:#B23A36">暖気</text>
+          <path d="M430 290Q412 240 418 182" stroke="#B23A36" stroke-width="3.5" fill="none"/><polygon points="418,166 410,183 426,183" fill="#B23A36"/>
+          <!-- 観測地点 -->
+          <text x="470" y="300" font-size="19" text-anchor="middle">観測地点</text>
+          <circle class="knob" cx="470" cy="340" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="470" y="347" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>気温 22 ℃（暫定）</span><span>風向 南寄り</span><span>雨 なし</span></div>
+        <span class="how">地面の白い丸を左右に引くと、観測地点を変えられるよ。前線は下のボタンで替えよう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>寒冷前線で観測地点を通過後にして、気温が 14 ℃ に下がり、風が北寄りに変わることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>温暖前線に替えて、雲（乱層雲）と雨の範囲が寒冷前線より広いことをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>温暖前線で観測地点を通過後にして、気温を 20 ℃ にしてみよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">前線</span><button type="button" aria-pressed="true">✓ 寒冷前線</button><button type="button">温暖前線</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（60 N、0.03 m²、気温 35 ℃、高さ 2100 m など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる（ほかの単元と同じ）</td></tr>
+  <tr><td>飽和水蒸気量の表（先生に確かめたい）</td><td>見本用の 7 つの値（0 ℃ 4.8 〜 30 ℃ 30.4 g/m³）。使っている教科書の表と合わせる。湿度は小数第 1 位を四捨五入して整数で出す</td></tr>
+  <tr><td>雲のでき方の温度の下がり方（先生に確かめたい）</td><td>雲ができるまで 100 m で 1 ℃、できたあとは 100 m で 0.5 ℃（どちらも暫定）。できたあとの値を出さず「雲の中」とだけ出す案もある。露点は高さで変わらないものとする</td></tr>
+  <tr><td>前線の気温と風向（先生に確かめたい）</td><td>気温は見本用（寒冷前線 22 → 16 → 14 ℃、温暖前線 12 → 13 → 20 ℃）。風向は「南寄り・北寄り・東寄り」の言い方にする。観測地点は 3 か所（通過前・雨の範囲・通過後）</td></tr>
+  <tr><td>圧力の板の重さとへこみ</td><td>板の重さは考えない。スポンジのへこみの深さは圧力に比例させる（見本用。数値では出さない）</td></tr>
+</table>
+</main>
+</body>
+</html>

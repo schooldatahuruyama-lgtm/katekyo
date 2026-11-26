@@ -8,6 +8,104 @@ const vm = require('node:vm');
 const boards = require('../js/boards.js');
 const scene = require('../js/scene.js');
 
+test('力の盤の見出し・問いかけ・初期配置と数値の切り替え', () => {
+  assert.deepEqual(boards.list().filter(b => b.unit === 'force').map(b => [b.title, b.question]), [
+    ['ばねののび', 'おもりをふやすと、ばねはどれだけのびる？'], ['力の表し方', '力は、矢印でどう表す？'],
+    ['力のつり合い', '2 つの力がつり合うのは、どんなとき？'],
+  ]);
+  assert.deepEqual(boards.get('force-spring').scene, { id: 'force-spring-basic', kind: 'force-spring', elements: [
+    { id: 'stand', type: 'stand' }, { id: 'spring', type: 'spring' }, { id: 'weights', type: 'weights' },
+  ], options: { weights: 3, spring: 'A' } });
+  assert.deepEqual(boards.get('force-arrow').scene, { id: 'force-arrow-basic', kind: 'force-arrow', elements: [
+    { id: 'box', type: 'box' }, { id: 'force', type: 'force', newtons: 3, direction: 'right' },
+  ] });
+  assert.deepEqual(boards.get('force-balance').scene, { id: 'force-balance-basic', kind: 'force-balance', elements: [
+    { id: 'card', type: 'card' }, { id: 'left', type: 'pull', side: 'left', newtons: 3 },
+    { id: 'right', type: 'pull', side: 'right', newtons: 3 },
+  ], options: { line: 'same' } });
+  assert.deepEqual(boards.get('force-spring').controls, [
+    { key: 'weights', label: 'おもりの数', choices: [0, 1, 2, 3, 4, 5].map(value => ({ value, label: String(value) })) },
+    { key: 'spring', label: 'ばね', choices: [{ value: 'A', label: 'ばね A' }, { value: 'B', label: 'ばね B' }] },
+  ]);
+  assert.deepEqual(boards.get('force-balance').controls, [{ key: 'line', label: '2 つの力', choices: [
+    { value: 'same', label: '一直線上' }, { value: 'offset', label: 'ずれている' },
+  ] }]);
+  for (const [id, heading] of [['force-spring', '力の大きさとばねののびをしらべよう'],
+    ['force-arrow', '力を矢印で表そう'], ['force-balance', '2 つの力がつり合う条件をさがそう']]) {
+    assert.equal(boards.get(id).heading, heading);
+    assert.ok(boards.get(id).intro.length);
+  }
+});
+
+test('力の全 82 配置で読み出し・盤の文字・課題の結果が一致する', () => {
+  function check(id, s, expected, achieved) {
+    const board = boards.get(id), result = scene.trace(s);
+    assert.deepEqual(boards.readout(id, result.measures, s).map(r => r.text), expected);
+    assert.deepEqual(board.prompts.map(p => boards.checkPrompt(p, result.measures, s)), achieved);
+    return result.force.labels;
+  }
+  for (const spring of ['A', 'B']) for (let weights = 0; weights <= 5; weights++) {
+    const s = boards.get('force-spring').scene; s.options = { weights, spring };
+    const n = weights ? (weights * .2).toFixed(1) : '0', cm = weights ? weights * (spring === 'A' ? 1 : 2) + '.0' : '0';
+    const labels = check('force-spring', s, ['力の大きさ ' + n + ' N', 'ばねののび ' + cm + ' cm'],
+      [weights === 5 && spring === 'A', spring === 'B', weights === 2 && spring === 'B']);
+    assert.equal(labels.force.text, n + ' N');
+  }
+  for (const [direction, name] of Object.entries({ up: '上', down: '下', left: '左', right: '右' })) for (let newtons = 1; newtons <= 5; newtons++) {
+    const s = boards.get('force-arrow').scene; Object.assign(s.elements[1], { direction, newtons });
+    const labels = check('force-arrow', s, ['力の大きさ ' + newtons + ' N', '力の向き ' + name],
+      [direction === 'right' && newtons === 5, direction === 'up' && newtons === 2, direction === 'left' && newtons === 4]);
+    assert.equal(labels.magnitude.text, '力の大きさ ' + newtons + ' N');
+  }
+  for (const line of ['same', 'offset']) for (let left = 1; left <= 5; left++) for (let right = 1; right <= 5; right++) {
+    const s = boards.get('force-balance').scene; s.options.line = line;
+    s.elements[1].newtons = left; s.elements[2].newtons = right;
+    const state = line === 'offset' ? 'つり合わない（回って動く）' : left === right ? 'つり合っている' :
+      left > right ? 'つり合わない（左へ動く）' : 'つり合わない（右へ動く）';
+    const labels = check('force-balance', s, ['左の力 ' + left + ' N', '右の力 ' + right + ' N', state],
+      [left === 5 && right === 5 && line === 'same', line === 'same' && right > left, line === 'offset' && left === right]);
+    assert.equal(labels.state.text, state === 'つり合っている' ? state + '（動かない）' : state);
+    assert.equal(labels.left.text, '左の力 ' + left + ' N'); assert.equal(labels.right.text, '右の力 ' + right + ' N');
+  }
+});
+
+test('力の 9 課題は初期配置では未達成、切り替えとつまみで達成できる', () => {
+  const solve = {
+    'force-spring': [s => scene.setOption(s, 'weights', 5), s => scene.setOption(s, 'spring', 'B'),
+      s => scene.setOption(scene.setOption(s, 'spring', 'B'), 'weights', 2)],
+    'force-arrow': [{ x: 460, y: 210 }, { x: 300, y: 162 }, { x: 172, y: 210 }].map(p => s => scene.moveElement(s, 'force', 'tip', p)),
+    'force-balance': [s => scene.moveElement(scene.moveElement(s, 'left', 'tip', { x: 90, y: 210 }), 'right', 'tip', { x: 510, y: 210 }),
+      s => scene.moveElement(s, 'right', 'tip', { x: 478, y: 210 }), s => scene.setOption(s, 'line', 'offset')],
+  };
+  for (const [id, operations] of Object.entries(solve)) {
+    const board = boards.get(id);
+    board.prompts.forEach((p, i) => {
+      assert.equal(boards.checkPrompt(p, scene.trace(board.scene).measures, board.scene), false);
+      const solved = operations[i](board.scene);
+      assert.deepEqual(scene.validateScene(solved), []);
+      assert.equal(boards.checkPrompt(p, scene.trace(solved).measures, solved), true, p.text);
+    });
+  }
+});
+
+test('力の不正な値・切り替えでは読み出し・ボタン・課題を止める', () => {
+  for (const id of ['force-spring', 'force-arrow', 'force-balance']) {
+    const board = boards.get(id), measures = scene.trace(board.scene).measures;
+    for (const value of ['3', 2.5, NaN, Infinity, null, [], -1, 6]) {
+      board.scene = boards.get(id).scene;
+      if (id === 'force-spring') board.scene.options.weights = value; else board.scene.elements[1].newtons = value;
+      assert.deepEqual(boards.readout(id, measures, board.scene), []);
+      assert.deepEqual(board.controls, []);
+      assert.ok(board.prompts.every(p => !boards.checkPrompt(p, measures, board.scene)));
+    }
+  }
+  for (const when of [{ all: [] }, { all: null }, { all: [null] }, { all: [{ measure: 'left', op: 'equal', other: 'right' }] }]) {
+    assert.equal(boards.checkPrompt({ when }, {}), false);
+  }
+  const prompt = { when: { all: [{ measure: 'left', op: 'equal', other: 'right' }, { measure: 'line', op: 'is', value: 'offset' }] } };
+  for (const value of [null, '3', NaN, Infinity, [], undefined]) assert.equal(boards.checkPrompt(prompt, { left: value, right: value, line: 'offset' }), false);
+});
+
 const solutions = {
   'sound-wave': [s => scene.moveElement(s, 'wave', 'amplitude', { x: 526, y: 50 }),
     s => scene.moveElement(s, 'wave', 'frequency', { x: 218, y: 210 }),
@@ -48,8 +146,8 @@ test('6 種類が指定の順序・名前・問いかけでそろう', () => {
 
 test('単元の順・盤の重複・空の単元・list との一致と独立した写し', () => {
   const units = boards.units(), all = boards.list();
-  assert.deepEqual(units.map(u => u.id), ['light', 'sound']);
-  assert.deepEqual(units.map(u => u.title), ['中 1 光の世界', '中 1 音の世界']);
+  assert.deepEqual(units.map(u => u.id), ['light', 'sound', 'force']);
+  assert.deepEqual(units.map(u => u.title), ['中 1 光の世界', '中 1 音の世界', '中 1 力の世界']);
   assert.ok(units.every(u => u.teacher === 'E' && !Object.hasOwn(u, 'voice') && u.boards.length > 0));
   assert.equal(new Set(all.map(b => b.id)).size, all.length);
   assert.deepEqual(all.map(b => b.id), scene.KINDS);
@@ -224,7 +322,7 @@ test('屈折の切り替えは水・ガラスに合わせたラベルになる',
   board.scene = scene.setOption(board.scene, 'medium', 'glass');
   assert.deepEqual(board.controls[0].choices.map(c => c.label), ['空気 → ガラス', 'ガラス → 空気']);
   assert.deepEqual(boards.get('refract').controls[0].choices.map(c => c.label), ['空気 → 水', '水 → 空気']);
-  for (const id of scene.KINDS.filter(id => !['refract', 'sound-string'].includes(id))) assert.deepEqual(boards.get(id).controls, []);
+  for (const id of scene.KINDS.filter(id => !['refract', 'sound-string', 'force-spring', 'force-balance'].includes(id))) assert.deepEqual(boards.get(id).controls, []);
 });
 
 test('表示だけで角度を四捨五入する', () => {
@@ -340,7 +438,7 @@ test('像の倍率が 50 倍以上なら上限の文を出す', () => {
 
 test('DOM なしのブラウザ名前空間でも Node と同じ結果を返す', () => {
   const context = vm.createContext({ URLSearchParams });
-  for (const file of ['config', 'geometry', 'optics', 'sound', 'scene', 'boards', 'entry']) {
+  for (const file of ['config', 'geometry', 'optics', 'sound', 'force', 'scene', 'boards', 'entry']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', file + '.js'), 'utf8'), context);
   }
   assert.deepEqual(JSON.parse(JSON.stringify(context.Hikari.boards.list())), boards.list());

@@ -1,0 +1,438 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 3 化学変化とイオン）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 3「化学変化とイオン」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 3 化学変化とイオン」（盤 4 種類）にすること。</li>
+    <li>盤の中身: 原子とイオン／電離と電気分解／酸・アルカリと中和／電池のしくみ。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（陽子 11 個と電子 10 個で Na⁺、銅原子 3 個と塩素分子 3 個、H⁺ 4 個に OH⁻ 2 個を加えて H⁺ 2 個、亜鉛原子 2 個で電子 4 個）。イオンや原子の数は、しくみを見るためのモデルの数です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 3 化学変化とイオン ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">原子とイオン</span><span class="question">原子は、どうやってイオンになる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">電離と電気分解</span><span class="question">塩化銅水溶液に電流を流すと、何が起こる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">酸・アルカリと中和</span><span class="question">酸にアルカリを加えると、何が起こる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">電池のしくみ</span><span class="question">電池の中で、電子はどう動く？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「原子とイオン」（<code>ion-atom</code>）</h2>
+<p class="note">原子は、＋の電気をもつ陽子がある原子核と、そのまわりにある−の電気をもつ電子でできている（原子核には中性子もあるが、この図では省く）。原子のときは陽子の数と電子の数が同じ。電子を失うと＋の電気が多くなって陽イオンに、電子を受けとると−の電気が多くなって陰イオンになる。原子の切り替えは 4 種類（ナトリウム: 陽子 11 個、塩素: 17 個、マグネシウム: 12 個、銅: 29 個）。電子の切り替えは「2 個失う・1 個失う・そのまま・1 個受けとる」の 4 つ。はじめは ナトリウム・1 個失う（陽子 11 個、電子 10 個、ナトリウムイオン Na⁺）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">原子とイオン</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>陽子の数と電子の数をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="ナトリウム原子が電子を 1 個失う。陽子 11 個、電子 10 個で、ナトリウムイオンになる">
+          <!-- 電子のある場所 -->
+          <circle cx="170" cy="230" r="100" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <!-- 原子核 -->
+          <circle cx="170" cy="230" r="40" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <text x="170" y="238" font-size="22" text-anchor="middle" style="fill:#B23A36">11＋</text>
+          <!-- 電子 10 個 -->
+          <g fill="#176AA3"><circle cx="270" cy="230" r="10"/><circle cx="254" cy="284" r="10"/><circle cx="212" cy="321" r="10"/><circle cx="156" cy="329" r="10"/><circle cx="105" cy="306" r="10"/><circle cx="74" cy="258" r="10"/><circle cx="74" cy="202" r="10"/><circle cx="105" cy="154" r="10"/><circle cx="156" cy="131" r="10"/><circle cx="212" cy="139" r="10"/><circle cx="318" cy="112" r="10"/></g>
+          <path d="M265 230H275M249 284H259M207 321H217M151 329H161M100 306H110M69 258H79M69 202H79M100 154H110M151 131H161M207 139H217M313 112H323" stroke="#FFFFFF" stroke-width="3"/>
+          <!-- 出ていった電子 -->
+          <circle cx="254" cy="176" r="10" fill="none" stroke="#176AA3" stroke-width="2" stroke-dasharray="4 4"/>
+          <path d="M263 167L300 130" stroke="#176AA3" stroke-width="3"/><polygon points="308,122 302,136 294,128" fill="#176AA3"/>
+          <text x="340" y="118" font-size="19" style="fill:#176AA3">電子 1 個を失う</text>
+          <text x="20" y="100" font-size="19" style="fill:#176AA3">電子 10 個</text>
+          <path d="M183 270V354" stroke="#67748B" stroke-width="2"/>
+          <text x="170" y="376" font-size="19" text-anchor="middle">原子核（陽子 11 個）</text>
+          <!-- 数のまとめ -->
+          <text x="350" y="190" font-size="19" style="fill:#B23A36">陽子 11 個（＋の電気）</text>
+          <text x="350" y="224" font-size="19" style="fill:#176AA3">電子 10 個（−の電気）</text>
+          <path d="M350 238H560" stroke="#1B2430" stroke-width="2"/>
+          <text x="350" y="270" font-size="19">＋の電気が 1 個ぶん多い</text>
+          <text x="350" y="306" font-size="19" style="fill:#216E43">→ 陽イオンになる</text>
+          <text x="350" y="362" font-size="36">Na⁺</text>
+          <text x="420" y="360" font-size="19">ナトリウムイオン</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>陽子 11 個</span><span>電子 10 個</span><span>ナトリウムイオン Na⁺（陽イオン）</span></div>
+        <span class="how">下のボタンで、原子の種類と、電子を失う・受けとる数を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>塩素にして電子を 1 個受けとらせ、陽子 17 個・電子 18 個の塩化物イオン Cl⁻ をつくろう。</span></li>
+        <li class="try"><span class="box">□</span><span>マグネシウムにして電子を 2 個失わせ、陽子 12 個・電子 10 個のマグネシウムイオン Mg²⁺ をつくろう。</span></li>
+        <li class="try"><span class="box">□</span><span>銅にして電子を 2 個失わせ、陽子 29 個・電子 27 個の銅イオン Cu²⁺ をつくろう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">原子</span><button type="button" aria-pressed="true">✓ ナトリウム</button><button type="button">塩素</button><button type="button">マグネシウム</button><button type="button">銅</button></div>
+      <div class="seg"><span class="seg-name">電子</span><button type="button">2 個失う</button><button type="button" aria-pressed="true">✓ 1 個失う</button><button type="button">そのまま</button><button type="button">1 個受けとる</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「電離と電気分解」（<code>ion-electrolysis</code>）</h2>
+<p class="note">塩化銅は、水にとけると銅イオンと塩化物イオンに分かれる（電離。CuCl₂ → Cu²⁺ ＋ 2Cl⁻）。電流を流すと、＋の電気をもつ銅イオンは陰極（電源の−極につないだ電極）に引かれ、電子を受けとって銅になって付く。−の電気をもつ塩化物イオンは陽極に引かれ、電子をわたして塩素になって出る（CuCl₂ → Cu ＋ Cl₂）。モデルでは、はじめの水溶液に Cu²⁺ 5 個と Cl⁻ 10 個があり、1 分ごとに銅原子 1 個と塩素分子 1 個ができる。時間は 0〜5 分（1 分きざみ）。電源の向きは 2 通り。はじめは 左が陰極・3 分（銅原子 3 個、塩素分子 3 個、残り Cu²⁺ 2 個・Cl⁻ 4 個）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">電離と電気分解</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>塩化銅水溶液に電流を流してみよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="塩化銅水溶液の電気分解。3 分で、左の陰極に銅原子 3 個が付き、右の陽極から塩素分子 3 個が出る">
+          <!-- 電源と導線 -->
+          <path d="M202 70V34H210M398 70V34H390" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <rect x="210" y="14" width="180" height="40" rx="6" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="41" font-size="19" text-anchor="middle">− 電源装置 ＋</text>
+          <!-- 電子の向き -->
+          <path d="M186 38V56" stroke="#176AA3" stroke-width="3"/><polygon points="186,66 180,54 192,54" fill="#176AA3"/>
+          <text x="172" y="58" font-size="19" text-anchor="end" style="fill:#176AA3">電子の向き</text>
+          <path d="M414 66V50" stroke="#176AA3" stroke-width="3"/><polygon points="414,40 408,52 420,52" fill="#176AA3"/>
+          <text x="428" y="58" font-size="19" style="fill:#176AA3">電子の向き</text>
+          <!-- ビーカーと水溶液 -->
+          <rect x="131.5" y="130" width="337" height="168.5" fill="#E3DBC8" fill-opacity=".45"/>
+          <path d="M130 100V300H470V100" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <!-- 電極 -->
+          <rect x="190" y="70" width="24" height="205" fill="#67748B" stroke="#1B2430" stroke-width="2"/>
+          <rect x="386" y="70" width="24" height="205" fill="#67748B" stroke="#1B2430" stroke-width="2"/>
+          <path d="M118 90H188M412 90H478" stroke="#67748B" stroke-width="2"/>
+          <text x="20" y="96" font-size="19">陰極（−）</text>
+          <text x="480" y="96" font-size="19">陽極（＋）</text>
+          <!-- 陰極に付いた銅原子 3 個 -->
+          <g fill="#B45C00" stroke="#1B2430" stroke-width="1.5"><circle cx="181" cy="190" r="9"/><circle cx="181" cy="212" r="9"/><circle cx="181" cy="234" r="9"/></g>
+          <path d="M100 212H170" stroke="#67748B" stroke-width="2"/>
+          <text x="20" y="218" font-size="19" style="fill:#B45C00">銅が付く</text>
+          <!-- 陽極から出る塩素分子 3 個 -->
+          <g fill="#FFFFFF" stroke="#216E43" stroke-width="2.5"><circle cx="422" cy="250" r="8"/><circle cx="438" cy="250" r="8"/><circle cx="424" cy="205" r="8"/><circle cx="440" cy="205" r="8"/><circle cx="422" cy="160" r="8"/><circle cx="438" cy="160" r="8"/></g>
+          <path d="M478 214H450" stroke="#67748B" stroke-width="2"/>
+          <text x="480" y="220" font-size="19" style="fill:#216E43">塩素が出る</text>
+          <!-- 残りの銅イオン 2 個（陰極へ） -->
+          <g fill="#B45C00"><circle cx="260" cy="170" r="11"/><circle cx="310" cy="250" r="11"/></g>
+          <path d="M254 170H266M260 164V176M304 250H316M310 244V256" stroke="#FFFFFF" stroke-width="3"/>
+          <path d="M244 170H232M294 250H282" stroke="#B45C00" stroke-width="3"/><polygon points="224,170 234,165 234,175" fill="#B45C00"/><polygon points="274,250 284,245 284,255" fill="#B45C00"/>
+          <!-- 残りの塩化物イオン 4 個（陽極へ） -->
+          <g fill="#FFFFFF" stroke="#216E43" stroke-width="3"><circle cx="340" cy="180" r="9"/><circle cx="350" cy="270" r="9"/><circle cx="270" cy="220" r="9"/><circle cx="250" cy="280" r="9"/></g>
+          <path d="M335 180H345M345 270H355M265 220H275M245 280H255" stroke="#216E43" stroke-width="3"/>
+          <path d="M354 180H364M364 270H372M284 220H294M264 280H274" stroke="#216E43" stroke-width="3"/><polygon points="372,180 362,175 362,185" fill="#216E43"/><polygon points="380,270 370,265 370,275" fill="#216E43"/><polygon points="302,220 292,215 292,225" fill="#216E43"/><polygon points="282,280 272,275 272,285" fill="#216E43"/>
+          <!-- 記号の説明 -->
+          <circle cx="40" cy="334" r="11" fill="#B45C00"/><path d="M34 334H46M40 328V340" stroke="#FFFFFF" stroke-width="3"/>
+          <text x="58" y="341" font-size="19">銅イオン Cu²⁺</text>
+          <circle cx="240" cy="334" r="9" fill="#FFFFFF" stroke="#216E43" stroke-width="3"/><path d="M235 334H245" stroke="#216E43" stroke-width="3"/>
+          <text x="256" y="341" font-size="19">塩化物イオン Cl⁻</text>
+          <!-- 時間のつまみ -->
+          <text x="20" y="395" font-size="19">時間 3 分（0〜5 分）</text>
+          <path d="M230 388H480" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M230 380V396M280 380V396M330 380V396M380 380V396M430 380V396M480 380V396" stroke="#67748B" stroke-width="2"/>
+          <circle class="knob" cx="380" cy="388" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="380" y="395" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>陰極に付いた銅原子 3 個</span><span>陽極から出た塩素分子 3 個</span><span>残りのイオン Cu²⁺ 2 個・Cl⁻ 4 個</span></div>
+        <span class="how">白い丸を左右に引くと、電流を流した時間を変えられるよ。下のボタンで電源の向きも変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>時間を 5 分にして、陰極に付く銅原子を 5 個にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>時間を 2 分にして、水溶液に残るイオンを Cu²⁺ 3 個・Cl⁻ 6 個にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>電源の向きを入れかえて、時間を 3 分にし、銅原子 3 個が右の電極に付くのをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">電源の向き</span><button type="button" aria-pressed="true">✓ 左が陰極</button><button type="button">右が陰極</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「酸・アルカリと中和」（<code>ion-neutral</code>）</h2>
+<p class="note">うすい塩酸には水素イオン H⁺ と塩化物イオン Cl⁻ が、うすい水酸化ナトリウム水溶液にはナトリウムイオン Na⁺ と水酸化物イオン OH⁻ がある。まぜると、H⁺ と OH⁻ が結びついて水になる（中和。H⁺ ＋ OH⁻ → H₂O）。モデルでは、塩酸に H⁺ 4 個と Cl⁻ 4 個があり、水酸化ナトリウム水溶液を OH⁻ 0〜8 個ぶん（1 個ぶんきざみ。Na⁺ も同じ数）加えられる。H⁺ が残れば酸性（BTB 溶液は黄色）、どちらも残らなければ中性（緑色）、OH⁻ が残ればアルカリ性（青色）。図の H₂O は中和でできた水だけを描く。はじめは 2 個ぶん（H⁺ 2 個、OH⁻ 0 個、酸性、黄色）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">酸・アルカリと中和</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>塩酸に水酸化ナトリウム水溶液を加えよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="塩酸に水酸化ナトリウム水溶液を 2 個ぶん加えた。水素イオン 2 個が残り、酸性。BTB 溶液は黄色">
+          <!-- 加える量のつまみ -->
+          <text x="20" y="40" font-size="19">加えた水酸化ナトリウム水溶液</text>
+          <path d="M40 85H280" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M40 77V93M70 77V93M100 77V93M130 77V93M160 77V93M190 77V93M220 77V93M250 77V93M280 77V93" stroke="#67748B" stroke-width="2"/>
+          <text x="40" y="134" font-size="19" text-anchor="middle">0</text><text x="160" y="134" font-size="19" text-anchor="middle">4</text><text x="280" y="134" font-size="19" text-anchor="middle">8</text>
+          <!-- ビーカー -->
+          <rect x="41.5" y="190" width="237" height="153.5" fill="#E3DBC8" fill-opacity=".45"/>
+          <path d="M40 160V345H280V160" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <text x="70" y="228" font-size="19" text-anchor="middle" style="fill:#B23A36">H⁺</text>
+          <text x="130" y="228" font-size="19" text-anchor="middle" style="fill:#216E43">Cl⁻</text>
+          <text x="190" y="228" font-size="19" text-anchor="middle" style="fill:#B23A36">H⁺</text>
+          <text x="250" y="228" font-size="19" text-anchor="middle" style="fill:#216E43">Cl⁻</text>
+          <text x="70" y="276" font-size="19" text-anchor="middle" style="fill:#216E43">Cl⁻</text>
+          <text x="130" y="276" font-size="19" text-anchor="middle" style="fill:#67748B">Na⁺</text>
+          <text x="190" y="276" font-size="19" text-anchor="middle" style="fill:#216E43">Cl⁻</text>
+          <text x="250" y="276" font-size="19" text-anchor="middle" style="fill:#67748B">Na⁺</text>
+          <text x="100" y="322" font-size="19" text-anchor="middle">H₂O</text>
+          <text x="220" y="322" font-size="19" text-anchor="middle">H₂O</text>
+          <text x="30" y="380" font-size="19">BTB 溶液の色: 黄色（酸性）</text>
+          <!-- グラフ -->
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M378 120V340M406 120V340M434 120V340M462 120V340M490 120V340M518 120V340M546 120V340M574 120V340M350 290H590M350 240H590M350 190H590M350 140H590"/></g>
+          <path d="M350 120V340H590" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <path d="M406 120V340" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <polyline points="350,140 462,340 574,340" fill="none" stroke="#B23A36" stroke-width="3.5"/>
+          <polyline points="350,340 462,340 574,140" fill="none" stroke="#176AA3" stroke-width="3.5" stroke-dasharray="8 5"/>
+          <circle cx="406" cy="240" r="8" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <circle cx="406" cy="340" r="8" fill="#FFFFFF" stroke="#176AA3" stroke-width="4"/>
+          <text x="420" y="170" font-size="19" style="fill:#B23A36">H⁺</text>
+          <text x="496" y="170" font-size="19" style="fill:#176AA3">OH⁻</text>
+          <text x="340" y="100" font-size="19">イオンの数〔個〕</text>
+          <text x="340" y="247" font-size="19" text-anchor="end">2</text><text x="340" y="147" font-size="19" text-anchor="end">4</text>
+          <text x="350" y="364" font-size="19" text-anchor="middle">0</text><text x="462" y="364" font-size="19" text-anchor="middle">4</text><text x="574" y="364" font-size="19" text-anchor="middle">8</text>
+          <text x="462" y="402" font-size="19" text-anchor="middle">加えた量〔OH⁻ の数〕</text>
+          <circle class="knob" cx="100" cy="85" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="100" y="92" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>加えた量 OH⁻ 2 個ぶん</span><span>残り H⁺ 2 個・OH⁻ 0 個</span><span>酸性（BTB 溶液は黄色）</span></div>
+        <span class="how">白い丸を左右に引くと、加える水酸化ナトリウム水溶液の量を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>OH⁻ を 4 個ぶん加えて、H⁺ も OH⁻ も 0 個の中性（緑色）にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>OH⁻ を 6 個ぶん加えて、OH⁻ が 2 個残るアルカリ性（青色）にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>加えた量を 0 にもどして、H⁺ が 4 個ある酸性（黄色）をたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">グラフ</span><button type="button" aria-pressed="true">✓ H⁺ と OH⁻</button><button type="button">すべてのイオン</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「電池のしくみ」（<code>ion-battery</code>）</h2>
+<p class="note">ダニエル電池。亜鉛板を硫酸亜鉛水溶液に、銅板を硫酸銅水溶液に入れ、セロハンでしきる（セロハンは 2 つの水溶液がすぐにまざるのをふせぎ、イオンは少しずつ通す）。亜鉛原子が電子を 2 個失って亜鉛イオン Zn²⁺ になり、電子は導線を通って銅板へ動く。銅板では、銅イオン Cu²⁺ が電子を 2 個受けとって銅になる。電子が出ていく亜鉛板が−極、銅板が＋極。電流の向きは電子の向きと逆（＋極 → −極）。モデルでは、1 分ごとに亜鉛原子 1 個がイオンになり、電子 2 個が動き、銅原子 1 個ができる。時間は 0〜4 分（1 分きざみ）。金属の組は 3 通り（亜鉛と銅／マグネシウムと銅／銅と銅）。はじめは 亜鉛と銅・2 分（動いた電子 4 個）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">電池のしくみ</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>電子の動く向きをしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="ダニエル電池。亜鉛板がマイナス極、銅板がプラス極。電子は亜鉛板から銅板へ動く。2 分で電子 4 個が動いた">
+          <!-- 導線とモーター -->
+          <path d="M182 100V40H280M320 40H418V100" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <circle cx="300" cy="40" r="20" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="88" font-size="19" text-anchor="middle">モーター</text>
+          <text x="186" y="24" font-size="19" style="fill:#176AA3">電子の向き</text>
+          <path d="M200 54H250" stroke="#176AA3" stroke-width="3"/><polygon points="262,54 250,48 250,60" fill="#176AA3"/>
+          <text x="322" y="24" font-size="19" style="fill:#B23A36">電流の向き</text>
+          <path d="M400 54H350" stroke="#B23A36" stroke-width="3"/><polygon points="338,54 350,48 350,60" fill="#B23A36"/>
+          <!-- 動いている電子 4 個 -->
+          <g fill="#176AA3"><circle cx="182" cy="62" r="6"/><circle cx="182" cy="82" r="6"/><circle cx="418" cy="62" r="6"/><circle cx="418" cy="82" r="6"/></g>
+          <!-- 容器と水溶液 -->
+          <rect x="111.5" y="172" width="188.5" height="136.5" fill="#E3DBC8" fill-opacity=".45"/>
+          <rect x="300" y="172" width="188.5" height="136.5" fill="#176AA3" fill-opacity=".15"/>
+          <path d="M110 150V310H490V150" stroke="#1B2430" stroke-width="3" fill="none"/>
+          <path d="M300 150V310" stroke="#67748B" stroke-width="3" stroke-dasharray="6 5"/>
+          <text x="300" y="136" font-size="19" text-anchor="middle">セロハン</text>
+          <!-- 金属板 -->
+          <rect x="170" y="100" width="24" height="190" fill="#67748B" stroke="#1B2430" stroke-width="2"/>
+          <rect x="406" y="100" width="24" height="190" fill="#B45C00" stroke="#1B2430" stroke-width="2"/>
+          <text x="14" y="128" font-size="19">−極 亜鉛板</text>
+          <text x="446" y="128" font-size="19">＋極 銅板</text>
+          <!-- 亜鉛イオンが出ていく -->
+          <path d="M198 216H210M198 276H210" stroke="#67748B" stroke-width="3"/><polygon points="218,216 208,211 208,221" fill="#67748B"/><polygon points="218,276 208,271 208,281" fill="#67748B"/>
+          <text x="245" y="222" font-size="19" text-anchor="middle">Zn²⁺</text>
+          <text x="245" y="282" font-size="19" text-anchor="middle">Zn²⁺</text>
+          <!-- 銅イオンが銅になる -->
+          <text x="345" y="212" font-size="19" text-anchor="middle" style="fill:#B45C00">Cu²⁺</text>
+          <text x="345" y="286" font-size="19" text-anchor="middle" style="fill:#B45C00">Cu²⁺</text>
+          <path d="M370 206H378M370 280H378" stroke="#B45C00" stroke-width="3"/><polygon points="386,206 376,201 376,211" fill="#B45C00"/><polygon points="386,280 376,275 376,285" fill="#B45C00"/>
+          <g fill="#B45C00" stroke="#1B2430" stroke-width="1.5"><circle cx="397" cy="232" r="9"/><circle cx="397" cy="254" r="9"/></g>
+          <text x="205" y="336" font-size="19" text-anchor="middle">硫酸亜鉛水溶液</text>
+          <text x="395" y="336" font-size="19" text-anchor="middle">硫酸銅水溶液</text>
+          <!-- 時間のつまみ -->
+          <text x="20" y="395" font-size="19">時間 2 分（0〜4 分）</text>
+          <path d="M230 388H470" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M230 380V396M290 380V396M350 380V396M410 380V396M470 380V396" stroke="#67748B" stroke-width="2"/>
+          <circle class="knob" cx="350" cy="388" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="350" y="395" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>−極 亜鉛板</span><span>＋極 銅板</span><span>動いた電子 4 個</span></div>
+        <span class="how">白い丸を左右に引くと、時間を変えられるよ。下のボタンで金属の組も変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>時間を 4 分にして、動いた電子を 8 個（銅板に付いた銅原子 4 個）にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「マグネシウムと銅」に替えて、−極がマグネシウム板になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「銅と銅」に替えて、動いた電子が 0 個（電流が流れない）のをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">金属の組</span><button type="button" aria-pressed="true">✓ 亜鉛と銅</button><button type="button">マグネシウムと銅</button><button type="button">銅と銅</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（時間 6 分、OH⁻ 9 個ぶん、表にない原子 など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>原子とイオンで、ふつうはできない組み合わせ（ナトリウムが電子を受けとる、塩素が電子を失う など）</td><td>選べるままにし、陽子と電子の数は出すが、化学式は出さずに「このイオンは、ふつうはできません」と目に見える印を出す。だまって別のイオンに直さない</td></tr>
+  <tr><td>電気分解で電源の向きを入れかえたとき</td><td>時間を 0 分にもどし、付いた銅と出た塩素を消して、はじめからやり直す（入れかえたことを文字で知らせる）</td></tr>
+  <tr><td>BTB 溶液の色</td><td>「黄色・緑色・青色」と必ず文字で出す。見本では液に色をぬっていない。液を実際の色でぬるかどうかは、実装の前に決める</td></tr>
+  <tr><td>電池で「銅と銅」をえらんだとき</td><td>電子とイオンの矢印を消し、「電流は流れない」と文字で出す。＋極・−極の表示もなくす</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 1（モデルの数）</td><td>電気分解は「1 分で銅原子 1 個・塩素分子 1 個」、電池は「1 分で亜鉛原子 1 個・電子 2 個」、中和は「H⁺ 4 個」と数えている。説明用の数でよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 2（原子の図）</td><td>電子を 1 つの円の上にならべて描いている（電子のならび方の決まりは中学校の範囲をこえるため）。中性子は描いていない。これでよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 3（電池の金属の組）</td><td>「マグネシウムと銅」は、マグネシウム板を硫酸マグネシウム水溶液に入れる形にし、マグネシウム板を−極とする。「銅と銅」は電流が流れないとする。この組でよいか</td></tr>
+</table>
+</main>
+</body>
+</html>

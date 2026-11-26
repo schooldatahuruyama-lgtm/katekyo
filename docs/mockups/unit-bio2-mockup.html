@@ -1,0 +1,406 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 2 生物の体のつくりとはたらき）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 2「生物の体のつくりとはたらき」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 2 生物の体のつくりとはたらき」（盤 4 種類）にすること。</li>
+    <li>盤の中身: 光合成／消化と吸収／血液の循環／刺激と反応。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（光合成の 3 つの条件、消化酵素と場所、血液の通り道と動脈血・静脈血、信号が通る順）。体の図は、つながりを見せる模式図です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 2 生物の体のつくりとはたらき ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">光合成</span><span class="question">植物は、何を使って何をつくる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">消化と吸収</span><span class="question">食べ物は、体の中でどう変わる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">血液の循環</span><span class="question">血液は、体の中をどうめぐる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">刺激と反応</span><span class="question">熱いものにふれると、なぜすぐ手を引っこめる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「光合成」（<code>bio-photosynthesis</code>）</h2>
+<p class="note">植物は、光を受けて、葉の緑色の部分（葉緑体がある所）で、水と二酸化炭素からデンプンなどの養分をつくり、酸素を出す（光合成）。切り替えは 3 つ: 光（あり・なし）、二酸化炭素（あり・なし）、しらべる所（緑色の部分・ふ（白い所））。3 つの条件がそろったときだけ「光合成が起こる」となり、デンプンができて酸素が出る。1 つでも欠けると「光合成は起こらない」となり、欠けた条件に × が付き、出入りの矢印が消える。水は、いつも根から届いているものとする。はじめは 光あり・二酸化炭素あり・緑色の部分（光合成が起こる）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">光合成</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>光合成に必要なものをしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="光があり、二酸化炭素があり、葉の緑色の部分をしらべている。光合成が起こり、デンプンができて酸素が出る">
+          <!-- 光 -->
+          <circle cx="90" cy="70" r="28" fill="#B45C00" fill-opacity=".3" stroke="#B45C00" stroke-width="3"/>
+          <path d="M90 24V34M90 106V116M44 70H54M57 37L64 44M57 103L64 96M123 37L116 44" stroke="#B45C00" stroke-width="3" stroke-linecap="round"/>
+          <path d="M120 92L222 154M150 70L274 137" stroke="#B45C00" stroke-width="3.5"/>
+          <polygon points="228,158 217,158 223,148" fill="#B45C00"/><polygon points="280,140 269,141 274,131" fill="#B45C00"/>
+          <text x="205" y="76" font-size="19" style="fill:#B45C00">光</text>
+          <!-- 葉 -->
+          <path d="M196 268L150 330" stroke="#216E43" stroke-width="5" stroke-linecap="round"/>
+          <ellipse cx="310" cy="225" rx="130" ry="85" fill="#216E43" fill-opacity=".22" stroke="#216E43" stroke-width="3"/>
+          <ellipse cx="392" cy="225" rx="45" ry="55" fill="#FFFFFF" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <text x="392" y="232" font-size="19" text-anchor="middle">ふ</text>
+          <text x="268" y="198" font-size="19" text-anchor="middle">緑色の部分</text>
+          <circle cx="212" cy="221" r="8" fill="none" stroke="#B23A36" stroke-width="3"/>
+          <text x="226" y="228" font-size="19" style="fill:#B23A36">しらべる所</text>
+          <text x="268" y="262" font-size="19" text-anchor="middle" style="fill:#216E43">デンプンができる</text>
+          <!-- 二酸化炭素・水・酸素 -->
+          <text x="20" y="190" font-size="19" style="fill:#67748B">二酸化炭素</text>
+          <path d="M122 200L170 214" stroke="#67748B" stroke-width="3.5"/><polygon points="178,216 166,208 163,219" fill="#67748B"/>
+          <path d="M116 338L158 290" stroke="#176AA3" stroke-width="3.5"/><polygon points="163,284 153,287 162,295" fill="#176AA3"/>
+          <text x="40" y="372" font-size="19" style="fill:#176AA3">水（根から）</text>
+          <path d="M444 215L492 199" stroke="#B23A36" stroke-width="3.5"/><polygon points="500,196 489,193 492,205" fill="#B23A36"/>
+          <text x="508" y="202" font-size="19" style="fill:#B23A36">酸素</text>
+          <!-- 結果と条件 -->
+          <text x="330" y="50" font-size="24" style="fill:#216E43">光合成が起こる</text>
+          <text x="180" y="404" font-size="19">光 あり ○</text>
+          <text x="288" y="404" font-size="19">二酸化炭素 あり ○</text>
+          <text x="472" y="404" font-size="19">緑色の部分 ○</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>光合成 起こる</span><span>デンプン できる</span><span>酸素 出る</span></div>
+        <span class="how">下の切り替えで、光・二酸化炭素・しらべる所を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>光を「なし」にして、デンプンができなくなることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>しらべる所を「ふ」にして、光と二酸化炭素があっても光合成が起こらないことをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>条件を 1 つだけ変えて、光合成が起こらない組み合わせを 3 通り見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">光</span><button type="button" aria-pressed="true">✓ あり</button><button type="button">なし</button></div>
+      <div class="seg"><span class="seg-name">二酸化炭素</span><button type="button" aria-pressed="true">✓ あり</button><button type="button">なし</button></div>
+      <div class="seg"><span class="seg-name">しらべる所</span><button type="button" aria-pressed="true">✓ 緑色の部分</button><button type="button">ふ（白い所）</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「消化と吸収」（<code>bio-digestion</code>）</h2>
+<p class="note">食べ物の栄養分は、消化液にふくまれる消化酵素のはたらきで、吸収されやすい小さな物質に分解される。栄養分を切り替えると、口 → 胃 → 小腸の順に、はたらく消化液と消化酵素、できる物質、吸収される所が変わる（はたらかない所は「はたらかない」と出る）。デンプン: だ液（アミラーゼ）・すい液（アミラーゼ）・小腸のかべの消化酵素 → ブドウ糖 → 柔毛の毛細血管。タンパク質: 胃液（ペプシン）・すい液（トリプシン）・小腸のかべの消化酵素 → アミノ酸 → 柔毛の毛細血管。脂肪: 胆汁（消化酵素はふくまないが、脂肪の分解を助ける）・すい液（リパーゼ）→ 脂肪酸とモノグリセリド → 柔毛で吸収されたあと再び脂肪になり、リンパ管に入る。すい液と胆汁は、小腸のはじめの部分に出る。はじめは デンプン。右の丸のモデルは、つながりが切れていくようすを表す（丸の数は見本用）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">消化と吸収</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>栄養分が分解されるようすをたどろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="デンプンは、口のだ液のアミラーゼ、すい液のアミラーゼ、小腸のかべの消化酵素でブドウ糖に分解され、柔毛の毛細血管に入る">
+          <!-- 消化管（模式図） -->
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"><rect x="20" y="36" width="90" height="48" rx="10"/><rect x="20" y="120" width="90" height="48" rx="10"/><rect x="20" y="204" width="90" height="64" rx="10"/></g>
+          <rect x="20" y="312" width="90" height="64" rx="10" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5" stroke-dasharray="6 5"/>
+          <path d="M65 84V110M65 168V194M65 268V302" stroke="#1B2430" stroke-width="3"/>
+          <g fill="#1B2430"><polygon points="65,120 58,108 72,108"/><polygon points="65,204 58,192 72,192"/><polygon points="65,312 58,300 72,300"/></g>
+          <text x="65" y="67" font-size="19" text-anchor="middle">口</text>
+          <text x="65" y="151" font-size="19" text-anchor="middle">胃</text>
+          <text x="65" y="243" font-size="19" text-anchor="middle">小腸</text>
+          <text x="65" y="351" font-size="19" text-anchor="middle">柔毛</text>
+          <!-- はたらく消化液と消化酵素 -->
+          <text x="125" y="67" font-size="19" style="fill:#176AA3">だ液：アミラーゼ</text>
+          <text x="125" y="151" font-size="19" style="fill:#67748B">胃液：はたらかない</text>
+          <text x="125" y="228" font-size="19" style="fill:#176AA3">すい液：アミラーゼ</text>
+          <text x="125" y="256" font-size="19" style="fill:#176AA3">小腸のかべの消化酵素</text>
+          <text x="125" y="336" font-size="19" style="fill:#B23A36">毛細血管に入る：ブドウ糖</text>
+          <text x="125" y="364" font-size="19" style="fill:#67748B">リンパ管に入る：なし</text>
+          <text x="125" y="402" font-size="22" style="fill:#216E43">デンプン → ブドウ糖</text>
+          <!-- 物質のモデル -->
+          <text x="300" y="67" font-size="19">デンプン</text>
+          <path d="M400 60H510M400 144H422M454 144H476M508 144H530" stroke="#176AA3" stroke-width="3"/>
+          <g fill="#FFFFFF" stroke="#176AA3" stroke-width="2.5">
+            <circle cx="400" cy="60" r="10"/><circle cx="422" cy="60" r="10"/><circle cx="444" cy="60" r="10"/><circle cx="466" cy="60" r="10"/><circle cx="488" cy="60" r="10"/><circle cx="510" cy="60" r="10"/>
+            <circle cx="400" cy="144" r="10"/><circle cx="422" cy="144" r="10"/><circle cx="454" cy="144" r="10"/><circle cx="476" cy="144" r="10"/><circle cx="508" cy="144" r="10"/><circle cx="530" cy="144" r="10"/>
+            <circle cx="400" cy="228" r="10"/><circle cx="426" cy="228" r="10"/><circle cx="452" cy="228" r="10"/><circle cx="478" cy="228" r="10"/><circle cx="504" cy="228" r="10"/><circle cx="530" cy="228" r="10"/>
+          </g>
+          <text x="465" y="264" font-size="19" text-anchor="middle">ブドウ糖</text>
+          <rect x="385" y="318" width="195" height="30" rx="15" fill="#FFFFFF" stroke="#B23A36" stroke-width="3"/>
+          <g fill="#FFFFFF" stroke="#176AA3" stroke-width="2.5"><circle cx="420" cy="333" r="9"/><circle cx="470" cy="333" r="9"/><circle cx="520" cy="333" r="9"/></g>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>栄養分 デンプン</span><span>できる物質 ブドウ糖</span><span>吸収 柔毛の毛細血管</span></div>
+        <span class="how">下の切り替えで、栄養分を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>デンプンにはたらく消化液や消化酵素を、図から 3 つ見つけよう。</span></li>
+        <li class="try"><span class="box">□</span><span>タンパク質に切り替えて、口・胃・小腸の 3 か所のうち、最初にはたらく所を見つけよう。</span></li>
+        <li class="try"><span class="box">□</span><span>脂肪に切り替えて、吸収されたあとに入る管が、ほかの 2 つの栄養分とちがうことをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">栄養分</span><button type="button" aria-pressed="true">✓ デンプン</button><button type="button">タンパク質</button><button type="button">脂肪</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「血液の循環」（<code>bio-circulation</code>）</h2>
+<p class="note">血液は、心臓から出て肺をめぐる肺循環と、心臓から出て全身をめぐる体循環で、体の中をめぐる。肺循環: 右心室 → 肺動脈 → 肺 → 肺静脈 → 左心房。体循環: 左心室 → 大動脈 → 全身 → 大静脈 → 右心房。酸素が多い動脈血は赤い実線、酸素が少ない静脈血は青い破線で表す（肺動脈には静脈血、肺静脈には動脈血が流れる）。切り替えで選んだ循環が太い線になり、動脈血・静脈血の文字が出る。選んでいない循環は細くうすい線になる。血管が交わらないように描いた模式図で、本当の形とはちがう。はじめは 体循環。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">血液の循環</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>血液の通り道をたどろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="体循環。左心室から大動脈を通って動脈血が全身へ行き、全身から大静脈を通って静脈血が右心房にもどる">
+          <!-- 線の見分け方 -->
+          <text x="14" y="36" font-size="19" style="fill:#B23A36">赤い実線：動脈血</text>
+          <text x="14" y="60" font-size="19" style="fill:#B23A36">（酸素が多い）</text>
+          <text x="14" y="92" font-size="19" style="fill:#176AA3">青い破線：静脈血</text>
+          <text x="14" y="116" font-size="19" style="fill:#176AA3">（酸素が少ない）</text>
+          <!-- 肺・心臓・全身 -->
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"><rect x="220" y="30" width="160" height="50" rx="12"/><rect x="220" y="340" width="160" height="50" rx="12"/></g>
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"><rect x="200" y="150" width="80" height="55"/><rect x="320" y="150" width="80" height="55"/><rect x="200" y="205" width="100" height="65"/><rect x="300" y="205" width="100" height="65"/></g>
+          <text x="300" y="62" font-size="19" text-anchor="middle">肺</text>
+          <text x="300" y="372" font-size="19" text-anchor="middle">全身</text>
+          <text x="240" y="184" font-size="19" text-anchor="middle">右心房</text>
+          <text x="360" y="184" font-size="19" text-anchor="middle">左心房</text>
+          <text x="250" y="244" font-size="19" text-anchor="middle">右心室</text>
+          <text x="350" y="244" font-size="19" text-anchor="middle">左心室</text>
+          <text x="300" y="304" font-size="19" text-anchor="middle" style="fill:#67748B">（向かって左が体の右側）</text>
+          <!-- 肺循環（選んでいない：細くうすい線） -->
+          <g opacity=".5">
+            <path d="M290 205V92" stroke="#176AA3" stroke-width="2.5" stroke-dasharray="7 5" fill="none"/><polygon points="290,80 284,92 296,92" fill="#176AA3"/>
+            <path d="M380 55H450V178H412" stroke="#B23A36" stroke-width="2.5" fill="none"/><polygon points="400,178 412,172 412,184" fill="#B23A36"/>
+          </g>
+          <text x="278" y="125" font-size="19" text-anchor="end">肺動脈</text>
+          <text x="462" y="120" font-size="19">肺静脈</text>
+          <!-- 体循環（選んでいる：太い線） -->
+          <path d="M400 240H500V365H392" stroke="#B23A36" stroke-width="5" fill="none"/>
+          <polygon points="380,365 394,357 394,373" fill="#B23A36"/><polygon points="500,312 492,298 508,298" fill="#B23A36"/>
+          <path d="M220 365H110V178H188" stroke="#176AA3" stroke-width="5" stroke-dasharray="10 6" fill="none"/>
+          <polygon points="200,178 186,170 186,186" fill="#176AA3"/><polygon points="110,258 102,272 118,272" fill="#176AA3"/>
+          <text x="514" y="290" font-size="19">大動脈</text>
+          <text x="514" y="316" font-size="19" style="fill:#B23A36">動脈血</text>
+          <text x="96" y="262" font-size="19" text-anchor="end">大静脈</text>
+          <text x="96" y="288" font-size="19" text-anchor="end" style="fill:#176AA3">静脈血</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>体循環</span><span>心臓から出る：大動脈（動脈血）</span><span>心臓にもどる：大静脈（静脈血）</span></div>
+        <span class="how">下の切り替えで、肺循環と体循環を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>体循環で、左心室を出た血液が右心房にもどるまでに通る所を、順に 3 つ言ってみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>肺循環に切り替えて、動脈血が流れる血管を 1 つ見つけよう。</span></li>
+        <li class="try"><span class="box">□</span><span>2 つの循環を切り替えて、静脈血が流れる血管を 2 つ見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">循環</span><button type="button">肺循環</button><button type="button" aria-pressed="true">✓ 体循環</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「刺激と反応」（<code>bio-reflex</code>）</h2>
+<p class="note">刺激の信号は、感覚器官 → 感覚神経 → せきずい → 脳と伝わり、脳の命令が せきずい → 運動神経 → 筋肉と伝わって反応が起こる（意識して起こる反応。通る所は 7 つ）。熱いものにふれて思わず手を引っこめるときは、信号がせきずいから直接、運動神経に伝わる（反射。通る所は 5 つ）。脳を通らないので、刺激を受けてから反応するまでの時間が短い。切り替えで、選んだ反応の経路がだいだい色の太い線と ①〜 の番号で順に示される。意識して起こる反応の例は「手が冷たいと感じて、手をこすり合わせる」。反射でも、信号は少しおくれて脳にも伝わり、あとから「熱い」と感じる（これは説明の文で伝える）。はじめは 反射。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">刺激と反応</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>信号が伝わる道すじをたどろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="反射。皮ふ、感覚神経、せきずい、運動神経、筋肉の順に信号が伝わる。脳は通らない">
+          <!-- 脳とせきずい -->
+          <rect x="420" y="110" width="50" height="250" rx="10" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <ellipse cx="445" cy="75" rx="85" ry="42" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="445" y="82" font-size="19" text-anchor="middle">脳</text>
+          <path d="M445 173V117" stroke="#67748B" stroke-width="2.5" stroke-dasharray="6 5"/>
+          <text x="482" y="150" font-size="19" style="fill:#67748B">通らない</text>
+          <text x="482" y="260" font-size="19">③ せきずい</text>
+          <!-- 皮ふと筋肉 -->
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"><rect x="40" y="150" width="120" height="46" rx="10"/><rect x="40" y="300" width="120" height="46" rx="10"/></g>
+          <text x="100" y="180" font-size="19" text-anchor="middle">皮ふ</text>
+          <text x="100" y="330" font-size="19" text-anchor="middle">筋肉</text>
+          <text x="20" y="138" font-size="19">① 感覚器官</text>
+          <text x="40" y="226" font-size="19" style="fill:#B45C00">熱いものにふれる</text>
+          <text x="20" y="374" font-size="19">⑤ 手を引っこめる</text>
+          <!-- 神経 -->
+          <path d="M160 173H408" stroke="#176AA3" stroke-width="4"/><polygon points="420,173 406,165 406,181" fill="#176AA3"/>
+          <path d="M420 323H172" stroke="#B23A36" stroke-width="4"/><polygon points="160,323 174,315 174,331" fill="#B23A36"/>
+          <path d="M420 173H445V323H420" stroke="#B45C00" stroke-width="5" fill="none"/>
+          <text x="300" y="160" font-size="19" text-anchor="middle" style="fill:#176AA3">② 感覚神経</text>
+          <text x="300" y="310" font-size="19" text-anchor="middle" style="fill:#B23A36">④ 運動神経</text>
+          <text x="230" y="402" font-size="19" style="fill:#216E43">経路が短い（脳を通らない）</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>反射</span><span>信号が通る所 5 つ</span><span>脳を通らない</span></div>
+        <span class="how">下の切り替えで、意識して起こる反応と反射を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>反射で、信号が通る所を順に 5 つ言ってみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「意識して起こる反応」に切り替えて、信号が通る所が 7 つにふえることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>2 つを切り替えて、反射では通らない所を 1 つ見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">反応</span><button type="button">意識して起こる反応</button><button type="button" aria-pressed="true">✓ 反射</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（決めていない栄養分「ビタミン」、決めていない循環や反応の名前など）</td><td>丸めたり近いものに置きかえたりせずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>光合成が起こらないとき</td><td>葉は消さず、「光合成は起こらない」の文字と、欠けた条件の × で知らせる。デンプンと酸素の矢印・文字は消す</td></tr>
+  <tr><td>動脈血と静脈血の区別</td><td>色（赤・青）、線の種類（実線・破線）、文字（動脈血・静脈血）の 3 つで示す</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と VOICEVOX Nemo の声。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 ①（光合成）</td><td>光がないときは「光合成は起こらない」だけを見せ、呼吸（酸素を取り入れ二酸化炭素を出す）はこの盤では扱わない案。呼吸も入れるか。水の条件は切り替えに入れていない</td></tr>
+  <tr><td>先生に確かめてほしい点 ②（消化）</td><td>消化酵素の名前（アミラーゼ・ペプシン・トリプシン・リパーゼ）と、「小腸のかべの消化酵素」「脂肪酸とモノグリセリド」「再び脂肪になってリンパ管に入る」の言い方が、お使いの教科書と合うか。食道・大腸は図から省いている</td></tr>
+  <tr><td>先生に確かめてほしい点 ③（循環・反応）</td><td>血液の循環は、血管が交わらないように描いた模式図（大動脈が左心室の横から出る）。心臓の形に近い図に直すか。刺激と反応は、時間の数値は出さず「経路が短い」だけを示す案でよいか</td></tr>
+</table>
+</main>
+</body>
+</html>

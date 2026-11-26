@@ -65,6 +65,7 @@ button:hover { filter: brightness(.97); }
 .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; color: var(--ink); }
 .readout .in { color: var(--blue); }
 .readout .out { color: var(--red); }
+.readout .balanced { color: var(--green); }
 .notes { width: 100%; color: var(--red); font-weight: 700; }
 .notes p { margin: 0; }
 .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;

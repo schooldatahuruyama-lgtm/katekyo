@@ -12,7 +12,10 @@
   const voiceData = node ? require('../content/voice-light.js') : root.Hikari.voiceData;
   const scriptsSound = node ? require('../content/scripts-sound.js') : root.Hikari.scriptsSound;
   const voiceDataSound = node ? require('../content/voice-sound.js') : root.Hikari.voiceDataSound;
-  const content = { light: { scripts, voiceData }, sound: { scripts: scriptsSound, voiceData: voiceDataSound } };
+  const scriptsForce = node ? require('../content/scripts-force.js') : root.Hikari.scriptsForce;
+  const voiceDataForce = node ? require('../content/voice-force.js') : root.Hikari.voiceDataForce;
+  const content = { light: { scripts, voiceData }, sound: { scripts: scriptsSound, voiceData: voiceDataSound },
+    force: { scripts: scriptsForce, voiceData: voiceDataForce } };
   const explain = node ? require('./explain.js') : root.Hikari.explain;
   const prefs = node ? require('./prefs.js') : root.Hikari.prefs;
   const voice = node ? require('./voice.js') : root.Hikari.voice;
@@ -28,6 +31,9 @@
     'sound-wave': '白い丸で、振幅（上下）と振動数（左右）を変えられるよ。',
     'sound-string': '白い丸で、ことじとはじく強さを動かせるよ。下の切り替えもためそう。',
     'sound-speed': '白い丸で、見る人の位置を変えられるよ。',
+    'force-spring': '下のボタンで、おもりの数とばねを変えられるよ。',
+    'force-arrow': '矢印の先の白い丸を引くと、力の大きさと向きを変えられるよ。',
+    'force-balance': '白い丸で、左右の力の大きさを変えられるよ。下の切り替えもためそう。',
   };
 
   function registerWorker(win) {
@@ -441,7 +447,9 @@
       function updateReadoutVisibility() {
         const angleStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
         const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
-        const first = angleStep >= 0 ? angleStep : labelStep >= 0 ? labelStep : steps.length - 1;
+        const forceToken = { 'force-spring': 'label:force', 'force-arrow': 'magnitude', 'force-balance': 'label:state' }[board.id];
+        const first = forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) :
+          angleStep >= 0 ? angleStep : labelStep >= 0 ? labelStep : steps.length - 1;
         const hidden = invalidScene || mode === 'start' || (mode === 'explain' && stepIndex < first);
         if (readout.hidden !== hidden) readout.hidden = hidden;
       }
@@ -460,7 +468,8 @@
         const key = JSON.stringify(values);
         if (readoutKey !== key) {
           readout.replaceChildren();
-          values.forEach(item => element('span', item.tone, item.text, readout));
+          values.forEach((item, index) => element('span', board.id === 'force-balance' && index === 2 ?
+            (result.measures.state === 'balanced' ? 'balanced' : 'out') : item.tone, item.text, readout));
           readoutKey = key;
         }
         const visibleNotes = result.notes.filter(note => !values.some(item => item.text === note));
@@ -479,8 +488,9 @@
         if (!controlNodes.size) currentControls.forEach(control => {
           const group = element('div', 'seg', undefined, controls);
           group.setAttribute('role', 'group');
-          group.setAttribute('aria-label', { direction: '光の進む向き', medium: '物質', thickness: '弦の太さ', tension: '弦の張り' }[control.key]);
-          if (board.id === 'sound-string') element('span', 'seg-name', group.getAttribute('aria-label'), group);
+          group.setAttribute('aria-label', { direction: '光の進む向き', medium: '物質', thickness: '弦の太さ', tension: '弦の張り',
+            weights: 'おもりの数', spring: 'ばね', line: '2 つの力' }[control.key]);
+          if (board.id === 'sound-string' || board.id.startsWith('force-')) element('span', 'seg-name', group.getAttribute('aria-label'), group);
           control.choices.forEach(choice => {
             const el = button('', choice.label, group, () => view.setScene(scene.setOption(board.scene, control.key, choice.value)));
             controlNodes.set(control.key + ':' + choice.value, el);
@@ -489,7 +499,7 @@
         currentControls.forEach(control => control.choices.forEach(choice => {
           const el = controlNodes.get(control.key + ':' + choice.value);
           const selected = board.scene.options[control.key] === choice.value;
-          el.textContent = (board.id === 'sound-string' && selected ? '✓ ' : '') + choice.label;
+          el.textContent = ((board.id === 'sound-string' || board.id.startsWith('force-')) && selected ? '✓ ' : '') + choice.label;
           el.setAttribute('aria-pressed', String(selected));
         }));
       }

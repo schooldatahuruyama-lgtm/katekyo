@@ -8,6 +8,225 @@ const geometry = require('../js/geometry.js');
 const config = require('../js/config.js');
 const sound = require('../js/sound.js');
 
+const forceIds = ['force-spring', 'force-arrow', 'force-balance'];
+for (const id of forceIds) {
+  test(`${id}: 部品・切り替えの構造を厳密に検査する`, () => {
+    const changes = [s => { s.elements = []; }, s => { s.elements = null; }, s => { s.elements.pop(); },
+      s => { s.elements[0] = null; }, s => { s.elements[0] = []; }, s => { s.elements[0].type = 'unknown'; },
+      s => { s.elements[1].id = s.elements[0].id; }, s => { s.elements[0].x = 100; },
+      s => { s.elements.push({ ...s.elements[0], id: 'extra' }); },
+      s => { s.elements.push({ id: 'unused', type: 'spring' }); }];
+    if (id !== 'force-arrow') changes.push(...[undefined, null, [], {}, 'same'].map(options => s => { s.options = options; }),
+      s => { s.options.extra = true; });
+    if (id === 'force-spring') changes.push(s => { s.options.spring = 'C'; });
+    if (id === 'force-arrow') changes.push(s => { s.elements[1].direction = 'diagonal'; }, s => { s.options = {}; });
+    if (id === 'force-balance') changes.push(s => { s.options.line = 'other'; }, s => { s.elements[2].side = 'left'; },
+      s => { s.elements[1].side = 'up'; });
+    for (const change of changes) {
+      const s = boards.get(id).scene; change(s); reject(s);
+      const result = scene.trace(s);
+      assert.equal(result.notes[1], scene.validateScene(s)[0]);
+      assert.equal(scene.setOption(s, 'line', 'same'), s);
+      assert.equal(scene.stepHandle(s, 'force', 'tip', 'ArrowUp'), s);
+    }
+  });
+}
+
+for (const [id, index] of [['force-spring', null], ['force-arrow', 1], ['force-balance', 1], ['force-balance', 2]]) {
+  test(`${id} ${index}: 数字の文字列・小数・非有限・範囲外を丸めずに拒む`, () => {
+    for (const value of ['3', 2.5, NaN, Infinity, -Infinity, null, undefined, [], [3], {}, true, -1, 6, 1e12,
+      ...(index === null ? [] : [0])]) {
+      const s = boards.get(id).scene;
+      if (index === null) s.options.weights = value; else s.elements[index].newtons = value;
+      reject(s);
+    }
+  });
+}
+
+function forceInside(value) {
+  if (!value || typeof value !== 'object') return;
+  if (Object.hasOwn(value, 'x') && Object.hasOwn(value, 'y')) {
+    assert.ok(Number.isFinite(value.x) && value.x >= 0 && value.x <= 600);
+    assert.ok(Number.isFinite(value.y) && value.y >= 0 && value.y <= 420);
+    if (value.width !== undefined) assert.ok(value.x + value.width <= 600);
+    if (value.height !== undefined) assert.ok(value.y + value.height <= 420);
+  }
+  Object.values(value).forEach(forceInside);
+}
+
+test('ばね 12 通りの長さ・巻き数・グラフ・ラベルと 0 個の形', () => {
+  let pointCount;
+  for (const spring of ['A', 'B']) for (let weights = 0; weights <= 5; weights++) {
+    let s = boards.get('force-spring').scene;
+    s = scene.setOption(scene.setOption(s, 'weights', weights), 'spring', spring);
+    const result = valid(s), shape = result.force, mm = weights * (spring === 'A' ? 10 : 20);
+    assert.deepEqual(result.measures, { weights, spring, forceTenths: weights * 2, stretchMm: mm });
+    assert.equal(shape.spring.bottom.y, 50 + 100 + mm / 10 * 10);
+    assert.deepEqual(shape.spring.top, { x: 150, y: 50 });
+    assert.deepEqual(shape.spring.naturalBottom, { x: 150, y: 150 });
+    pointCount ??= shape.spring.points.length;
+    assert.equal(shape.spring.points.length, pointCount);
+    assert.deepEqual(shape.spring.points[0], shape.spring.top);
+    assert.deepEqual(shape.spring.points.at(-1), shape.spring.bottom);
+    assert.equal(shape.spring.naturalPoints.length, pointCount);
+    assert.deepEqual(shape.spring.naturalPoints[0], shape.spring.top);
+    assert.deepEqual(shape.spring.naturalPoints.at(-1), shape.spring.naturalBottom);
+    if (!weights) assert.deepEqual(shape.spring.points, shape.spring.naturalPoints);
+    assert.equal(shape.weights.length, weights);
+    shape.weights.forEach((weight, i) => { assert.equal(weight.y, shape.spring.bottom.y + i * 14); assert.equal(weight.height, 14); });
+    assert.equal(shape.graph.points.length, 6);
+    assert.deepEqual(shape.graph.origin, { x: 370, y: 326 });
+    assert.equal(shape.graph.points.filter(p => p.current).length, 1);
+    assert.ok(shape.graph.points[weights].current);
+    shape.graph.points.forEach((p, i) => {
+      assert.equal(p.x, 370 + i * 36);
+      assert.equal(p.y, 326 - i * (spring === 'A' ? 1 : 2) * 22);
+      near(geometry.distancePointToLine(p, shape.graph.line.from, shape.graph.line.to), 0, .5);
+    });
+    assert.equal(shape.graph.xTicks[3].text, '0.6');
+    assert.equal(shape.graph.xTicks[5].text, '1.0');
+    assert.equal(shape.labels.spring.text, 'ばね ' + spring);
+    assert.equal(shape.labels.weights.text, weights ? 'おもり ' + weights + ' 個' : 'おもり なし');
+    if (!weights) {
+      assert.equal(shape.stretch, null); assert.equal(shape.forceArrow, null);
+      assert.deepEqual(shape.spring.bottom, shape.spring.naturalBottom);
+    } else {
+      assert.equal(shape.stretch.from.y, 150); assert.equal(shape.stretch.to.y, shape.spring.bottom.y);
+      assert.ok(shape.forceArrow.to.y > shape.forceArrow.from.y);
+      assert.equal(shape.forceArrow.from.y, shape.weights.at(-1).y + shape.weights.at(-1).height);
+      assert.equal(shape.forceArrow.to.y - shape.forceArrow.from.y, weights * 13);
+      assert.ok(shape.forceArrow.to.y < shape.stand.lines.at(-1)[0].y);
+    }
+    assert.deepEqual(result.marks, Object.values(shape.labels));
+    assert.deepEqual(scene.handles(s), []);
+    forceInside(shape);
+  }
+});
+
+const directions = { up: [0, -1], down: [0, 1], left: [-1, 0], right: [1, 0] };
+test('力の矢印 20 通りの長さ・作用点・平行な区切り・つまみ', () => {
+  for (const [direction, [dx, dy]] of Object.entries(directions)) for (let newtons = 1; newtons <= 5; newtons++) {
+    const initial = boards.get('force-arrow').scene;
+    const origin = { x: 300, y: 210 - dy * 16 };
+    initial.elements[1].direction = direction;
+    const s = scene.moveElement(initial, 'force', 'tip', { x: origin.x + dx * 32 * newtons, y: origin.y + dy * 32 * newtons });
+    const result = valid(s), f = result.force, [h] = scene.handles(s);
+    assert.deepEqual(result.measures, { newtons, direction });
+    assert.deepEqual(f.application, origin);
+    assert.deepEqual(f.arrow.from, f.application);
+    assert.deepEqual(f.arrow.to, { x: origin.x + dx * 32 * newtons, y: origin.y + dy * 32 * newtons });
+    assert.equal(Math.hypot(f.arrow.to.x - f.arrow.from.x, f.arrow.to.y - f.arrow.from.y), 32 * newtons);
+    assert.deepEqual(geometry.sub(f.magnitude.to, f.magnitude.from), geometry.sub(f.arrow.to, f.arrow.from));
+    assert.ok(geometry.distancePointToLine(f.magnitude.from, f.arrow.from, f.arrow.to) > 0);
+    assert.deepEqual(h, { elementId: 'force', handle: 'tip', ...f.arrow.to, label: '力の矢印' });
+    assert.ok(h.x >= 20 && h.x <= 580 && h.y >= 20 && h.y <= 400);
+    forceInside(f);
+    assert.equal(initial.elements[1].newtons, 3); assert.equal(initial.elements[1].direction, direction);
+  }
+});
+
+test('力のつり合い 50 通りの状態・矢印・力の線・つまみ', () => {
+  let balanced = 0;
+  for (const line of ['same', 'offset']) for (let left = 1; left <= 5; left++) for (let right = 1; right <= 5; right++) {
+    let s = scene.setOption(boards.get('force-balance').scene, 'line', line);
+    s = scene.moveElement(s, 'left', 'tip', { x: 250 - left * 32, y: 100 });
+    s = scene.moveElement(s, 'right', 'tip', { x: 350 + right * 32, y: 400 });
+    const result = valid(s), f = result.force;
+    const state = line === 'offset' ? 'turns' : left === right ? 'balanced' : left > right ? 'moves-left' : 'moves-right';
+    assert.deepEqual(result.measures, { left, right, line, state });
+    if (state === 'balanced') balanced++;
+    assert.deepEqual(f.card, { x: 250, y: 160, width: 100, height: 100 });
+    assert.deepEqual(f.pulls.left.from, { x: 250, y: line === 'same' ? 210 : 180 });
+    assert.deepEqual(f.pulls.right.from, { x: 350, y: line === 'same' ? 210 : 240 });
+    assert.equal(f.pulls.left.from.x - f.pulls.left.to.x, left * 32);
+    assert.equal(f.pulls.right.to.x - f.pulls.right.from.x, right * 32);
+    assert.equal(f.lines.length, line === 'same' ? 1 : 2);
+    assert.deepEqual(f.lines.map(l => l.from.y), line === 'same' ? [210] : [180, 240]);
+    for (const h of scene.handles(s)) {
+      assert.deepEqual({ x: h.x, y: h.y }, f.pulls[h.elementId].to);
+      assert.ok(h.x >= 20 && h.x <= 580 && h.y >= 20 && h.y <= 400);
+    }
+    forceInside(f);
+  }
+  assert.equal(balanced, 5);
+});
+
+test('力のドラッグは丸め・はし止め・同じ差の向き保持・不正な点の拒否を行う', () => {
+  const initial = boards.get('force-arrow').scene, snapshot = structuredClone(initial);
+  for (const [direction, [dx, dy]] of Object.entries(directions)) {
+    const current = structuredClone(initial); current.elements[1].direction = direction;
+    const origin = scene.trace(current).force.application;
+    for (const distance of [10000, Number.MAX_VALUE]) {
+      const s = scene.moveElement(initial, 'force', 'tip', { x: 300 + dx * distance, y: 210 + dy * distance });
+      assert.deepEqual(valid(s).measures, { newtons: 5, direction });
+    }
+    for (const [distance, newtons] of [[1, 1], [47, 1], [48, 2], [79, 2], [80, 3]]) {
+      assert.deepEqual(valid(scene.moveElement(current, 'force', 'tip', { x: origin.x + dx * distance, y: origin.y + dy * distance })).measures,
+        { newtons, direction });
+    }
+    const s = structuredClone(initial); s.elements[1].direction = direction;
+    for (const sign of [-1, 1]) assert.deepEqual(valid(scene.moveElement(s, 'force', 'tip', { x: origin.x + sign * 64, y: origin.y + sign * 64 })).measures,
+      { newtons: 2, direction });
+  }
+  assert.equal(scene.moveElement(initial, 'force', 'tip', { x: 300, y: 210 }), initial);
+  for (const id of ['force-arrow', 'force-balance']) {
+    const s = boards.get(id).scene;
+    for (const h of scene.handles(s)) {
+      for (const point of [null, [], { x: NaN, y: 0 }, { x: 0, y: NaN }, { x: Infinity, y: 0 }, { x: '300', y: 210 }]) {
+        assert.equal(scene.moveElement(s, h.elementId, h.handle, point), s);
+      }
+      if (id === 'force-balance') for (const x of [-Number.MAX_VALUE, Number.MAX_VALUE]) {
+        const moved = scene.moveElement(s, h.elementId, h.handle, { x, y: 0 });
+        valid(moved);
+        assert.equal(moved.elements.find(e => e.id === h.elementId).newtons, (h.elementId === 'left' ? x < 0 : x > 0) ? 5 : 1);
+      }
+    }
+    assert.equal(scene.moveElement(s, 'unknown', 'tip', { x: 0, y: 0 }), s);
+    assert.equal(scene.moveElement(s, s.elements[1].id, 'unknown', { x: 0, y: 0 }), s);
+  }
+  assert.deepEqual(initial, snapshot);
+});
+
+test('力のキーは全配置で 1 N ずつ進み、直角では向きだけを変える', () => {
+  const keys = { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight' };
+  for (const [direction, v] of Object.entries(directions)) for (let n = 1; n <= 5; n++) {
+    const s = boards.get('force-arrow').scene; Object.assign(s.elements[1], { direction, newtons: n });
+    for (const [target, key] of Object.entries(keys)) {
+      const parallel = v[0] * directions[target][0] + v[1] * directions[target][1];
+      const expected = { newtons: parallel ? Math.max(1, Math.min(5, n + parallel)) : n, direction: parallel ? direction : target };
+      const moved = scene.stepHandle(s, 'force', 'tip', key);
+      assert.deepEqual(valid(moved).measures, expected);
+      assert.deepEqual(scene.stepForceHandle(s, 'force', 'tip', key), moved);
+    }
+  }
+  for (const line of ['same', 'offset']) for (let left = 1; left <= 5; left++) for (let right = 1; right <= 5; right++) {
+    const s = boards.get('force-balance').scene;
+    s.options.line = line; s.elements[1].newtons = left; s.elements[2].newtons = right;
+    for (const side of ['left', 'right']) for (const target of ['left', 'right']) {
+      const moved = scene.stepHandle(s, side, 'tip', keys[target]); valid(moved);
+      const n = side === 'left' ? left : right;
+      assert.equal(moved.elements.find(e => e.side === side).newtons, Math.max(1, Math.min(5, n + (side === target ? 1 : -1))));
+    }
+    for (const key of ['ArrowUp', 'ArrowDown', 'unknown']) assert.equal(scene.stepHandle(s, 'left', 'tip', key), s);
+  }
+  const s = boards.get('force-arrow').scene;
+  assert.equal(scene.stepHandle(s, 'force', 'tip', 'unknown'), s);
+  assert.equal(scene.stepHandle(s, 'force', 'unknown', 'ArrowUp'), s);
+  const wave = boards.get('sound-wave').scene;
+  assert.deepEqual(scene.stepHandle(wave, 'wave', 'amplitude', 'ArrowUp'), scene.stepSoundHandle(wave, 'wave', 'amplitude', 'ArrowUp'));
+});
+
+test('力の切り替えは不明なキー・型・値を拒み、元のシーンを変えない', () => {
+  for (const id of forceIds) {
+    const s = boards.get(id).scene, snapshot = structuredClone(s);
+    for (const [key, value] of [['weights', 6], ['weights', '3'], ['weights', null], ['weights', NaN],
+      ['spring', 'C'], ['line', 'bad'], ['toString', 'A'], ['unknown', 3]]) assert.equal(scene.setOption(s, key, value), s);
+    if (id !== 'force-spring') assert.equal(scene.setOption(s, 'weights', 3), s);
+    if (id !== 'force-balance') assert.equal(scene.setOption(s, 'line', 'offset'), s);
+    assert.deepEqual(s, snapshot);
+  }
+});
+
 function near(a, b, tolerance = 1e-8) { assert.ok(Math.abs(a - b) <= tolerance, `${a} ≈ ${b}`); }
 function part(s, type) { return s.elements.find(e => e.type === type); }
 function attachedMarks(s, result) {
@@ -58,8 +277,9 @@ function valid(s) {
   const result = scene.trace(s);
   finite(result);
   inside(result);
-  assert.ok(result.rays.length > 0 || result.sound);
+  assert.ok(result.rays.length > 0 || result.sound || result.force);
   if (!s.kind.startsWith('sound-')) assert.equal(result.sound, null);
+  if (!s.kind.startsWith('force-')) assert.equal(result.force, null);
   return result;
 }
 function reject(s) {
@@ -68,6 +288,8 @@ function reject(s) {
   for (const key of ['rays', 'angles', 'images', 'marks']) assert.deepEqual(result[key], []);
   assert.ok(result.notes.includes('この図は表示できません'));
   assert.equal(result.sound, null);
+  assert.equal(result.force, null);
+  assert.deepEqual(result.measures, {});
   assert.deepEqual(scene.handles(s), []);
   finite(result);
 }
@@ -873,8 +1095,9 @@ for (const id of scene.KINDS) {
     for (let i = 0; i < 120; i++) {
       const snapshot = structuredClone(s);
       const all = scene.handles(s), h = all[Math.floor(random() * all.length)];
-      let moved = scene.moveElement(s, h.elementId, h.handle,
-        { x: random() * 1600 - 500, y: random() * 1400 - 500 });
+      let moved = h ? scene.moveElement(s, h.elementId, h.handle,
+        { x: random() * 1600 - 500, y: random() * 1400 - 500 }) :
+        scene.setOption(scene.setOption(s, 'weights', Math.floor(random() * 6)), 'spring', i % 2 ? 'A' : 'B');
       if (id === 'refract' && i % 3 === 0) moved = scene.setOption(moved, 'direction', i % 2 ? 'air-to-medium' : 'medium-to-air');
       valid(moved);
       assert.deepEqual(s, snapshot);

@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 3 生命の連続性）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 3「生命の連続性」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 3 生命の連続性」（盤 4 種類）にすること。</li>
+    <li>盤の中身: 細胞分裂／生殖と染色体／遺伝の規則性／遺伝子と形質。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（染色体 4 本 → 生殖細胞 2 本 → 受精卵 4 本、Aa × aa で 丸：しわ ＝ 1：1、AA × aa の子はすべて Aa）。染色体の数 4 本は、しくみを見るための少ない数です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 3 生命の連続性 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">細胞分裂</span><span class="question">細胞は、どうやって 2 つになる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">生殖と染色体</span><span class="question">子の染色体の数は、なぜ親と同じになる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">遺伝の規則性</span><span class="question">丸い種子としわの種子は、どんな割合で現れる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">遺伝子と形質</span><span class="question">子に現れなかった形質が、孫に現れるのはなぜ？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「細胞分裂」（<code>life-division</code>）</h2>
+<p class="note">体細胞分裂を 6 つの段階で見る。段階 1: 分裂の前（核が見える。このあいだに染色体が複製される）／段階 2: 染色体が見えてくる／段階 3: 染色体が中央にならぶ／段階 4: 染色体が分かれて両はしへ動く／段階 5: 中央にしきりができ、核ができはじめる／段階 6: 2 つの細胞になる。染色体は 4 本（長い 2 本と短い 2 本。ぬった棒と線だけの棒で区別）。複製されて 2 本ずつくっついた染色体が 1 本ずつに分かれるので、新しい 2 つの細胞の染色体は、どちらも元と同じ 4 本。切り替えで動物の細胞にすると、段階 5 は「しきり」ではなく「くびれ」になる。段階は 1〜6（1 きざみ）。はじめは 植物の細胞・段階 3。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">細胞分裂</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>細胞が 2 つになるようすを順に見よう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="植物の細胞の体細胞分裂、段階 3。複製された 4 本の染色体が細胞の中央にならんでいる">
+          <text x="300" y="40" font-size="22" text-anchor="middle">段階 3: 染色体が中央にならぶ</text>
+          <!-- 細胞 -->
+          <rect x="170" y="60" width="260" height="230" rx="6" fill="#FFFFFF" fill-opacity=".6" stroke="#216E43" stroke-width="5"/>
+          <path d="M118 174H166" stroke="#67748B" stroke-width="2"/>
+          <text x="20" y="180" font-size="19">植物の細胞</text>
+          <!-- 染色体（複製されて 2 本ずつくっついている） -->
+          <g stroke-linecap="round" fill="none">
+            <path d="M294 84V116M306 84V116" stroke="#176AA3" stroke-width="8"/>
+            <path d="M294 136V168M306 136V168" stroke="#B23A36" stroke-width="8"/><path d="M294 136V168M306 136V168" stroke="#FFFFFF" stroke-width="3.5"/>
+            <path d="M294 191V209M306 191V209" stroke="#176AA3" stroke-width="8"/>
+            <path d="M294 233V251M306 233V251" stroke="#B23A36" stroke-width="8"/><path d="M294 233V251M306 233V251" stroke="#FFFFFF" stroke-width="3.5"/>
+          </g>
+          <path d="M466 104L316 100" stroke="#67748B" stroke-width="2"/>
+          <text x="470" y="110" font-size="19">染色体</text>
+          <text x="300" y="322" font-size="19" text-anchor="middle">染色体は 4 本（どれも 2 本ずつくっついている）</text>
+          <!-- 段階のつまみ -->
+          <text x="110" y="387" font-size="19" text-anchor="end">段階 1</text>
+          <text x="490" y="387" font-size="19">6</text>
+          <path d="M150 380H450" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M150 372V388M210 372V388M270 372V388M330 372V388M390 372V388M450 372V388" stroke="#67748B" stroke-width="2"/>
+          <circle class="knob" cx="270" cy="380" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="270" y="387" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>段階 3（全部で 6）</span><span>細胞 1 個</span><span>1 個の細胞の染色体 4 本</span></div>
+        <span class="how">白い丸を左右に引くと、分裂の段階を進めたりもどしたりできるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>段階 4 にして、染色体が 4 本ずつ両はしに分かれるのを見よう。</span></li>
+        <li class="try"><span class="box">□</span><span>段階 6 にして、2 個の細胞の染色体がどちらも 4 本であることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>動物の細胞に替えて段階 5 にし、しきりではなく、くびれて分かれるのを見よう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">細胞</span><button type="button" aria-pressed="true">✓ 植物</button><button type="button">動物</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「生殖と染色体」（<code>life-reproduction</code>）</h2>
+<p class="note">有性生殖では、生殖細胞（精子と卵）ができるときに減数分裂が起こり、染色体の数が体の細胞の半分になる。精子と卵が受精すると、受精卵の染色体は元の数にもどる。子は、父と母から半分ずつ染色体を受けつぐ。無性生殖では、体細胞分裂でふえるので、子は親と同じ染色体をそのまま受けつぐ。図では、父の染色体をぬった棒、母の染色体を線だけの棒で区別する。切り替えは、ふえ方（無性生殖・有性生殖）と、親の体の細胞の染色体の数（4 本・6 本）。はじめは 有性生殖・4 本（生殖細胞 2 本、受精卵 4 本）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">生殖と染色体</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>染色体の数の変わり方を追いかけよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="有性生殖。父と母の体の細胞の染色体は 4 本。減数分裂で精子と卵は 2 本になり、受精卵は 4 本にもどる">
+          <!-- 親の体の細胞 -->
+          <text x="130" y="24" font-size="19" text-anchor="middle">父の体の細胞</text>
+          <text x="470" y="24" font-size="19" text-anchor="middle">母の体の細胞</text>
+          <circle cx="130" cy="80" r="42" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <circle cx="470" cy="80" r="42" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <g stroke-linecap="round" fill="none">
+            <path d="M112 64V96M124 64V96M138 72V88M150 72V88" stroke="#176AA3" stroke-width="7"/>
+            <path d="M452 64V96M464 64V96M478 72V88M490 72V88" stroke="#B23A36" stroke-width="7"/><path d="M452 64V96M464 64V96M478 72V88M490 72V88" stroke="#FFFFFF" stroke-width="3"/>
+          </g>
+          <text x="182" y="87" font-size="19">染色体 4 本</text>
+          <text x="418" y="87" font-size="19" text-anchor="end">染色体 4 本</text>
+          <!-- 減数分裂 -->
+          <path d="M130 126V172M470 126V172" stroke="#1B2430" stroke-width="3"/><polygon points="130,182 124,170 136,170" fill="#1B2430"/><polygon points="470,182 464,170 476,170" fill="#1B2430"/>
+          <text x="144" y="150" font-size="19" style="fill:#216E43">減数分裂</text>
+          <text x="456" y="150" font-size="19" text-anchor="end" style="fill:#216E43">減数分裂</text>
+          <text x="300" y="186" font-size="19" text-anchor="middle">染色体の数が半分になる</text>
+          <!-- 生殖細胞 -->
+          <circle cx="130" cy="215" r="30" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <circle cx="470" cy="215" r="30" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <g stroke-linecap="round" fill="none">
+            <path d="M122 201V229M138 208V222" stroke="#176AA3" stroke-width="7"/>
+            <path d="M462 201V229M478 208V222" stroke="#B23A36" stroke-width="7"/><path d="M462 201V229M478 208V222" stroke="#FFFFFF" stroke-width="3"/>
+          </g>
+          <text x="172" y="222" font-size="19">精子 2 本</text>
+          <text x="428" y="222" font-size="19" text-anchor="end">卵 2 本</text>
+          <!-- 受精 -->
+          <path d="M158 232L254 309M442 232L346 309" stroke="#1B2430" stroke-width="3"/><polygon points="262,315 248.9,312.2 256.4,302.8" fill="#1B2430"/><polygon points="338,315 351.1,312.2 343.6,302.8" fill="#1B2430"/>
+          <text x="300" y="270" font-size="19" text-anchor="middle" style="fill:#216E43">受精</text>
+          <!-- 受精卵 -->
+          <circle cx="300" cy="338" r="40" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <g stroke-linecap="round" fill="none">
+            <path d="M282 322V354M308 330V346" stroke="#176AA3" stroke-width="7"/>
+            <path d="M294 322V354M320 330V346" stroke="#B23A36" stroke-width="7"/><path d="M294 322V354M320 330V346" stroke="#FFFFFF" stroke-width="3"/>
+          </g>
+          <text x="352" y="345" font-size="19">受精卵 4 本</text>
+          <text x="300" y="408" font-size="19" text-anchor="middle">子の体の細胞も 4 本（親と同じ数）</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>親の体の細胞 4 本</span><span>生殖細胞 2 本</span><span>受精卵（子）4 本</span></div>
+        <span class="how">下のボタンで、ふえ方と、親の染色体の数を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>親の染色体を 6 本にして、生殖細胞が 3 本、受精卵が 6 本になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>無性生殖に替えて、子の染色体 4 本が親とまったく同じ（色も模様も同じ）なのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>無性生殖のまま親の染色体を 6 本にして、子も 6 本になるのをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">ふえ方</span><button type="button">無性生殖</button><button type="button" aria-pressed="true">✓ 有性生殖</button></div>
+      <div class="seg"><span class="seg-name">親の染色体</span><button type="button" aria-pressed="true">✓ 4 本</button><button type="button">6 本</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「遺伝の規則性」（<code>life-heredity</code>）</h2>
+<p class="note">エンドウの種子の形。丸にする遺伝子を A、しわにする遺伝子を a とする。遺伝子は対になっていて（AA・Aa・aa）、A が 1 つでもあれば丸、aa のときだけしわになる。生殖細胞ができるとき、対になっている遺伝子は分かれて別々の生殖細胞に入る（分離の法則）。表の上と左に親の生殖細胞の遺伝子をならべ、4 つのますに子の遺伝子の組を書く。切り替えは、親 1・親 2 それぞれ AA・Aa・aa の 3 つ（組み合わせは 9 通り）。比は、いちばんかんたんな整数の比で出す。はじめは 親 1 が Aa・親 2 が aa（子は Aa 2・aa 2、丸：しわ ＝ 1：1）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">遺伝の規則性</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>かけ合わせの表で、子の形質をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="親 1 が Aa、親 2 が aa のかけ合わせの表。子は Aa が 2、aa が 2 で、丸としわの比は 1 対 1">
+          <text x="390" y="70" font-size="19" text-anchor="middle">親 2 aa（しわ）の生殖細胞</text>
+          <text x="20" y="236" font-size="19">親 1 Aa（丸）</text>
+          <text x="20" y="264" font-size="19">の生殖細胞</text>
+          <!-- 表 -->
+          <rect x="260" y="90" width="260" height="60" fill="#E3DBC8"/><rect x="180" y="150" width="80" height="200" fill="#E3DBC8"/>
+          <rect x="260" y="150" width="260" height="200" fill="#FFFFFF"/>
+          <path d="M260 90H520V350H180V150H260ZM260 150V350M390 90V350M260 150H520M180 250H520" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <text x="325" y="130" font-size="24" text-anchor="middle">a</text>
+          <text x="455" y="130" font-size="24" text-anchor="middle">a</text>
+          <text x="220" y="210" font-size="24" text-anchor="middle">A</text>
+          <text x="220" y="310" font-size="24" text-anchor="middle">a</text>
+          <!-- 子（上の段: Aa 丸） -->
+          <text x="300" y="196" font-size="24" text-anchor="middle">Aa</text>
+          <text x="430" y="196" font-size="24" text-anchor="middle">Aa</text>
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"><circle cx="352" cy="188" r="15"/><circle cx="482" cy="188" r="15"/></g>
+          <text x="325" y="238" font-size="19" text-anchor="middle" style="fill:#216E43">丸</text>
+          <text x="455" y="238" font-size="19" text-anchor="middle" style="fill:#216E43">丸</text>
+          <!-- 子（下の段: aa しわ） -->
+          <text x="300" y="296" font-size="24" text-anchor="middle">aa</text>
+          <text x="430" y="296" font-size="24" text-anchor="middle">aa</text>
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5">
+            <polygon transform="translate(352 288)" points="15,0 9.7,4 10.6,10.6 4,9.7 0,15 -4,9.7 -10.6,10.6 -9.7,4 -15,0 -9.7,-4 -10.6,-10.6 -4,-9.7 0,-15 4,-9.7 10.6,-10.6 9.7,-4"/>
+            <polygon transform="translate(482 288)" points="15,0 9.7,4 10.6,10.6 4,9.7 0,15 -4,9.7 -10.6,10.6 -9.7,4 -15,0 -9.7,-4 -10.6,-10.6 -4,-9.7 0,-15 4,-9.7 10.6,-10.6 9.7,-4"/>
+          </g>
+          <text x="325" y="338" font-size="19" text-anchor="middle" style="fill:#B45C00">しわ</text>
+          <text x="455" y="338" font-size="19" text-anchor="middle" style="fill:#B45C00">しわ</text>
+          <text x="300" y="390" font-size="20" text-anchor="middle">子: Aa 2・aa 2 → 丸：しわ ＝ 1：1</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>子の遺伝子の組 AA 0・Aa 2・aa 2</span><span>丸：しわ ＝ 1：1</span></div>
+        <span class="how">下のボタンで、2 つの親の遺伝子の組を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>親 1 も親 2 も Aa にして、丸：しわ ＝ 3：1 になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>親 1 を AA、親 2 を aa にして、子が 4 つとも Aa（丸）になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>子が 4 つともしわ（aa）になる親の組を見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">親 1</span><button type="button">AA</button><button type="button" aria-pressed="true">✓ Aa</button><button type="button">aa</button></div>
+      <div class="seg"><span class="seg-name">親 2</span><button type="button">AA</button><button type="button">Aa</button><button type="button" aria-pressed="true">✓ aa</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「遺伝子と形質」（<code>life-dna</code>）</h2>
+<p class="note">丸の純系（AA）としわの純系（aa）を親にすると、子はすべて Aa になり、丸だけが現れる。対立形質の純系どうしをかけ合わせたとき、子に現れる形質を顕性（の）形質、子に現れない形質を潜性（の）形質という（「優性・劣性」とも言う）。子（Aa）を自家受粉させると、孫は AA：Aa：aa ＝ 1：2：1 になり、丸：しわ ＝ 3：1 で現れる。子では見えなかったしわの遺伝子 a が、孫で aa の組になると、しわが現れる。遺伝子の本体は DNA という物質。世代のつまみは 親・子・孫 の 3 つ。切り替えは「形質だけ」「遺伝子の組も」。はじめは 子・遺伝子の組も（すべて Aa、すべて丸）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">遺伝子と形質</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>親 → 子 → 孫と、遺伝子を追いかけよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="親は AA の丸と aa のしわ。子はすべて Aa で丸。孫はまだ表示していない">
+          <!-- 世代のつまみ -->
+          <path d="M60 70V310" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M52 70H68M52 195H68M52 310H68" stroke="#67748B" stroke-width="2"/>
+          <text x="100" y="78" font-size="22">親</text>
+          <text x="100" y="203" font-size="22">子</text>
+          <text x="100" y="318" font-size="22">孫</text>
+          <!-- 親 -->
+          <circle cx="240" cy="62" r="20" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <polygon transform="translate(400 62) scale(1.33)" fill="#E3DBC8" stroke="#1B2430" stroke-width="2" points="15,0 9.7,4 10.6,10.6 4,9.7 0,15 -4,9.7 -10.6,10.6 -9.7,4 -15,0 -9.7,-4 -10.6,-10.6 -4,-9.7 0,-15 4,-9.7 10.6,-10.6 9.7,-4"/>
+          <text x="320" y="70" font-size="24" text-anchor="middle">×</text>
+          <text x="240" y="112" font-size="19" text-anchor="middle">AA（丸）</text>
+          <text x="400" y="112" font-size="19" text-anchor="middle">aa（しわ）</text>
+          <text x="470" y="70" font-size="19" style="fill:#67748B">純系どうし</text>
+          <path d="M320 124V144" stroke="#1B2430" stroke-width="3"/><polygon points="320,154 314,142 326,142" fill="#1B2430"/>
+          <!-- 子 -->
+          <circle cx="320" cy="180" r="20" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="320" y="230" font-size="19" text-anchor="middle">Aa（丸）</text>
+          <text x="470" y="187" font-size="19" style="fill:#216E43">すべて丸</text>
+          <path d="M320 242V258" stroke="#1B2430" stroke-width="3"/><polygon points="320,268 314,256 326,256" fill="#1B2430"/>
+          <text x="334" y="262" font-size="19" style="fill:#67748B">自家受粉</text>
+          <!-- 孫（まだ見えない） -->
+          <g fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"><circle cx="200" cy="305" r="20"/><circle cx="280" cy="305" r="20"/><circle cx="360" cy="305" r="20"/><circle cx="440" cy="305" r="20"/></g>
+          <text x="200" y="313" font-size="22" text-anchor="middle" style="fill:#67748B">？</text>
+          <text x="280" y="313" font-size="22" text-anchor="middle" style="fill:#67748B">？</text>
+          <text x="360" y="313" font-size="22" text-anchor="middle" style="fill:#67748B">？</text>
+          <text x="440" y="313" font-size="22" text-anchor="middle" style="fill:#67748B">？</text>
+          <text x="320" y="366" font-size="19" text-anchor="middle" style="fill:#67748B">つまみを「孫」に動かすと現れる</text>
+          <circle class="knob" cx="60" cy="195" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="60" y="203" font-size="22" text-anchor="middle">↕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>世代 子</span><span>遺伝子の組 すべて Aa</span><span>丸：しわ ＝ 1：0（すべて丸）</span></div>
+        <span class="how">白い丸を上下に引くと、世代（親・子・孫）を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>世代を「孫」にして、丸：しわ ＝ 3：1 になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>孫の世代で、遺伝子の組が AA 1・Aa 2・aa 1 で、しわの種子が aa であることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「形質だけ」に替えて世代を「子」にし、しわの種子が 0 個であることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">見るもの</span><button type="button">形質だけ</button><button type="button" aria-pressed="true">✓ 遺伝子の組も</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（段階 7、染色体 5 本、遺伝子の組 AB など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>染色体の区別</td><td>色だけでなく、ぬった棒（父から）と線だけの棒（母から）で分ける。長さ（長い・短い）も変える</td></tr>
+  <tr><td>遺伝の比の出し方</td><td>いちばんかんたんな整数の比で出す（2：2 は 1：1）。片方が現れないときは「1：0（すべて丸）」のように言葉もそえる。表の 4 ますの内わけ（AA 0・Aa 2・aa 2）もいっしょに出す</td></tr>
+  <tr><td>遺伝子と形質で、まだ進んでいない世代</td><td>消さずに、点線の丸と「？」で見せる（つまみを動かすと現れる）</td></tr>
+  <tr><td>4 つ目の盤の問いかけ</td><td>「子に現れなかった形質が、孫に現れるのはなぜ？」とする（AA × aa の親には、しわが現れているため）</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 1（染色体の数）</td><td>染色体を 4 本（切り替えで 6 本）の少ない数で描いている。「実際の生物ではもっと多い」と先生の台本で伝える。これでよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 2（複製の時期と段階の分け方）</td><td>染色体の複製は「段階 1（分裂の前）」に起こるとし、段階 2 から 2 本ずつくっついた形で描く。段階は 6 つに分けた。教科書の図の分け方と合うか</td></tr>
+  <tr><td>先生に確かめてほしい点 3（用語）</td><td>「顕性・潜性」を使い、「優性・劣性」は説明で 1 回ふれる。生殖細胞は動物の「精子・卵」で描いた（植物の「精細胞・卵細胞」に替えるか）。「DNA」は名前だけ出す</td></tr>
+</table>
+</main>
+</body>
+</html>

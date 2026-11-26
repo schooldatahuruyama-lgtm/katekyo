@@ -7,15 +7,18 @@ const boards = require('../js/boards.js');
 const explain = require('../js/explain.js');
 const config = require('../js/config.js');
 const soundScripts = require('../content/scripts-sound.js');
-const allScripts = { ...scripts.BOARDS, ...soundScripts.BOARDS };
+const forceScripts = require('../content/scripts-force.js');
+const allScripts = { ...scripts.BOARDS, ...soundScripts.BOARDS, ...forceScripts.BOARDS };
 const scene = require('../js/scene.js');
 
-test('光と音の9つの盤と6体の先生がそろい、基本の台本はE', () => {
+test('光・音・力の12の盤と6体の先生がそろい、基本の台本はE', () => {
   assert.deepEqual(Object.keys(allScripts), boards.list().map(b => b.id));
   assert.deepEqual(scripts.TEACHERS.map(t => t.id), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(scripts.DEFAULT_TEACHER, 'E');
   assert.equal(soundScripts.TEACHERS, scripts.TEACHERS);
   assert.equal(soundScripts.DEFAULT_TEACHER, 'E');
+  assert.equal(forceScripts.TEACHERS, scripts.TEACHERS);
+  assert.equal(forceScripts.DEFAULT_TEACHER, 'E');
 });
 
 for (const [id, steps] of Object.entries(allScripts)) {

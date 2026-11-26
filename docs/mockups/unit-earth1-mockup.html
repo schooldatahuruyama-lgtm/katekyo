@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 1 大地の成り立ちと変化）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 1「大地の成り立ちと変化」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 1 大地の成り立ちと変化」（盤 3 種類）にすること。</li>
+    <li>盤の中身: 地震のゆれの伝わり方／火山の形とマグマ／地層のでき方。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（120 km ÷ 6 km/s ＝ 20 秒、120 km ÷ 3 km/s ＝ 40 秒、その差 20 秒。岸に近い順に れき・砂・泥）。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 1 大地の成り立ちと変化 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">地震のゆれの伝わり方</span><span class="question">はじめの小さなゆれと、あとの大きなゆれは、なぜずれる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">火山の形とマグマ</span><span class="question">火山の形は、何で決まる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">地層のでき方</span><span class="question">地層のしま模様は、どうやってできる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「地震のゆれの伝わり方」（<code>earth-quake</code>）</h2>
+<p class="note">地震が起きると、P 波と S 波が震源から同時に出る。P 波は速く（6 km/s）、S 波はおそい（3 km/s）。数値は<b>暫定</b>。P 波がとどくと初期微動が、S 波がとどくと主要動が始まる。その間の時間が初期微動継続時間で、震源からの距離が大きいほど長い。とどく時刻〔秒〕＝ 距離 ÷ 速さ。震源からの距離は 30〜240 km（30 km きざみ）。はじめは 120 km（P 波 20 秒後、S 波 40 秒後、初期微動継続時間 20 秒）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">地震のゆれの伝わり方</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>P 波と S 波がとどく時刻をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="震源から 120 キロメートルの地点。P 波は 20 秒後、S 波は 40 秒後にとどく。初期微動継続時間は 20 秒">
+          <text x="20" y="40" font-size="19">震源からの距離〔km〕</text>
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M180 90V330M280 90V330M380 90V330M480 90V330M80 90H480M80 150H480M80 270H480"/></g>
+          <path d="M80 70V330H500" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <g font-size="19" text-anchor="end"><text x="72" y="97">240</text><text x="72" y="217">120</text><text x="72" y="337">0</text></g>
+          <g font-size="19" text-anchor="middle"><text x="180" y="356">20</text><text x="280" y="356">40</text><text x="380" y="356">60</text><text x="480" y="356">80</text></g>
+          <text x="300" y="394" font-size="19" text-anchor="middle">地震が起きてからの時間〔秒〕</text>
+          <!-- 今の距離 -->
+          <path d="M80 210H514" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <path d="M180 210V330M280 210V330" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <!-- P 波と S 波 -->
+          <path d="M80 330L280 90" stroke="#176AA3" stroke-width="3.5"/>
+          <path d="M80 330L480 90" stroke="#B23A36" stroke-width="3.5"/>
+          <text x="276" y="76" font-size="19" text-anchor="middle" style="fill:#176AA3">P 波</text>
+          <text x="476" y="76" font-size="19" text-anchor="middle" style="fill:#B23A36">S 波</text>
+          <!-- 初期微動継続時間 -->
+          <path d="M180 210H280" stroke="#B45C00" stroke-width="6"/>
+          <circle cx="180" cy="210" r="7" fill="#176AA3"/><circle cx="280" cy="210" r="7" fill="#B23A36"/>
+          <text x="300" y="244" font-size="19" style="fill:#B45C00">初期微動継続時間 20 秒</text>
+          <circle class="knob" cx="540" cy="210" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="540" y="217" font-size="22" text-anchor="middle">↕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>震源からの距離 120 km</span><span>P 波 20 秒後・S 波 40 秒後</span><span>初期微動継続時間 20 秒</span></div>
+        <span class="how">右の白い丸を上下に引くと、震源からの距離を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>震源からの距離を 60 km にして、初期微動継続時間を 10 秒にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>初期微動継続時間が 30 秒になる距離をさがそう。</span></li>
+        <li class="try"><span class="box">□</span><span>距離を 120 km の 2 倍の 240 km にして、初期微動継続時間が 2 倍の 40 秒になることをたしかめよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「火山の形とマグマ」（<code>earth-volcano</code>）</h2>
+<p class="note">火山の形は、マグマのねばりけで決まる。ねばりけが弱い → 傾斜がゆるやかな形・おだやかに溶岩が流れ出る噴火・火山灰や岩石は黒っぽい。中くらい → 円すいの形・爆発と溶岩の流れをくり返す噴火・灰色。強い → ドーム状の形（盛り上がった形）・激しい爆発をともなう噴火・白っぽい。切り替えは 弱い／中くらい／強い の 3 つ。はじめは 中くらい。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">火山の形とマグマ</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>マグマのねばりけと火山の形をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="マグマのねばりけは中くらい。火山は円すいの形で、火山灰や岩石の色は灰色">
+          <text x="20" y="40" font-size="22">ねばりけ: 中くらい</text>
+          <!-- 岩石の色 -->
+          <text x="20" y="100" font-size="19">火山灰や岩石の色</text>
+          <g stroke="#1B2430" stroke-width="2"><rect x="20" y="115" width="30" height="30" fill="#1B2430"/><rect x="60" y="115" width="30" height="30" fill="#67748B"/><rect x="100" y="115" width="30" height="30" fill="#FFFFFF"/></g>
+          <g font-size="19" text-anchor="middle"><text x="35" y="172">黒</text><text x="75" y="172">灰</text><text x="115" y="172">白</text></g>
+          <rect x="55" y="109" width="40" height="72" rx="6" fill="none" stroke="#176AA3" stroke-width="3"/>
+          <!-- 噴煙 -->
+          <g fill="#67748B" fill-opacity=".5"><circle cx="300" cy="106" r="22"/><circle cx="285" cy="80" r="24"/><circle cx="318" cy="72" r="26"/><circle cx="300" cy="46" r="22"/></g>
+          <text x="360" y="70" font-size="19">火山灰</text>
+          <!-- 火山 -->
+          <path d="M120 320L270 130H330L480 320Z" fill="#E3DBC8" stroke="#1B2430" stroke-width="3" stroke-linejoin="round"/>
+          <path d="M20 320H580" stroke="#1B2430" stroke-width="3" stroke-linecap="round"/>
+          <!-- マグマ -->
+          <ellipse cx="300" cy="375" rx="70" ry="28" fill="#B45C00"/>
+          <rect x="292" y="130" width="16" height="225" fill="#B45C00"/>
+          <path d="M272 134L226 192M330 132L386 203" stroke="#B45C00" stroke-width="6" stroke-linecap="round"/>
+          <text x="402" y="196" font-size="19" style="fill:#B45C00">溶岩</text>
+          <text x="385" y="385" font-size="19" style="fill:#B45C00">マグマだまり</text>
+          <text x="226" y="285" font-size="19" text-anchor="middle">円すいの形</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>火山の形 円すいの形</span><span>噴火のようす 爆発と溶岩の流れをくり返す</span><span>火山灰や岩石の色 灰色</span></div>
+        <span class="how">下のボタンで、マグマのねばりけを切り替えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>ねばりけを「弱い」にして、傾斜がゆるやかな形と黒っぽい色をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>ねばりけを「強い」にして、ドーム状の形と白っぽい色をたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>3 つを順に切り替えて、噴火がいちばん激しいねばりけを見つけよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">ねばりけ</span><button type="button">弱い</button><button type="button" aria-pressed="true">✓ 中くらい</button><button type="button">強い</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「地層のでき方」（<code>earth-strata</code>）</h2>
+<p class="note">川が運んだ土砂は、海に入ると、粒の大きいものから先に沈む。岸に近い順に れき・砂・泥 が積もる。海面が高くなる（海が深くなる）と岸が遠ざかり、同じ場所には、より細かい粒が積もる。「しらべる場所」は動かない。海面の高さ（低い／中くらい／高い）をえらんで「1 層つもらせる」をおすと、その場所に積もる粒（低い → れき、中くらい → 砂、高い → 泥）の層が、柱状図の上に 1 つ重なる（最大 4 層。下の層ほど古い）。はじめは 海面「中くらい」で、柱状図は下から れき → 砂 の 2 層。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">地層のでき方</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>海面の高さを変えて、地層を重ねよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="川から海へ土砂が流れこむ断面。岸に近い順にれき、砂、泥が積もる。しらべる場所には砂が積もっている。柱状図は下かられき、砂">
+          <!-- 海 -->
+          <path d="M150 170H420V330Z" fill="#176AA3" fill-opacity=".15"/>
+          <path d="M150 170H420" stroke="#176AA3" stroke-width="2.5"/>
+          <text x="380" y="160" font-size="19" text-anchor="middle" style="fill:#176AA3">海面</text>
+          <!-- 陸と海底 -->
+          <path d="M20 120L150 170L420 330V380H20Z" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5" stroke-linejoin="round"/>
+          <path d="M24 116L146 163" stroke="#176AA3" stroke-width="5" stroke-linecap="round"/>
+          <text x="50" y="100" font-size="19" style="fill:#176AA3">川</text>
+          <!-- 積もった粒 -->
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2"><circle cx="165" cy="173" r="6"/><circle cx="182" cy="183" r="6"/><circle cx="199" cy="193" r="6"/><circle cx="216" cy="203" r="6"/></g>
+          <g fill="#1B2430"><circle cx="240" cy="220" r="3"/><circle cx="252" cy="227" r="3"/><circle cx="264" cy="234" r="3"/><circle cx="276" cy="241" r="3"/><circle cx="288" cy="248" r="3"/><circle cx="300" cy="255" r="3"/><circle cx="312" cy="262" r="3"/></g>
+          <path d="M326 271L414 323" stroke="#67748B" stroke-width="5" stroke-dasharray="2 4"/>
+          <path d="M226 224L234 210M316 277L324 263" stroke="#1B2430" stroke-width="2"/>
+          <text x="185" y="242" font-size="19" text-anchor="middle">れき</text>
+          <text x="262" y="288" font-size="19" text-anchor="middle">砂</text>
+          <text x="365" y="348" font-size="19" text-anchor="middle">泥</text>
+          <!-- しらべる場所 -->
+          <text x="275" y="46" font-size="19" text-anchor="middle" style="fill:#B23A36">しらべる場所</text>
+          <polygon points="267,56 283,56 275,70" fill="#B23A36"/>
+          <path d="M275 72V236" stroke="#B23A36" stroke-width="2" stroke-dasharray="5 5"/>
+          <text x="20" y="406" font-size="19">海面の高さ: 中くらい</text>
+          <!-- 柱状図 -->
+          <text x="535" y="46" font-size="19" text-anchor="middle">柱状図</text>
+          <text x="535" y="100" font-size="19" text-anchor="middle">上ほど新しい</text>
+          <rect x="490" y="120" width="90" height="240" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"><rect x="490" y="300" width="90" height="60"/><rect x="490" y="240" width="90" height="60"/></g>
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2"><circle cx="508" cy="318" r="7"/><circle cx="535" cy="325" r="7"/><circle cx="562" cy="316" r="7"/><circle cx="520" cy="343" r="7"/><circle cx="550" cy="345" r="7"/></g>
+          <g fill="#1B2430"><circle cx="503" cy="254" r="2.5"/><circle cx="519" cy="254" r="2.5"/><circle cx="535" cy="254" r="2.5"/><circle cx="551" cy="254" r="2.5"/><circle cx="567" cy="254" r="2.5"/><circle cx="511" cy="270" r="2.5"/><circle cx="527" cy="270" r="2.5"/><circle cx="543" cy="270" r="2.5"/><circle cx="559" cy="270" r="2.5"/><circle cx="503" cy="286" r="2.5"/><circle cx="519" cy="286" r="2.5"/><circle cx="535" cy="286" r="2.5"/><circle cx="551" cy="286" r="2.5"/><circle cx="567" cy="286" r="2.5"/></g>
+          <g font-size="19" text-anchor="end"><text x="480" y="337">れき</text><text x="480" y="277">砂</text></g>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>海面の高さ 中くらい</span><span>しらべる場所に積もる粒 砂</span><span>柱状図（下から）れき → 砂</span></div>
+        <span class="how">下のボタンで海面の高さをえらび、「1 層つもらせる」をおそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>海面を「高い」にして 1 層つもらせ、下から れき → 砂 → 泥 の 3 層にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>そのあと海面を「低い」にして、4 層目に れき を重ねよう。</span></li>
+        <li class="try"><span class="box">□</span><span>はじめの配置にもどしてから、下から れき → 砂 → 泥 → 砂 の 4 層をつくろう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">海面の高さ</span><button type="button">低い</button><button type="button" aria-pressed="true">✓ 中くらい</button><button type="button">高い</button></div>
+      <button class="btn main" type="button">1 層つもらせる</button>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（距離 100 km・270 km、知らないねばりけ、5 層目など）</td><td>丸めたり近い値に直したりせず、「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>地層が 4 層になったあとで「1 層つもらせる」をおしたとき</td><td>層はふやさず、ボタンを使えない状態にして「これ以上は重ねられません。はじめの配置にもどしてね」と出す</td></tr>
+  <tr><td>同じ海面の高さで続けて積もらせたとき</td><td>同じ粒の層を、線で分けて 2 つ描く（まとめて 1 つにしない）</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 ①（地震）</td><td>P 波 6 km/s・S 波 3 km/s は、計算がきりよくなる仮の値。教科書の例（P 波 6〜8 km/s、S 波 3〜4 km/s ほど）と合わせて直すか</td></tr>
+  <tr><td>先生に確かめてほしい点 ②（火山）</td><td>ねばりけ「中くらい」の噴火のようすの書き方と、色を 黒っぽい・灰色・白っぽい の 3 段階で示すこと。火山の例（弱い: マウナロア、中くらい: 桜島、強い: 昭和新山 など）を出すか</td></tr>
+  <tr><td>先生に確かめてほしい点 ③（地層）</td><td>「海面が高い ＝ 岸から遠くなる ＝ 泥が積もる」を、低い・中くらい・高い の 3 段階で れき・砂・泥 に 1 つずつ対応させたこと。層の厚さは、どの粒も同じにしている</td></tr>
+</table>
+</main>
+</body>
+</html>

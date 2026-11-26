@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 3 自然と人間）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 3「自然と人間」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 3 自然と人間」（盤 2 種類）にすること。</li>
+    <li>盤の中身: 食物連鎖と数量のつり合い／炭素の循環。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（数量は 植物 8・草食動物 6・肉食動物 2 の目もり、光合成の矢印は大気から生産者へ）。数量の目もりは、変わり方を見るための数です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 3 自然と人間 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">数量のつり合い</span><span class="question">ある生物がふえると、ほかの生物はどうなる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">炭素の循環</span><span class="question">炭素は、自然の中をどうめぐる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「食物連鎖と数量のつり合い」（<code>eco-pyramid</code>）</h2>
+<p class="note">食べる・食べられるの関係（食物連鎖）でつながる生物の数量は、ふつう、植物がいちばん多く、草食動物、肉食動物の順に少なくなる。もとのつり合いを 植物 8・草食動物 5・肉食動物 2 の目もりで表す。ある生物がふえたりへったりすると、食べる生物・食べられる生物の数量が順に変わり、時間がたつと、もとのつり合いにもどる。出来事「草食動物がふえた」は、段階 1（8・6・2）→ 段階 2: 植物がへり、肉食動物がふえる（7・6・3）→ 段階 3: 草食動物がへる（7・5・3）→ 段階 4: 肉食動物がへり、植物がふえて、もとにもどる（8・5・2）。出来事「肉食動物がへった」は、段階 1（8・5・1）→ 段階 2: 草食動物がふえる（8・6・1）→ 段階 3: 植物がへり、肉食動物がふえる（7・6・2）→ 段階 4: 草食動物がへり、植物がふえて、もとにもどる（8・5・2）。段階は 1〜4（1 きざみ）。はじめは「草食動物がふえた」・段階 1。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">食物連鎖と数量のつり合い</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>数量の変化が伝わるようすを見よう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="数量のピラミッド。段階 1。植物 8、草食動物 6 でもとよりふえた、肉食動物 2">
+          <text x="300" y="40" font-size="22" text-anchor="middle">段階 1: 草食動物がふえた</text>
+          <!-- 肉食動物 2 -->
+          <rect x="260" y="70" width="80" height="60" fill="#B23A36"/>
+          <path d="M300 70V130" stroke="#FFFFFF" stroke-width="1.5"/>
+          <rect x="260" y="70" width="80" height="60" fill="none" stroke="#1B2430" stroke-width="2.5" stroke-dasharray="7 5"/>
+          <!-- 草食動物 6（もとは 5） -->
+          <rect x="180" y="140" width="240" height="60" fill="#176AA3"/>
+          <path d="M220 140V200M260 140V200M300 140V200M340 140V200M380 140V200" stroke="#FFFFFF" stroke-width="1.5"/>
+          <rect x="200" y="140" width="200" height="60" fill="none" stroke="#1B2430" stroke-width="2.5" stroke-dasharray="7 5"/>
+          <!-- 植物 8 -->
+          <rect x="140" y="210" width="320" height="60" fill="#216E43"/>
+          <path d="M180 210V270M220 210V270M260 210V270M300 210V270M340 210V270M380 210V270M420 210V270" stroke="#FFFFFF" stroke-width="1.5"/>
+          <rect x="140" y="210" width="320" height="60" fill="none" stroke="#1B2430" stroke-width="2.5" stroke-dasharray="7 5"/>
+          <text x="20" y="107" font-size="19">肉食動物</text>
+          <text x="20" y="177" font-size="19">草食動物</text>
+          <text x="20" y="247" font-size="19">植物</text>
+          <text x="478" y="107" font-size="19">2（もと）</text>
+          <text x="478" y="177" font-size="19">6（ふえた）</text>
+          <text x="478" y="247" font-size="19">8（もと）</text>
+          <text x="300" y="310" font-size="19" text-anchor="middle" style="fill:#67748B">点線は、もとのつり合いの数量</text>
+          <!-- 時間のつまみ -->
+          <text x="20" y="382" font-size="19">時間（段階 1〜4）</text>
+          <path d="M230 375H470" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M230 367V383M310 367V383M390 367V383M470 367V383" stroke="#67748B" stroke-width="2"/>
+          <circle class="knob" cx="230" cy="375" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="230" y="382" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>植物 8</span><span>草食動物 6</span><span>肉食動物 2</span></div>
+        <span class="how">白い丸を左右に引くと、時間（段階）を進められるよ。下のボタンで出来事も変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>段階 2 に進めて、植物が 7 にへり、肉食動物が 3 にふえるのを見よう。</span></li>
+        <li class="try"><span class="box">□</span><span>段階 4 まで進めて、もとのつり合い（植物 8・草食動物 5・肉食動物 2）にもどるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>出来事を「肉食動物がへった」に替えて段階 2 にし、草食動物が 6 にふえるのを見よう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">出来事</span><button type="button" aria-pressed="true">✓ 草食動物がふえた</button><button type="button">肉食動物がへった</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「炭素の循環」（<code>eco-carbon</code>）</h2>
+<p class="note">炭素は、生物のからだをつくる有機物と、大気中の二酸化炭素（無機物）のあいだをめぐっている。光合成: 生産者（植物）が大気中の二酸化炭素を取り入れて有機物をつくる（矢印 1 本）。呼吸: 生産者・消費者・分解者が、有機物を分解して二酸化炭素を大気にもどす（矢印 3 本）。食べる: 有機物が生産者から消費者へ移る（矢印 1 本）。分解: かれ葉・死がい・ふんなどの有機物が、生産者と消費者から分解者へ移る（矢印 2 本）。実線の矢印は無機物の炭素（二酸化炭素）、点線の矢印は有機物の炭素。えらんだはたらきの矢印だけを太くして色をつけ、ほかの矢印は細い灰色で残す。切り替えは 光合成・呼吸・食べる・分解・すべて の 5 つ。はじめは 光合成。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">炭素の循環</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>炭素のめぐり方をたどろう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="炭素の循環の図。光合成の矢印を強調。大気中の二酸化炭素から生産者へ、無機物の炭素が移る">
+          <!-- 呼吸（細い実線） -->
+          <g stroke="#67748B" stroke-width="2.5" fill="none"><path d="M160 170L253 73.3M480 170L387 73.3M420 365H585V41H442"/></g>
+          <g fill="#67748B"><polygon points="260,66 255.3,78.2 248.1,71.2"/><polygon points="380,66 384.7,78.2 391.9,71.2"/><polygon points="430,41 442,36 442,46"/></g>
+          <!-- 食べる・分解（細い点線） -->
+          <g stroke="#67748B" stroke-width="2.5" fill="none" stroke-dasharray="7 5"><path d="M210 205H378M120 240L212 323M480 240L388 323"/></g>
+          <g fill="#67748B"><polygon points="390,205 378,200 378,210"/><polygon points="220,330 207.7,325.7 214.3,318.3"/><polygon points="380,330 392.3,325.7 385.7,318.3"/></g>
+          <!-- 光合成（強調） -->
+          <path d="M210 66L112 158.6" stroke="#176AA3" stroke-width="6"/><polygon points="100,170 117.8,165.5 105.4,152.5" fill="#176AA3"/>
+          <text x="30" y="120" font-size="22" style="fill:#176AA3">光合成</text>
+          <text x="228" y="140" font-size="19" style="fill:#67748B">呼吸</text>
+          <text x="420" y="140" font-size="19" text-anchor="end" style="fill:#67748B">呼吸</text>
+          <text x="300" y="195" font-size="19" text-anchor="middle" style="fill:#67748B">食べる</text>
+          <text x="96" y="300" font-size="19" style="fill:#67748B">分解</text>
+          <text x="466" y="300" font-size="19" style="fill:#67748B">分解</text>
+          <text x="470" y="355" font-size="19" style="fill:#67748B">呼吸</text>
+          <!-- 大気・生物 -->
+          <rect x="170" y="16" width="260" height="50" rx="10" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="48" font-size="19" text-anchor="middle">大気中の二酸化炭素</text>
+          <rect x="30" y="170" width="180" height="70" rx="10" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="120" y="198" font-size="20" text-anchor="middle">生産者</text>
+          <text x="120" y="226" font-size="19" text-anchor="middle">（植物）</text>
+          <rect x="390" y="170" width="180" height="70" rx="10" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="480" y="198" font-size="20" text-anchor="middle">消費者</text>
+          <text x="480" y="226" font-size="19" text-anchor="middle">（動物）</text>
+          <rect x="180" y="330" width="240" height="70" rx="10" fill="#FFFFFF" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="358" font-size="20" text-anchor="middle">分解者</text>
+          <text x="300" y="386" font-size="19" text-anchor="middle">（菌類・細菌類）</text>
+          <!-- 線の説明 -->
+          <path d="M14 372H44" stroke="#176AA3" stroke-width="3"/>
+          <text x="52" y="379" font-size="19">無機物の炭素</text>
+          <path d="M14 402H44" stroke="#B45C00" stroke-width="3" stroke-dasharray="7 5"/>
+          <text x="52" y="409" font-size="19">有機物の炭素</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>はたらき 光合成（矢印 1 本）</span><span>大気 → 生産者</span><span>無機物の炭素（二酸化炭素）</span></div>
+        <span class="how">下のボタンで、はたらきをえらぶと、その矢印が太くなって説明が出るよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>「呼吸」に替えて、大気へもどる矢印が 3 本あることをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「食べる」に替えて、有機物の炭素が生産者から消費者へ移る矢印 1 本を見つけよう。</span></li>
+        <li class="try"><span class="box">□</span><span>「分解」に替えて、分解者へ向かう矢印が 2 本あることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">はたらき</span><button type="button" aria-pressed="true">✓ 光合成</button><button type="button">呼吸</button><button type="button">食べる</button><button type="button">分解</button><button type="button">すべて</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（段階 5、表にない出来事やはたらき など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>数量のピラミッドで、もとの数量とのちがい</td><td>もとの数量を点線のわくで残し、数の横に「ふえた」「へった」「もと」と文字で出す（色だけで知らせない）</td></tr>
+  <tr><td>出来事を切り替えたとき</td><td>段階を 1 にもどす</td></tr>
+  <tr><td>炭素の循環で、えらんでいない矢印</td><td>消さずに、細い灰色の線で残す。無機物は実線、有機物は点線で、線の形でも分ける</td></tr>
+  <tr><td>ホームの見出しの名前</td><td>1 つ目の盤は、一覧では「数量のつり合い」と短く出す（盤の題は「食物連鎖と数量のつり合い」）</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 1（数量の目もり）</td><td>もとのつり合いを 8・5・2 とし、1 段階で 1 ずつ変わるとした。説明用の数でよいか（実際の数量の差はもっと大きい）</td></tr>
+  <tr><td>先生に確かめてほしい点 2（変化の順）</td><td>「植物がへる」と「肉食動物がふえる」を同じ段階にまとめ、4 段階でもとにもどるとした。教科書の流れと合うか</td></tr>
+  <tr><td>先生に確かめてほしい点 3（炭素の循環の範囲）</td><td>分解者を「菌類・細菌類」と書き、土の中の小動物は入れていない。石油や石炭を燃やして出る二酸化炭素の矢印も入れていない。足すかどうか</td></tr>
+</table>
+</main>
+</body>
+</html>

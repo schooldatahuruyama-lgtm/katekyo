@@ -277,7 +277,7 @@ function labelBoxes(labels, placed) {
   return placed.flatMap((p, i) => {
     if (p.hidden) return [];
     const size = labels[i].fontSize, rows = labels[i].lines || [labels[i].text];
-    const width = Math.max(...rows.map(text => Array.from(text).length)) * size;
+    const width = labels[i].textLength || Math.max(...rows.map(text => Array.from(text).length)) * size;
     const left = p.x - (p.anchor === 'end' ? width : p.anchor === 'middle' ? width / 2 : 0);
     return [{ id: p.id, left, right: left + width, top: p.y - size, bottom: p.y + size * (.2 + (rows.length - 1) * 1.2) }];
   });
@@ -690,9 +690,9 @@ test('preferOwn は文字の左下を元の点に合わせ、はみ出し・先�
   assert.equal(view.placeLabels([label], [{ x: 100, y: 100, r: 1000 }], s)[0].hidden, true);
 });
 
-test('9 盤の初期配置・幅 612px で、空いている marks は markBox を盤内へ寄せた位置を使う', () => {
+test('光・音の盤の初期配置・幅 612px で、空いている marks は markBox を盤内へ寄せた位置を使う', () => {
   const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  for (const { id } of boards.list()) {
+  for (const { id } of boards.list().filter(board => board.unit !== 'force')) {
     const board = boards.get(id), result = scene.trace(board.scene), s = view.sizes(612);
     const data = boardView.labelData(board, result, s), placed = view.placeLabels(data.labels, data.obstacles, s);
     let ownCount = 0;
@@ -794,8 +794,8 @@ for (const width of [264, 319, 375, 612, 1100]) {
       assertClear(boxes);
       assertLinesClear(data.labels, placed, lines, s);
       data.labels.forEach((label, i) => {
-        assert.equal(label.priority, label.id.startsWith('angle-name') ? 2 : label.id.startsWith('angle') ? 0 :
-          label.id.startsWith('handle') ? 1 : label.id.startsWith('image') ? 3 : 4);
+        assert.equal(label.priority, label.id.startsWith('angle-name') ? 2 : label.id.startsWith('angle') || label.id.startsWith('tick-') ? 0 :
+          label.id.startsWith('handle') || label.id === 'mark-force' ? 1 : label.id.startsWith('image') ? 3 : 4);
         if (label.fixed) assert.equal(placed[i].hidden, false);
         if (width >= 612 && (label.id.startsWith('mark-') || label.id.startsWith('handle-'))) {
           assert.equal(placed[i].hidden, false, id + ': ' + label.text);
@@ -907,6 +907,7 @@ function screen(search = '', width = 600, options = {}) {
   doc.defaultView = win;
   const host = new Element('main');
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
+    scriptsForce: require('../content/scripts-force.js'), voiceDataForce: require('../content/voice-force.js'),
     scriptsSound: require('../content/scripts-sound.js'), voiceDataSound: require('../content/voice-sound.js'),
     scripts: require('../content/scripts-light.js'), voiceData: options.voiceData || require('../content/voice-light.js'),
     explain: options.explain || require('../js/explain.js'), prefs: require('../js/prefs.js'), voice: options.voice || require('../js/voice.js'),
@@ -1090,6 +1091,16 @@ for (const { id } of boards.list()) {
       }]);
     }
   }
+  if (id.startsWith('force-')) {
+    for (const [name, value] of [['数字の文字列', '3'], ['範囲外', 6], ['小数', 2.5]]) {
+      changes.push([name, current => {
+        const next = structuredClone(current);
+        if (id === 'force-spring') next.options.weights = value;
+        else next.elements.find(e => 'newtons' in e).newtons = value;
+        return next;
+      }]);
+    }
+  }
   if (id === 'refract') changes.push(
     ['options=null', current => ({ ...current, options: null })],
     ['options=x', current => ({ ...current, options: 'x' })]);
@@ -1262,6 +1273,8 @@ test('file:// の履歴変更を拒む環境でも、盤の URL に移動する'
 // 説明の画面は同じ模擬 DOM に、音声と requestAnimationFrame の時計を渡して確かめる。
 const scripts = require('../content/scripts-light.js');
 const scriptsSound = require('../content/scripts-sound.js');
+const scriptsForce = require('../content/scripts-force.js');
+const boardScripts = id => id.startsWith('force-') ? scriptsForce : id.startsWith('sound-') ? scriptsSound : scripts;
 const explain = require('../js/explain.js');
 const voiceData = require('../content/voice-light.js');
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
@@ -1328,7 +1341,7 @@ test('手が進んでも弧・文字・矢印・強調の印は用意済みの�
   for (const { id } of boards.list()) {
     const { ui, board, renderer, calls } = animationBoard(id);
     const nodes = elements(ui, () => true);
-    const timeline = explain.buildTimeline((id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const timeline = explain.buildTimeline(boardScripts(id).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
     ui.mutations.length = 0;
     for (const step of timeline.steps) for (const part of step.parts) {
       renderer.setState(explain.stateAt(timeline, step.index, part.start + part.duration / 2));
@@ -1486,7 +1499,8 @@ test('start・end・middle の文字の切り抜きは箱の左端から始ま�
     const rects = elements(ui, el => el.tagName === 'clipPath' && el.attributes.id.includes('-text-')).map(el => el.children[0]);
     for (const [index, text] of elements(ui, el => el.tagName === 'text').entries()) {
       const anchor = text.attributes['text-anchor']; anchors.add(anchor);
-      const size = Number(text.attributes['font-size']), width = Array.from(text.textContent).length * size;
+      const size = Number(text.attributes['font-size']), rows = text.children.filter(el => el.tagName === 'tspan').map(el => el.textContent);
+      const width = Number(text.attributes.textLength) || Math.max(...(rows.length ? rows : [text.textContent]).map(row => Array.from(row).length)) * size;
       const left = Number(text.attributes.x) - width * (anchor === 'end' ? 1 : anchor === 'middle' ? .5 : 0);
       assert.equal(Number(rects[index].attributes.x), left - 4);
     }
@@ -1499,7 +1513,7 @@ test('説明終了で切り抜きと非表示属性を残さず、再び説明�
   renderer.setState(drawing(board, 'angle:in', .3));
   renderer.setState(null);
   assert.equal(elements(ui, el => el.hasAttribute('clip-path') || el.hasAttribute('display') || el.tagName === 'clipPath').length, 0);
-  assert.ok(ui.find(el => el.attributes.class === 'handle'));
+  assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
   assert.deepEqual(calls, { trace: 2, handles: 2, sizes: 2, placeLabels: 2, change: 2 });
   renderer.setState(drawing(board, 'angle:in', .3));
   assert.deepEqual(calls, { trace: 3, handles: 3, sizes: 3, placeLabels: 3, change: 3 });
@@ -1682,7 +1696,7 @@ test('反射3手目を50msずつ進めても、乗りかえ途中を含む同じ
 for (const { id } of boards.list().filter(board => board.unit === 'light')) {
   test(`${id}: 全手を16msずつ進めてもペンの座標は有限で、手の変更・再出現以外では40単位を超えて動かない`, () => {
     const { ui, board, renderer, calls } = animationBoard(id);
-    const timeline = explain.buildTimeline((id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const timeline = explain.buildTimeline(boardScripts(id).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
     const pen = ui.find(el => el.attributes.class === 'pen');
     let previous = null;
     ui.mutations.length = 0;
@@ -1909,7 +1923,7 @@ test('説明の状態が null なら従来の全描画に戻り、つまみを�
   assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
   renderer.setState(null);
   assert.equal(ui.host.textContent, before);
-  assert.ok(ui.find(el => el.attributes.class === 'handle'));
+  assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
   renderer.destroy();
 });
 
@@ -1981,11 +1995,12 @@ test('途中の文字は完成時の位置・大きさで描き、弧と部品�
 for (const { id } of boards.list()) {
   test(`${id}: 全手を100ms刻みで描き、終わるまでは操作不可、最後に従来の盤へ戻る`, () => {
     const ui = screen('?board=' + id); startLesson(ui);
-    const board = boards.get(id), steps = (id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id];
+    const board = boards.get(id), steps = boardScripts(id).BOARDS[id];
     const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), { readMs: steps.map(step => explain.readMs(step.lines.E)) });
     const seen = new Set([currentWords(ui)]), readoutStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
     const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
-    const firstReadout = readoutStep >= 0 ? readoutStep : labelStep >= 0 ? labelStep : steps.length - 1;
+    const forceToken = { 'force-spring': 'label:force', 'force-arrow': 'magnitude', 'force-balance': 'label:state' }[id];
+    const firstReadout = forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) : readoutStep >= 0 ? readoutStep : labelStep >= 0 ? labelStep : steps.length - 1;
     const limit = timeline.total + steps.length * 100;
     for (let time = 0; time <= limit && !ui.find(el => el.className === 'explain-controls').hidden; time += 100) {
       assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
@@ -1995,7 +2010,7 @@ for (const { id } of boards.list()) {
       assert.doesNotThrow(() => ui.advance(100)); seen.add(currentWords(ui));
     }
     assert.equal(seen.size, steps.length);
-    assert.ok(ui.find(el => el.attributes.class === 'handle'));
+    assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
     assert.equal(ui.find(el => el.className === 'after').hidden, false);
     assert.equal(ui.find(el => el.className === 'explain-history').hidden, true);
     assert.equal(currentWords(ui), steps[steps.length - 1].lines.E);
@@ -2455,11 +2470,11 @@ for (const width of [319, 375, 768, 1100]) for (const { id } of boards.list().fi
   });
 }
 
-for (const id of ['sound-wave', 'sound-string', 'sound-speed']) for (const teacher of scriptsSound.TEACHERS) {
+for (const id of ['sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']) for (const teacher of scripts.TEACHERS) {
   test(`${id}・先生${teacher.id}: 全手を16ms刻みで描き、ペンが有限で最後は操作時と同じ絵になる`, () => {
-    const { ui, board, renderer, calls } = animationBoard(id, 319), steps = scriptsSound.BOARDS[id];
+    const { ui, board, renderer, calls } = animationBoard(id, 319), steps = boardScripts(id).BOARDS[id];
     const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
-      clipSeconds: require('../content/voice-sound.js').CLIPS[id][teacher.id].map(clip => clip[1]),
+      clipSeconds: require('../content/voice-' + (id.startsWith('force-') ? 'force' : 'sound') + '.js').CLIPS[id][teacher.id].map(clip => clip[1]),
     });
     ui.mutations.length = 0;
     for (const step of timeline.steps) for (let time = 0; time <= step.duration; time += 16) {
@@ -2482,7 +2497,7 @@ for (const id of ['sound-wave', 'sound-string', 'sound-speed']) for (const teach
     const final = artSnapshot();
     renderer.setState(null);
     assert.deepEqual(artSnapshot(), final);
-    assert.ok(ui.find(el => el.attributes.class === 'handle'));
+    assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
   });
 }
 
@@ -2535,10 +2550,10 @@ test('100 Hz・振幅1では2つのつまみの重なりを押しても、中心
   }
 });
 
-for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed']) for (const rate of [.5, 2]) for (const reduced of [false, true]) {
+for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']) for (const rate of [.5, 2]) for (const reduced of [false, true]) {
   test(`${id}・${rate}倍・動きをへらす${reduced}: 読む時間と間を待ち、停止中は待つ時間も止まる`, () => {
     const ui = screen('?board=' + id, 375, { reduced, saved: JSON.stringify({ teacher: 'A', rate }) }); startLesson(ui);
-    const board = boards.get(id), steps = (id === 'reflect' ? scripts : scriptsSound).BOARDS[id];
+    const board = boards.get(id), steps = boardScripts(id).BOARDS[id];
     const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
       readMs: steps.map(step => explain.readMs(step.lines.A)),
     });
@@ -2555,14 +2570,14 @@ for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed']) for (
   });
 }
 
-for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed']) {
+for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']) {
   test(`${id}: 音声の読みこみ失敗・途中オフでも読む時間を待つ`, async () => {
     for (const failure of [true, false]) {
       const ui = screen('?board=' + id, 375, { fetch: async () => ({ ok: !failure, blob: async () => ({}) }) });
       ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click'); await settle();
       if (!failure) ui.button('🔊 音声オン').dispatch('click');
       assert.equal(ui.find(el => el.className === 'voice-message').hidden, !failure);
-      const steps = (id === 'reflect' ? scripts : scriptsSound).BOARDS[id];
+      const steps = boardScripts(id).BOARDS[id];
       const duration = explain.readMs(steps[0].lines.E) + 1500;
       ui.advance(duration - 1); assert.equal(currentWords(ui), steps[0].lines.E);
       ui.advance(1); assert.equal(currentWords(ui), steps[1].lines.E);
@@ -2593,7 +2608,7 @@ test('光から音へ先生・音声・速さを引き継ぎ、音声は開い�
 test('ホームを単元ごとに並べ、音の凡例・切り替え・単元の担当先生を表示する', () => {
   const ui = screen(); ui.api.app.start(ui.host);
   assert.deepEqual(elements(ui, el => el.tagName === 'h2').map(el => el.textContent), boards.units().map(unit => unit.title + ' ― ボードをえらぶ'));
-  assert.equal(elements(ui, el => el.className === 'row').length, 9);
+  assert.equal(elements(ui, el => el.className === 'row').length, boards.list().length);
   assert.ok(ui.host.textContent.includes('図や値がその場で変わります。'));
   assert.ok(!ui.host.textContent.includes('NEW'));
   ui.button('音の速さ').dispatch('click');
@@ -2749,5 +2764,349 @@ test('光の6盤の全つまみは矢印キーで従来の4単位の座標移動
       assert.deepEqual(board.scene, expected);
     }
     renderer.destroy();
+  }
+});
+// 力の3盤は、エンジンが許す全82配置を画面にも渡す。
+function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
+
+function forceVariants(id) {
+  const variants = [];
+  if (id === 'force-spring') for (const spring of ['A', 'B']) for (let weights = 0; weights <= 5; weights++) {
+    const current = boards.get(id).scene; current.options = { spring, weights }; variants.push(current);
+  }
+  if (id === 'force-arrow') for (const direction of ['up', 'down', 'left', 'right']) for (let newtons = 1; newtons <= 5; newtons++) {
+    const current = boards.get(id).scene; Object.assign(current.elements.find(e => e.type === 'force'), { direction, newtons }); variants.push(current);
+  }
+  if (id === 'force-balance') for (const line of ['same', 'offset']) for (let left = 1; left <= 5; left++) for (let right = 1; right <= 5; right++) {
+    const current = boards.get(id).scene; current.options.line = line;
+    current.elements.find(e => e.side === 'left').newtons = left;
+    current.elements.find(e => e.side === 'right').newtons = right; variants.push(current);
+  }
+  return variants;
+}
+
+for (const width of [279, 319, 335, 375, 700, 768, 1100]) for (const id of ['force-spring', 'force-arrow', 'force-balance']) {
+  test(`${id}: 幅${width}px・全配置で文字とつまみを盤内に収め、図・値を描く`, () => {
+    const ui = screen('', width), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    const variants = forceVariants(id), size = view.sizes(width);
+    assert.equal(variants.length, { 'force-spring': 12, 'force-arrow': 20, 'force-balance': 50 }[id]);
+    for (const current of variants) {
+      assert.doesNotThrow(() => renderer.setScene(current));
+      const result = scene.trace(current), data = boardView.labelData(board, result, size);
+      const placed = view.placeLabels(data.labels, data.obstacles, size, boardView.lineData(current, result));
+      assert.ok(placed.every(p => !p.hidden), JSON.stringify(current) + ': ' + placed.filter(p => p.hidden).map(p => p.id));
+      const renderedLabels = elements(ui, el => el.tagName === 'text' && el.attributes.class !== 'knob-mark');
+      assert.equal(renderedLabels.length, data.labels.length);
+      data.labels.forEach(label => assert.ok(renderedLabels.some(el => el.textContent === (label.lines || [label.text]).join('')), label.id));
+      const boxes = labelBoxes(data.labels, placed); assertClear(boxes);
+      assertLinesClear(data.labels, placed, boardView.lineData(current, result), size);
+      boxes.forEach(box => {
+        assertCirclesClear(box, data.obstacles);
+        for (const rect of data.obstacles.filter(o => Number.isFinite(o.left))) assert.ok(!overlap(box, rect), box.id);
+      });
+      for (const el of elements(ui, () => true)) {
+        assert.doesNotMatch(JSON.stringify(el.attributes), /NaN|Infinity|undefined/);
+        if (el.tagName === 'text') assert.ok(Number(el.attributes['font-size']) / size.unitPerPx >= 16 - 1e-8);
+      }
+      for (const h of view.forceHandles(scene.handles(current), result, size)) {
+        const knob = ui.find(el => el.attributes['data-element-id'] === h.elementId && el.attributes['data-handle'] === h.handle);
+        const hit = knob.children.at(-1), r = Number(hit.attributes.r);
+        assert.ok(r / size.unitPerPx >= 24);
+        const visibleRadius = size.knobRadius + size.unitPerPx;
+        assert.ok(h.x - visibleRadius >= 0 && h.x + visibleRadius <= 600 && h.y - visibleRadius >= 0 && h.y + visibleRadius <= 420);
+        assert.equal(knob.attributes.transform, `translate(${h.x} ${h.y})`);
+        assert.equal(knob.children.find(el => el.tagName === 'text').textContent, id === 'force-arrow' ? '✥' : '↔');
+        const vector = result.force.arrow || result.force.pulls[h.elementId];
+        const head = ui.find(el => el.attributes['data-force-head'] === (result.force.arrow ? 'arrow' : 'pulls') &&
+          (!result.force.pulls || el.attributes['data-side'] === h.elementId));
+        assert.ok(head && visible(head));
+        const triangle = head.children.find(el => el.tagName === 'polygon');
+        assert.ok(triangle);
+        const points = triangle.attributes.points.split(' ').map(p => p.split(',').map(Number));
+        near(points[0][0], vector.to.x); near(points[0][1], vector.to.y);
+        const length = Math.hypot(vector.to.x - vector.from.x, vector.to.y - vector.from.y);
+        const dx = (vector.to.x - vector.from.x) / length, dy = (vector.to.y - vector.from.y) / length;
+        assert.ok(points.every(([x, y]) => (h.x - x) * dx + (h.y - y) * dy > size.knobRadius));
+        assert.equal(length, current.elements.find(e => e.id === h.elementId).newtons * 32);
+      }
+      if (id === 'force-arrow') {
+        const label = data.labels.find(l => l.id === 'mark-application'), place = placed.find(p => p.id === label.id), point = result.force.application;
+        const leader = ui.find(el => el.attributes['data-force'] === 'application-leader');
+        assert.ok(Math.hypot(place.x - point.x, place.y - point.y) <= 60 || leader && visible(leader));
+        if (leader) { near(Number(leader.attributes.x1), point.x); near(Number(leader.attributes.y1), point.y); }
+        const box = view.labelBox({ ...label, ...place });
+        for (const head of elements(ui, el => el.attributes['data-force-head'])) for (const polygon of head.children) {
+          const points = polygon.attributes.points.split(' ').map(p => p.split(',').map(Number));
+          assert.ok(!overlap(box, { left: Math.min(...points.map(p => p[0])), right: Math.max(...points.map(p => p[0])),
+            top: Math.min(...points.map(p => p[1])), bottom: Math.max(...points.map(p => p[1])) }));
+        }
+      }
+      if (id === 'force-balance') assert.ok(!renderedLabels.some(el => el.textContent === '作用点'));
+      if (id === 'force-spring') {
+        const path = ui.find(el => el.attributes['data-force'] === 'spring').attributes.d;
+        assert.deepEqual(path.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number), result.force.spring.points.flatMap(p => [p.x, p.y]));
+        assert.equal(!!ui.find(el => el.attributes['data-force'] === 'forceArrow'), current.options.weights > 0);
+        const head = ui.find(el => el.attributes['data-force-head'] === 'forceArrow');
+        assert.equal(!!head, current.options.weights > 0);
+        if (head) {
+          const points = head.children[0].attributes.points.split(' ').map(p => p.split(',').map(Number));
+          near(points[0][0], result.force.forceArrow.to.x); near(points[0][1], result.force.forceArrow.to.y);
+          assert.ok(points.every(([, y]) => y >= result.force.weights.at(-1).y + result.force.weights.at(-1).height && y < 390));
+          assert.ok((Math.max(...points.map(p => p[0])) - Math.min(...points.map(p => p[0]))) / size.unitPerPx > 3);
+          const forceLabel = data.labels.find(l => l.id === 'mark-force'), forcePlace = placed.find(p => p.id === forceLabel.id);
+          const box = view.labelBox({ ...forceLabel, ...forcePlace }), vector = result.force.forceArrow, middle = (vector.from.y + vector.to.y) / 2;
+          assert.ok(box.left > vector.to.x && box.top <= middle && box.bottom >= middle);
+        }
+        assert.equal(!!ui.find(el => el.attributes['data-force'] === 'stretch'), current.options.weights > 0);
+        assert.equal(elements(ui, el => el.attributes['data-force'] === 'point').length, 6);
+        if (!current.options.weights) assert.deepEqual(boards.readout(id, result.measures, current).map(v => v.text), ['力の大きさ 0 N', 'ばねののび 0 cm']);
+      }
+      ui.mutations.length = 0;
+    }
+    renderer.destroy();
+  });
+}
+
+for (const id of ['force-arrow', 'force-balance']) {
+  test(`${id}: 全配置・全方向のキーで1 Nきざみ、直角では向きだけ変え、端で止まる`, () => {
+    const ui = screen(), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    const directions = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' };
+    const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' };
+    for (const current of forceVariants(id)) for (const h of scene.handles(current)) for (const [key, direction] of Object.entries(directions)) {
+      renderer.setScene(current);
+      const expected = structuredClone(current), e = expected.elements.find(e => e.id === h.elementId), oldDirection = e.direction || e.side;
+      if (direction === oldDirection) e.newtons = Math.min(5, e.newtons + 1);
+      else if (direction === opposite[oldDirection]) e.newtons = Math.max(1, e.newtons - 1);
+      else if (e.type === 'force') e.direction = direction;
+      const knob = ui.find(el => el.attributes['data-element-id'] === h.elementId);
+      knob.focus(); knob.dispatch('keydown', { key });
+      assert.deepEqual(board.scene, expected); assert.deepEqual(scene.validateScene(board.scene), []);
+      assert.equal(ui.doc.activeElement, knob); ui.mutations.length = 0;
+    }
+    renderer.destroy();
+  });
+}
+
+for (const id of ['force-spring', 'force-arrow', 'force-balance']) {
+  test(`${id}: 操作後の図・値・課題判定・切り替えの見出しが一致する`, () => {
+    let current = boards.get(id).scene;
+    const ui = screen('?board=' + id, 375, { scene: { ...scene,
+      stepHandle(...args) { current = scene.stepHandle(...args); return current; },
+      setOption(...args) { current = scene.setOption(...args); return current; },
+    } });
+    ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+    const completed = new Set(), board = boards.get(id);
+    function check() {
+      const result = scene.trace(current), readout = ui.find(el => el.className === 'readout');
+      assert.deepEqual(readout.children.map(el => el.textContent), boards.readout(id, result.measures, current).map(v => v.text));
+      if (id === 'force-balance') assert.equal(readout.children[2].className, result.measures.state === 'balanced' ? 'balanced' : 'out');
+      board.prompts.forEach((p, i) => {
+        if (boards.checkPrompt(p, result.measures, current)) completed.add(i);
+        const row = ui.find(el => el.className.split(' ').includes('try') && el.textContent.includes(p.text));
+        assert.equal(row.className.split(' ').includes('done'), completed.has(i));
+      });
+      for (const control of board.controls) {
+        const title = { weights: 'おもりの数', spring: 'ばね', line: '2 つの力' }[control.key];
+        const group = ui.find(el => el.attributes['aria-label'] === title);
+        assert.equal(group.children[0].textContent, title); assert.equal(group.children[0].hidden, false);
+        assert.equal(group.hidden || group.parent.hidden, false);
+        control.choices.forEach((choice, i) => {
+          const selected = current.options[control.key] === choice.value, button = group.children[i + 1];
+          assert.equal(button.textContent, (selected ? '✓ ' : '') + choice.label);
+          assert.equal(button.attributes['aria-pressed'], String(selected));
+        });
+      }
+      ui.mutations.length = 0;
+    }
+    function option(key, value) {
+      const title = { weights: 'おもりの数', spring: 'ばね', line: '2 つの力' }[key];
+      const control = board.controls.find(c => c.key === key), group = ui.find(el => el.attributes['aria-label'] === title);
+      group.children[control.choices.findIndex(c => c.value === value) + 1].dispatch('click'); check();
+    }
+    function press(element, key, times = 1) {
+      for (let i = 0; i < times; i++) { ui.find(el => el.attributes['data-element-id'] === element).dispatch('keydown', { key }); check(); }
+    }
+    check();
+    if (id === 'force-spring') {
+      for (const spring of ['A', 'B']) { option('spring', spring); for (let n = 0; n <= 5; n++) option('weights', n); }
+      assert.ok(ui.find(el => el.attributes['data-force'] === 'graph-line'));
+    } else if (id === 'force-arrow') {
+      press('force', 'ArrowRight', 3); press('force', 'ArrowLeft', 3); press('force', 'ArrowUp');
+      press('force', 'ArrowLeft'); press('force', 'ArrowLeft', 2);
+    } else {
+      press('left', 'ArrowLeft', 3); press('right', 'ArrowRight', 3);
+      press('left', 'ArrowRight'); press('left', 'ArrowLeft'); option('line', 'offset'); option('line', 'same');
+    }
+    assert.equal(completed.size, 3);
+  });
+}
+
+for (const from of ['reflect', 'sound-wave']) for (const to of ['force-spring', 'force-arrow', 'force-balance']) {
+  test(`${from}から${to}へ先生・音声・速さを引き継ぎ、forceの音声を読む`, async () => {
+    const urls = [], ui = screen('?board=' + from, 375, { fetch: async url => { urls.push(url); return { ok: true, blob: async () => ({}) }; } });
+    ui.api.app.start(ui.host); elements(ui, el => el.attributes.role === 'radio')[2].dispatch('click');
+    await settle(); ui.button('音声ありで見る').dispatch('click'); ui.button('＋').dispatch('click');
+    ui.button('← ボード一覧').dispatch('click'); urls.length = 0;
+    ui.button(boards.get(to).title).dispatch('click'); await settle();
+    assert.equal(elements(ui, el => el.attributes.role === 'radio')[2].attributes['aria-checked'], 'true');
+    assert.equal(ui.button('音声ありで見る').className, 'btn main'); assert.ok(ui.host.textContent.includes('1.25 倍'));
+    assert.equal(urls.length, scriptsForce.BOARDS[to].length);
+    assert.ok(urls.every(url => url.startsWith('assets/audio/force/' + to + '/C/')));
+    assert.deepEqual(ui.saved.at(-1), { teacher: 'C', voice: true, rate: 1.25 });
+  });
+}
+
+test('切り替えは全幅で折り返せる構造で、高さ44px以上・選択表示・状態色を保つ', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../css/app.css'), 'utf8');
+  assert.match(css, /\.seg\s*\{[^}]*display:\s*flex;[^}]*flex-wrap:\s*wrap;/);
+  assert.match(css, /\.seg-name\s*\{[^}]*flex-basis:\s*100%/);
+  assert.match(css, /\.seg button\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.readout \.balanced\s*\{\s*color:\s*var\(--green\)/);
+  assert.match(css, /\.readout \.out\s*\{\s*color:\s*var\(--red\)/);
+  for (const width of [319, 375, 768, 1100]) for (const id of ['force-spring', 'force-balance']) {
+    const ui = screen('?board=' + id, width); ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+    const groups = elements(ui, el => el.className === 'seg');
+    assert.equal(groups.length, id === 'force-spring' ? 2 : 1);
+    for (const group of groups) for (const button of group.children.filter(el => el.tagName === 'button')) {
+      // 模擬 DOM ではレイアウトしないため、指定の文字幅と左右paddingの上限を確かめる。
+      assert.ok(Array.from(button.textContent).length * 16 + 32 <= width - 64);
+    }
+  }
+});
+
+function springCoordinates(ui) {
+  const path = ui.find(el => el.attributes['data-force'] === 'spring');
+  const coordinates = path.attributes.d.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+  assert.doesNotMatch(path.attributes.d, /NaN|Infinity|undefined/);
+  assert.ok(coordinates.every(Number.isFinite));
+  return coordinates;
+}
+
+for (const teacher of scripts.TEACHERS) test(`ばね・先生${teacher.id}: 自然長から16ms刻みで伸び、完成・巻き戻しでも手に合う長さになる`, () => {
+  const { ui, board, renderer, calls } = animationBoard('force-spring', 279), result = scene.trace(board.scene);
+  const spring = result.force.spring, steps = scriptsForce.BOARDS[board.id];
+  const timeline = explain.buildTimeline(steps, board.scene, result, [], {
+    clipSeconds: require('../content/voice-force.js').CLIPS[board.id][teacher.id].map(clip => clip[1]),
+  });
+  const set = (index, time) => renderer.setState(explain.stateAt(timeline, index, time), timeline.steps[index].start + time);
+  set(0, timeline.steps[0].duration);
+  near(springCoordinates(ui).at(-1), spring.naturalBottom.y);
+  assert.equal(visibleElements(ui, el => el.tagName === 'rect' && Number(el.attributes.width) === 32).length, 0);
+  assert.equal(visibleElements(ui, el => el.attributes['data-force'] === 'stretch').length, 0);
+  ui.mutations.length = 0;
+  let previous = spring.naturalBottom.y, intermediate = false;
+  const second = timeline.steps[1], weights = second.parts.find(p => p.items.some(item => item.ref.source === 'force' && item.ref.key === 'weights'));
+  for (let time = 0; time <= second.drawDuration; time += 16) {
+    set(1, time);
+    const bottom = springCoordinates(ui).at(-1);
+    assert.ok(bottom >= previous && bottom <= spring.bottom.y);
+    if (time > weights.start && time < weights.start + weights.duration) {
+      assert.ok(bottom > spring.naturalBottom.y && bottom < spring.bottom.y);
+      intermediate = true;
+    }
+    previous = bottom;
+  }
+  assert.ok(intermediate);
+  for (let index = 1; index < timeline.steps.length; index++) {
+    set(index, timeline.steps[index].duration);
+    assert.deepEqual(springCoordinates(ui), spring.points.flatMap(p => [p.x, p.y]));
+  }
+  set(0, timeline.steps[0].duration);
+  assert.deepEqual(springCoordinates(ui), spring.naturalPoints.flatMap(p => [p.x, p.y]));
+  assertNoStructureChanges(ui);
+  assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
+  renderer.setState(explain.finalState(timeline));
+  const final = springCoordinates(ui);
+  renderer.setState(null);
+  assert.deepEqual(springCoordinates(ui), final);
+  renderer.destroy();
+});
+
+for (const reduced of [false, true]) test(`ばね: もどる・1手目からとばす・動きをへらす${reduced}でも長さを切り替える`, () => {
+  const ui = screen('?board=force-spring', 279, { reduced }); startLesson(ui);
+  const spring = scene.trace(boards.get('force-spring').scene).force.spring;
+  ui.button('次へ ▶').dispatch('click');
+  near(springCoordinates(ui).at(-1), spring.naturalBottom.y);
+  ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  near(springCoordinates(ui).at(-1), spring.bottom.y);
+  ui.button('◀ もどる').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+  near(springCoordinates(ui).at(-1), spring.naturalBottom.y);
+  ui.button('とばして自分で動かす').dispatch('click');
+  assert.deepEqual(springCoordinates(ui), spring.points.flatMap(p => [p.x, p.y]));
+});
+
+for (const id of ['force-arrow', 'force-balance']) test(`${id}: ずらしたつまみの中心からつかみ、指のずれを引いてドラッグする`, () => {
+  for (const width of [279, 700]) {
+    const ui = screen('', width), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    const svg = ui.find(el => el.tagName === 'svg');
+    const pointer = p => ({ pointerId: 7, clientX: 20 + p.x * width / 600, clientY: 40 + p.y * width / 600 });
+    for (const current of forceVariants(id)) for (const h of view.forceHandles(scene.handles(current), scene.trace(current), view.sizes(width))) {
+      renderer.setScene(current);
+      const knob = ui.find(el => el.attributes['data-element-id'] === h.elementId);
+      knob.dispatch('pointerdown', pointer(h));
+      assert.equal(svg.capture, 7); assert.equal(ui.doc.activeElement, knob);
+      svg.dispatch('pointermove', pointer(h));
+      assert.deepEqual(board.scene, current);
+      const before = board.scene, element = before.elements.find(e => e.id === h.elementId);
+      const origin = scene.trace(before).force.arrow?.from || scene.trace(before).force.pulls[h.elementId].from;
+      const dx = h.offset.x ? Math.sign(h.offset.x) : 0, dy = h.offset.y ? Math.sign(h.offset.y) : 0;
+      const value = element.newtons === 5 ? 4 : element.newtons + 1;
+      const target = { x: origin.x + dx * value * 32, y: origin.y + dy * value * 32 };
+      svg.dispatch('pointermove', pointer({ x: target.x + h.offset.x, y: target.y + h.offset.y }));
+      assert.deepEqual(board.scene, scene.moveElement(before, h.elementId, h.handle, target));
+      assert.equal(board.scene.elements.find(e => e.id === h.elementId).newtons, value);
+      if (id === 'force-arrow') {
+        const nextTarget = { x: origin.x + (dy ? 96 : 0), y: origin.y + (dx ? -96 : 0) };
+        const expected = scene.moveElement(board.scene, h.elementId, h.handle, nextTarget);
+        svg.dispatch('pointermove', pointer({ x: nextTarget.x + h.offset.x, y: nextTarget.y + h.offset.y }));
+        assert.deepEqual(board.scene, expected);
+        assert.notEqual(board.scene.elements[1].direction, element.direction);
+      }
+      svg.dispatch('pointerup', { pointerId: 7 }); assert.equal(svg.capture, null);
+      ui.mutations.length = 0;
+    }
+    renderer.destroy();
+  }
+});
+
+test('力の線は起点から先へ伸び、重要語句は書き進め、通常の文字は浮かび、pointは指す', () => {
+  for (const [id, token, name] of [['force-spring', 'el:spring', 'spring'], ['force-spring', 'graph-line', 'graph-line'], ['force-arrow', 'force', 'arrow']]) {
+    const { ui, board, renderer } = animationBoard(id, 375), result = scene.trace(board.scene);
+    renderer.setState(drawing(board, token, .5), 200);
+    const el = ui.find(el => el.attributes['data-force'] === name);
+    if (name === 'spring') {
+      const coords = el.attributes.d.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+      assert.deepEqual(coords.slice(0, 2), [result.force.spring.top.x, result.force.spring.top.y]);
+      assert.ok(coords.at(-1) > result.force.spring.top.y && coords.at(-1) < result.force.spring.bottom.y);
+    } else {
+      const vector = name === 'arrow' ? result.force.arrow : result.force.graph.line;
+      assert.equal(Number(el.attributes.x1), vector.from.x); assert.equal(Number(el.attributes.y1), vector.from.y);
+      assert.equal(Number(el.attributes.x2), (vector.from.x + vector.to.x) / 2);
+      assert.equal(Number(el.attributes.y2), (vector.from.y + vector.to.y) / 2);
+    }
+    assert.ok(penTip(ui).every(Number.isFinite)); renderer.destroy();
+  }
+  const { ui, board, renderer } = animationBoard('force-arrow', 375), result = scene.trace(board.scene);
+  const timeline = explain.buildTimeline(scriptsForce.BOARDS[board.id], board.scene, result, scene.handles(board.scene));
+  for (const [key, word] of [['application', '作用点'], ['direction', '力の向き']]) {
+    const step = timeline.steps.find(step => step.parts.some(p => p.token === key));
+    const part = step.parts.find(p => p.items.some(item => item.key));
+    assert.ok(part);
+    renderer.setState(explain.stateAt(timeline, step.index, part.start + part.duration / 2), step.start + part.start + part.duration / 2);
+    const text = visibleElements(ui, el => el.tagName === 'text' && el.textContent === word)[0];
+    assert.ok(text.hasAttribute('clip-path')); assert.ok(penTip(ui).every(Number.isFinite));
+  }
+  const normalStep = timeline.steps[0], normal = normalStep.parts.find(p => p.items.some(item => item.type === 'text'));
+  renderer.setState(explain.stateAt(timeline, 0, normal.start + normal.duration / 2), 100);
+  const box = visibleElements(ui, el => el.tagName === 'text' && el.textContent === '箱')[0];
+  assert.equal(box.hasAttribute('clip-path'), false); assert.ok(Number(box.attributes.opacity) > 0 && Number(box.attributes.opacity) < 1);
+  for (const [id, tokens] of [['force-spring', ['point:weights', 'point:controls']], ['force-arrow', ['point:force']],
+    ['force-balance', ['point:pulls', 'point:card', 'point:state', 'point:controls']]]) {
+    const a = animationBoard(id, 375);
+    for (const token of tokens) {
+      a.renderer.setState(drawing(a.board, token, .5), 200);
+      assert.ok(visibleElements(a.ui, el => el.tagName === 'circle' && el.attributes.fill === 'none' && Number(el.attributes.opacity) > 0).length > 0, token);
+    }
+    a.renderer.destroy();
   }
 });

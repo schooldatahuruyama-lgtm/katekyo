@@ -1,0 +1,85 @@
+<title>ひかりボード 単元の見本</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<style>
+  /* 配置: 1 列の読み物。学年ごとの見出しの下に、単元のカードを並べる。色はアプリ（ひかりボード）のものに合わせる */
+  :root {
+    --bg: #EEF3FF; --card: #FFFFFF; --ink: #1B2430; --sub: #5B6676; --line: #C9D5F0;
+    --primary: #1A5CFF; --soft: #DCE6FF; --done: #216E43; --done-bg: #E2F1E7; --wait: #8A5A00; --wait-bg: #FFF1C2;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+    --hand: "Klee One", "UD デジタル 教科書体 NK-R", "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+  }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) {
+    --bg: #131A2A; --card: #1C2538; --ink: #E8EDF7; --sub: #A3AFC4; --line: #33405C;
+    --primary: #8FB0FF; --soft: #26345A; --done: #7FD3A0; --done-bg: #1D3A2A; --wait: #F0C766; --wait-bg: #3D3214; color-scheme: dark } }
+  :root[data-theme="dark"] {
+    --bg: #131A2A; --card: #1C2538; --ink: #E8EDF7; --sub: #A3AFC4; --line: #33405C;
+    --primary: #8FB0FF; --soft: #26345A; --done: #7FD3A0; --done-bg: #1D3A2A; --wait: #F0C766; --wait-bg: #3D3214; color-scheme: dark }
+  * { box-sizing: border-box; }
+  body { background: var(--bg); color: var(--ink); font-family: var(--body); font-size: 16px; line-height: 1.7; }
+  main { max-width: 820px; margin: 0 auto; padding-block: 28px 64px;
+    padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+    display: flex; flex-direction: column; gap: 28px; }
+  h1 { font-family: var(--hand); font-size: 28px; margin: 0; text-wrap: balance; }
+  .lead { margin: 6px 0 0; color: var(--sub); max-width: 40em; }
+  .how { background: var(--card); border-radius: 16px; padding: 14px 18px; margin: 0; }
+  .how li { margin-left: 1.2em; }
+  h2 { font-size: 20px; margin: 0 0 10px; display: flex; align-items: baseline; gap: 10px; }
+  h2 small { font-size: 14px; font-weight: 400; color: var(--sub); }
+  .units { display: flex; flex-direction: column; gap: 10px; }
+  .unit { background: var(--card); border-radius: 16px; padding: 14px 18px; display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 4px 14px; align-items: center; }
+  .unit h3 { font-size: 18px; margin: 0; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+  .unit p { margin: 0; color: var(--sub); grid-column: 1; }
+  .tag { font-size: 13px; font-weight: 700; padding: 1px 10px; border-radius: 999px; white-space: nowrap; }
+  .tag.done { background: var(--done-bg); color: var(--done); }
+  .tag.wait { background: var(--wait-bg); color: var(--wait); }
+  .open { grid-column: 2; grid-row: 1 / span 2; display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px;
+    border-radius: 12px; background: var(--soft); color: var(--primary); font-weight: 700; text-decoration: none; white-space: nowrap; }
+  .open:focus-visible { outline: 3px solid var(--primary); outline-offset: 2px; }
+  .none { grid-column: 2; grid-row: 1 / span 2; color: var(--sub); font-size: 14px; white-space: nowrap; }
+  @media (max-width: 520px) { .unit { grid-template-columns: minmax(0, 1fr); } .open, .none { grid-column: 1; grid-row: auto; justify-self: start; } }
+</style>
+<main>
+  <header>
+    <h1>ひかりボード 単元の見本</h1>
+    <p class="lead">中学 3 年分の理科、15 単元の一覧です。見本は動かない絵で、数値や文は案です。「見本を開く」で、盤の絵・盤の下の値・ためしてみよう・決めたこと（案）が見られます。</p>
+  </header>
+
+  <ul class="how">
+    <li>見本でよい単元は、単元の名前と「OK」を伝えてください。OK の出た単元から、台本・声・実装・公開へ進めます。</li>
+    <li>盤の入れかえや数値の変更は、単元と盤の名前で教えてください。</li>
+    <li>理科として確かめてほしい点は、各見本の最後の「決めたこと（案）」にまとめてあります。</li>
+  </ul>
+
+  <section>
+    <h2>中学 1 年 <small>6 単元</small></h2>
+    <div class="units">
+      <div class="unit"><h3>光の世界 <span class="tag done">公開ずみ</span></h3><p>直進／反射／鏡の像／屈折・全反射／凸レンズ／実像と虚像</p><span class="none">アプリで見られます</span></div>
+      <div class="unit"><h3>音の世界 <span class="tag done">公開ずみ</span></h3><p>音の大きさと高さ／弦の音／音の速さ</p><span class="none">アプリで見られます</span></div>
+      <div class="unit"><h3>力の世界 <span class="tag wait">実装中</span></h3><p>ばねののび／力の表し方／力のつり合い</p><a class="open" href="force-unit-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>生物の観察と分類 <span class="tag wait">見本</span></h3><p>花のつくり／植物のなかま分け／動物のなかま分け</p><a class="open" href="unit-bio1-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>身のまわりの物質 <span class="tag wait">見本</span></h3><p>密度／水溶液の濃さ／溶解度と再結晶／状態変化と温度</p><a class="open" href="unit-matter1-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>大地の成り立ちと変化 <span class="tag wait">見本</span></h3><p>地震のゆれの伝わり方／火山の形とマグマ／地層のでき方</p><a class="open" href="unit-earth1-mockup.html">見本を開く</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>中学 2 年 <small>4 単元</small></h2>
+    <div class="units">
+      <div class="unit"><h3>化学変化と原子・分子 <span class="tag wait">見本</span></h3><p>化学反応式／化合する質量の割合／水の電気分解／化学変化と熱</p><a class="open" href="unit-chem2-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>生物の体のつくりとはたらき <span class="tag wait">見本</span></h3><p>光合成／消化と吸収／血液の循環／刺激と反応</p><a class="open" href="unit-bio2-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>電流とその利用 <span class="tag wait">見本</span></h3><p>オームの法則／直列回路と並列回路／電力と発熱／電流と磁界</p><a class="open" href="unit-elec2-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>気象とそのはたらき <span class="tag wait">見本</span></h3><p>圧力／湿度と露点／雲のでき方／前線と天気の変化</p><a class="open" href="unit-weather2-mockup.html">見本を開く</a></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>中学 3 年 <small>5 単元</small></h2>
+    <div class="units">
+      <div class="unit"><h3>化学変化とイオン <span class="tag wait">見本</span></h3><p>原子とイオン／電離と電気分解／酸・アルカリと中和／電池のしくみ</p><a class="open" href="unit-ion3-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>生命の連続性 <span class="tag wait">見本</span></h3><p>細胞分裂／生殖と染色体／遺伝の規則性／遺伝子と形質</p><a class="open" href="unit-life3-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>運動とエネルギー <span class="tag wait">見本</span></h3><p>力の合成と分解／斜面を下る運動／仕事と仕事の原理／力学的エネルギーの保存</p><a class="open" href="unit-motion3-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>地球と宇宙 <span class="tag wait">見本</span></h3><p>太陽の 1 日の動きと季節／星の動き／月の満ち欠け／金星の見え方</p><a class="open" href="unit-space3-mockup.html">見本を開く</a></div>
+      <div class="unit"><h3>自然と人間 <span class="tag wait">見本</span></h3><p>食物連鎖と数量のつり合い／炭素の循環</p><a class="open" href="unit-eco3-mockup.html">見本を開く</a></div>
+    </div>
+  </section>
+</main>

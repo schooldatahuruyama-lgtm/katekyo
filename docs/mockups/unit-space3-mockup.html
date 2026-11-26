@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 3 地球と宇宙）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 3「地球と宇宙」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>中 3「地球と宇宙」を、盤 4 種類で作ること。</li>
+    <li>盤の中身: 太陽の 1 日の動きと季節／星の 1 日の動きと 1 年の動き／月の満ち欠け／金星の見え方。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（北緯 35° の南中高度、地球の公転と星座の向き、太陽の光と月・金星の光る側）。天体の大きさと距離の割合は、見やすさのために実際とちがいます。動かせる天体（白い丸）は、外がわの輪の白い側が光の当たる側、黒い側がかげの側です。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 3 地球と宇宙 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">太陽の動きと季節</span><span class="question">夏と冬で、太陽の通り道はどうちがう？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">星の動き</span><span class="question">同じ時刻に見える星座は、なぜ季節で変わる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">月の満ち欠け</span><span class="question">月の形は、なぜ変わって見える？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">金星の見え方</span><span class="question">金星は、なぜ真夜中に見えない？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「太陽の 1 日の動きと季節」（<code>space-sun</code>）</h2>
+<p class="note">北緯 35° の地点に置いた透明半球（天球）を、東がわのななめ上から見た図。中心 O が観測する人の位置。季節の切り替え（春分・夏至・秋分・冬至）で太陽の通り道が変わる。太陽（白い丸）を引くと、通り道の上を 1 時間きざみで動く（太陽が地平線より上にある時刻だけ。春分・秋分 6〜18 時、夏至 5〜19 時、冬至 8〜16 時。太陽が南中する時刻を 12 時とした見本用の時刻）。南中高度は、春分・秋分 55°（90° − 35°）、夏至 78.4°、冬至 31.6°。日の出・日の入りの方位は、春分・秋分が真東・真西、夏至は北寄り、冬至は南寄り。昼の長さは夏至が長く、冬至が短い。うすい線は、ほかの季節の通り道。はじめは 春分・12 時（南中。高度 55°）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">太陽の動きと季節</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>季節ごとの太陽の通り道をくらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="透明半球の図。春分の 12 時。太陽は真南にあり、南中高度は 55 度。夏至と冬至の通り道をうすい線で示す">
+          <!-- 方位の線 -->
+          <path d="M60 290H540M300 220V360" stroke="#E3DBC8" stroke-width="2"/>
+          <!-- 地平線（おくがわは点線） -->
+          <path d="M60 290A240 70 0 0 1 540 290" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6" fill="none"/>
+          <path d="M60 290A240 70 0 0 0 540 290" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <!-- 透明半球 -->
+          <path d="M60 290A240 240 0 0 1 540 290" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <!-- 夏至・冬至の通り道（うすい線） -->
+          <polyline points="416.4,351.2 397.1,327.2 377.4,301 357.7,273.3 338.5,244.7 320.3,215.9 303.5,187.7 288.5,160.6 275.7,135.5 265.4,112.9 257.9,93.3 253.3,77.2 251.7,65.1 253.3,57.2 257.9,53.7 265.4,54.7 275.7,60.2 288.5,70 303.5,83.9 320.3,101.6 338.5,122.7 357.7,146.5 377.4,172.5 397.1,200.2 416.4,228.8" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="4 5"/>
+          <polyline points="183.6,351.2 171.2,331.8 159.3,312.6 148.1,293.7 137.8,275.3 128.3,257.6 119.9,240.9 112.7,225.3 106.6,211 101.8,198.2 98.4,186.9 96.3,177.4 95.6,169.7 96.3,163.9 98.4,160.1 101.8,158.3 106.6,158.5 112.7,160.8 119.9,165.1 128.3,171.3 137.8,179.4 148.1,189.4 159.3,201 171.2,214.2 183.6,228.8" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="4 5"/>
+          <!-- 春分の通り道（太い線）と 1 時間ごとの点 -->
+          <polyline points="300,360 282,334.9 264.4,308.9 247.3,282.7 231.2,256.6 216.2,231 202.7,206.5 190.8,183.4 180.8,162.1 172.8,143 167,126.4 163.5,112.7 162.3,101.9 163.5,94.4 167,90.2 172.8,89.5 180.8,92.1 190.8,98.2 202.7,107.5 216.2,120 231.2,135.3 247.3,153.4 264.4,173.7 282,196 300,220" fill="none" stroke="#B45C00" stroke-width="4" stroke-linejoin="round"/>
+          <g fill="#B45C00"><circle cx="300" cy="360" r="5"/><circle cx="264.4" cy="308.9" r="5"/><circle cx="231.2" cy="256.6" r="5"/><circle cx="202.7" cy="206.5" r="5"/><circle cx="180.8" cy="162.1" r="5"/><circle cx="202.7" cy="107.5" r="5"/><circle cx="231.2" cy="135.3" r="5"/><circle cx="264.4" cy="173.7" r="5"/><circle cx="300" cy="220" r="5"/></g>
+          <!-- 南中高度 -->
+          <path d="M300 290L162.3 101.9" stroke="#1B2430" stroke-width="2"/>
+          <path d="M240 290A60 60 0 0 1 264.6 241.6" stroke="#216E43" stroke-width="3" fill="none"/>
+          <circle cx="300" cy="290" r="5" fill="#1B2430"/>
+          <text x="195" y="282" font-size="19" text-anchor="middle" style="fill:#216E43">55°</text>
+          <text x="310" y="312" font-size="19">O</text>
+          <text x="30" y="297" font-size="19" text-anchor="middle">南</text>
+          <text x="570" y="297" font-size="19" text-anchor="middle">北</text>
+          <text x="300" y="392" font-size="19" text-anchor="middle">東</text>
+          <text x="300" y="246" font-size="19" text-anchor="middle">西</text>
+          <text x="262" y="38" font-size="19" text-anchor="middle" style="fill:#67748B">夏至</text>
+          <text x="84" y="176" font-size="19" text-anchor="end" style="fill:#67748B">冬至</text>
+          <text x="586" y="40" font-size="19" text-anchor="end" style="fill:#B45C00">太い線：春分の太陽の通り道</text>
+          <text x="126" y="92" font-size="19" text-anchor="end" style="fill:#B45C00">太陽</text>
+          <circle cx="162.3" cy="101.9" r="15" fill="#B45C00"/>
+          <circle class="knob" cx="162.3" cy="101.9" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="162.3" y="109" font-size="20" text-anchor="middle">✥</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>春分・12 時</span><span>南中高度 55°</span><span>日の出 真東・日の入り 真西（昼と夜の長さはほぼ同じ）</span></div>
+        <span class="how">太陽（白い丸）を引くと、時刻を変えられるよ。季節は下のボタンで。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>夏至にして、南中高度が 78.4° になるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>冬至にして、南中高度が 31.6° で、日の出が真東より南寄りになるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>春分で時刻を 18 時にして、太陽が真西にしずむのをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">季節</span><button type="button" aria-pressed="true">✓ 春分</button><button type="button">夏至</button><button type="button">秋分</button><button type="button">冬至</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「星の 1 日の動きと 1 年の動き」（<code>space-stars</code>）</h2>
+<p class="note">北極がわから見た図。太陽のまわりを地球が 1 年で 1 回、反時計回りに回る（公転）。地球（白い丸）を引くと、1 か月（30°）きざみで動く。地球の輪の黒い側が夜。真夜中に南に見えるのは、太陽と反対の方向にある星座で、3 月 しし座・6 月 さそり座・9 月 ペガスス座・12 月 オリオン座。太陽と同じ方向にある星座は、昼の空にあって見えない。そのあいだの月は「さそり座とペガスス座のあいだ」のように出す。「見る時刻」の切り替え（夕方・真夜中・明け方）で、地球の自転（反時計回り）によって南に見える星座が変わる（6 月なら 夕方 しし座・真夜中 さそり座・明け方 ペガスス座）。地球がいる位置の月の名前（図では「6 月」）は、地球と重なるのでかくす。はじめは 6 月・真夜中（さそり座が南、オリオン座は見えない）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">星の動き</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>地球の位置と見える星座の関係をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="太陽のまわりを回る地球と 4 つの星座。地球は 6 月の位置。真夜中に南に見えるのはさそり座。オリオン座は太陽の方向にあって見えない">
+          <!-- 地球の軌道と 1 か月ごとの点 -->
+          <circle cx="300" cy="210" r="90" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <g fill="#67748B"><circle cx="390" cy="210" r="4"/><circle cx="377.9" cy="165" r="4"/><circle cx="345" cy="132.1" r="4"/><circle cx="300" cy="120" r="4"/><circle cx="255" cy="132.1" r="4"/><circle cx="222.1" cy="165" r="4"/><circle cx="222.1" cy="255" r="4"/><circle cx="255" cy="287.9" r="4"/><circle cx="300" cy="300" r="4"/><circle cx="345" cy="287.9" r="4"/><circle cx="377.9" cy="255" r="4"/></g>
+          <!-- 太陽 -->
+          <circle cx="300" cy="210" r="20" fill="#B45C00"/>
+          <text x="300" y="256" font-size="19" text-anchor="middle" style="fill:#B45C00">太陽</text>
+          <text x="300" y="150" font-size="19" text-anchor="middle">3 月</text>
+          <text x="300" y="286" font-size="19" text-anchor="middle">9 月</text>
+          <text x="378" y="217" font-size="19" text-anchor="end">12 月</text>
+          <!-- 公転の向き -->
+          <path d="M222.2 287.8A110 110 0 0 0 257.9 311.6" stroke="#67748B" stroke-width="2.5" fill="none"/><polygon points="269,316.2 255.6,317.1 260.2,306.1" fill="#67748B"/>
+          <text x="120" y="330" font-size="19" style="fill:#67748B">公転の向き</text>
+          <!-- 星座 -->
+          <text x="300" y="40" font-size="19" text-anchor="middle">しし座</text>
+          <text x="14" y="212" font-size="19">さそり座</text>
+          <text x="300" y="400" font-size="19" text-anchor="middle">ペガスス座</text>
+          <text x="586" y="212" font-size="19" text-anchor="end">オリオン座</text>
+          <text x="586" y="238" font-size="19" text-anchor="end" style="fill:#B23A36">（見えない）</text>
+          <!-- 真夜中に見える向き -->
+          <path d="M174 210H124" stroke="#176AA3" stroke-width="4"/><polygon points="110,210 126,203 126,217" fill="#176AA3"/>
+          <text x="128" y="240" font-size="19" text-anchor="middle" style="fill:#176AA3">真夜中に南</text>
+          <!-- 地球（輪の黒い側が夜） -->
+          <path d="M210 177A33 33 0 0 0 210 243Z" fill="#1B2430"/>
+          <path d="M210 177A33 33 0 0 1 210 243Z" fill="#FFFFFF" stroke="#67748B" stroke-width="1.5"/>
+          <text x="200" y="162" font-size="19" text-anchor="end">地球</text>
+          <circle class="knob" cx="210" cy="210" r="26"/><text class="knob-mark" x="210" y="217" font-size="20" text-anchor="middle">✥</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>6 月・真夜中</span><span>南に見える星座 さそり座</span><span>太陽の方向で見えない星座 オリオン座</span></div>
+        <span class="how">地球（白い丸）を引くと、月を変えられるよ。下の切り替えもためそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>地球を 12 月の位置に動かして、真夜中に南に見える星座をオリオン座にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>地球を 9 月の位置に動かして、しし座が太陽の方向にあって見えなくなるのをたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>6 月のまま、見る時刻を「夕方」にして、南に見える星座がしし座になるのをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">見る時刻</span><button type="button">夕方</button><button type="button" aria-pressed="true">✓ 真夜中</button><button type="button">明け方</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「月の満ち欠け」（<code>space-moon</code>）</h2>
+<p class="note">北極がわから見た図。太陽の光は左から平行に当たる。月は地球のまわりを反時計回りに回り、いつも太陽の側の半分が光っている。月（白い丸）を引くと、8 つの位置（45° きざみ）に止まる。地球から見た月の形と、見える時は次のとおり: 左（太陽の側）新月・見えない／左下 三日月・夕方、西の空／下 上弦の月・夕方、南の空／右下 満月の前のふくらんだ月・夕方、南東の空／右 満月・真夜中、南の空／右上 満月のあとのふくらんだ月・明け方、南西の空／上 下弦の月・明け方、南の空／左上 明け方の細い月・明け方、東の空。右の黒い四角は、地球から見た月の形（北半球で、南の空を見たときの向き）。はじめは 下（上弦の月）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">月の満ち欠け</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>月の位置と見える形の関係をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="太陽の光は左から。月は地球の下がわの位置。地球から見ると右半分が光る上弦の月で、夕方に南の空に見える">
+          <!-- 太陽の光 -->
+          <g stroke="#B45C00" stroke-width="4"><path d="M14 130H58M14 220H58M14 310H58"/></g>
+          <g fill="#B45C00"><polygon points="72,130 56,123 56,137"/><polygon points="72,220 56,213 56,227"/><polygon points="72,310 56,303 56,317"/></g>
+          <text x="14" y="100" font-size="19" style="fill:#B45C00">太陽の光</text>
+          <!-- 月の軌道 -->
+          <circle cx="230" cy="220" r="105" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <!-- 地球（左半分が昼） -->
+          <circle cx="230" cy="220" r="22" fill="#1B2430" stroke="#1B2430" stroke-width="2"/>
+          <path d="M230 198A22 22 0 0 0 230 242Z" fill="#176AA3"/>
+          <text x="258" y="227" font-size="19">地球</text>
+          <!-- 7 つの位置の月（左半分が光る） -->
+          <g fill="#1B2430" stroke="#67748B" stroke-width="1.5"><circle cx="125" cy="220" r="12"/><circle cx="155.8" cy="294.2" r="12"/><circle cx="304.2" cy="294.2" r="12"/><circle cx="335" cy="220" r="12"/><circle cx="304.2" cy="145.8" r="12"/><circle cx="230" cy="115" r="12"/><circle cx="155.8" cy="145.8" r="12"/></g>
+          <g fill="#FFFFFF"><path d="M125 208A12 12 0 0 0 125 232Z"/><path d="M155.8 282.2A12 12 0 0 0 155.8 306.2Z"/><path d="M304.2 282.2A12 12 0 0 0 304.2 306.2Z"/><path d="M335 208A12 12 0 0 0 335 232Z"/><path d="M304.2 133.8A12 12 0 0 0 304.2 157.8Z"/><path d="M230 103A12 12 0 0 0 230 127Z"/><path d="M155.8 133.8A12 12 0 0 0 155.8 157.8Z"/></g>
+          <!-- 地球から月を見る向き -->
+          <path d="M230 246V272" stroke="#1B2430" stroke-width="2.5"/><polygon points="230,286 224,272 236,272" fill="#1B2430"/>
+          <!-- えらんだ月（輪の白い側が光る側） -->
+          <path d="M230 292A33 33 0 0 0 230 358Z" fill="#FFFFFF" stroke="#67748B" stroke-width="1.5"/>
+          <path d="M230 292A33 33 0 0 1 230 358Z" fill="#1B2430"/>
+          <text x="270" y="347" font-size="19">月</text>
+          <circle class="knob" cx="230" cy="325" r="26"/><text class="knob-mark" x="230" y="332" font-size="20" text-anchor="middle">✥</text>
+          <!-- 地球から見た月 -->
+          <text x="503" y="76" font-size="19" text-anchor="middle">地球から見た月</text>
+          <rect x="420" y="90" width="166" height="170" rx="10" fill="#1B2430"/>
+          <circle cx="503" cy="175" r="50" fill="none" stroke="#67748B" stroke-width="2"/>
+          <path d="M503 125A50 50 0 0 1 503 225Z" fill="#FFFFFF"/>
+          <text x="503" y="290" font-size="19" text-anchor="middle">上弦の月</text>
+          <text x="503" y="318" font-size="19" text-anchor="middle">夕方、南の空</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>月の形 上弦の月</span><span>光って見える側 右半分</span><span>見える時 夕方、南の空</span></div>
+        <span class="how">月（白い丸）を引くと、地球のまわりの位置を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>月を地球の右（太陽と反対の側）に動かして、満月にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>月を地球の上に動かして、左半分が光る下弦の月にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>月を地球の左（太陽の側）に動かして、新月（見えない）になるのをたしかめよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「金星の見え方」（<code>space-venus</code>）</h2>
+<p class="note">北極がわから見た図。金星は地球より内がわを回るので、地球から見るといつも太陽に近い方向にあり、真夜中（太陽と反対の方向を向く時）には見えない。地球は下の位置に止めておく。金星（白い丸）を引くと、軌道の上を 30° きざみ（12 の位置）で動く。地球から見て太陽の左がわにあるときは「夕方、西の空」、右がわにあるときは「明け方、東の空」。太陽と同じ方向（地球と太陽のあいだ、太陽の向こうがわ）の 2 つの位置は「見えない」。地球に近いほど大きく見えて大きく欠け、遠いほど小さく丸く見える（地球に近い順に: 大きく欠けた形・大きい／半月に近い形・中くらい／少し欠けた形・小さい／丸に近い形・とても小さい）。右の黒い四角は、肉眼で見たときの向き（望遠鏡では上下左右が逆になることがある）。軌道の半径は、金星 108・地球 150 の割合で描く。はじめは、太陽の左がわで、地球と太陽のあいだから 60° 進んだ位置（夕方、西の空。半月に近い形）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">金星の見え方</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>金星の位置と見える形・時をしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="太陽、金星の軌道、地球の軌道を上から見た図。金星は地球から見て太陽の左がわ。夕方、西の空に、半月に近い形で見える">
+          <!-- 軌道 -->
+          <circle cx="250" cy="190" r="150" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <circle cx="250" cy="190" r="108" fill="none" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <g fill="#67748B"><circle cx="250" cy="298" r="4"/><circle cx="196" cy="283.5" r="4"/><circle cx="142" cy="190" r="4"/><circle cx="156.5" cy="136" r="4"/><circle cx="196" cy="96.5" r="4"/><circle cx="250" cy="82" r="4"/><circle cx="304" cy="96.5" r="4"/><circle cx="343.5" cy="136" r="4"/><circle cx="358" cy="190" r="4"/><circle cx="343.5" cy="244" r="4"/><circle cx="304" cy="283.5" r="4"/></g>
+          <!-- 太陽と地球 -->
+          <circle cx="250" cy="190" r="22" fill="#B45C00"/>
+          <text x="250" y="158" font-size="19" text-anchor="middle" style="fill:#B45C00">太陽</text>
+          <circle cx="250" cy="340" r="14" fill="#176AA3"/>
+          <text x="250" y="378" font-size="19" text-anchor="middle" style="fill:#176AA3">地球</text>
+          <text x="250" y="118" font-size="19" text-anchor="middle" style="fill:#67748B">金星の軌道</text>
+          <text x="362" y="70" font-size="19" style="fill:#67748B">地球の軌道</text>
+          <!-- 地球から金星を見る向き -->
+          <path d="M240.2 330L179.5 267.6" stroke="#1B2430" stroke-width="2" stroke-dasharray="6 5"/>
+          <!-- 金星（輪の白い側が光る側） -->
+          <path d="M140 215.4A33 33 0 0 1 173 272.6Z" fill="#FFFFFF" stroke="#67748B" stroke-width="1.5"/>
+          <path d="M140 215.4A33 33 0 0 0 173 272.6Z" fill="#1B2430"/>
+          <text x="196" y="262" font-size="19">金星</text>
+          <circle class="knob" cx="156.5" cy="244" r="26"/><text class="knob-mark" x="156.5" y="251" font-size="20" text-anchor="middle">✥</text>
+          <text x="14" y="404" font-size="19">左がわ：夕方、西の空</text>
+          <text x="290" y="404" font-size="19">右がわ：明け方、東の空</text>
+          <!-- 地球から見た金星 -->
+          <text x="505" y="100" font-size="19" text-anchor="middle">地球から見た金星</text>
+          <rect x="425" y="112" width="160" height="150" rx="10" fill="#1B2430"/>
+          <circle cx="505" cy="187" r="30" fill="none" stroke="#67748B" stroke-width="2"/>
+          <path d="M505 157A30 30 0 0 1 505 217A7.4 30 0 0 1 505 157Z" fill="#FFFFFF"/>
+          <text x="505" y="290" font-size="19" text-anchor="middle">半月に近い形</text>
+          <text x="505" y="316" font-size="19" text-anchor="middle">大きさ 中くらい</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>金星の位置 太陽の左がわ</span><span>見える時 夕方、西の空</span><span>形 半月に近い形・大きさ 中くらい</span></div>
+        <span class="how">金星（白い丸）を引くと、軌道の上の位置を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>金星を 1 つ（30°）地球に近づけて、「大きく欠けた形・大きい」にしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>金星を太陽の右がわに動かして、「明け方、東の空」に見えるようにしよう。</span></li>
+        <li class="try"><span class="box">□</span><span>金星を太陽の向こうがわ（地球からいちばん遠い位置）に動かして、「見えない」になるのをたしかめよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（太陽がしずんでいる時刻、13 月、9 つ目の月の位置、軌道の外の金星など）</td><td>丸めずに「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>図の向き</td><td>星・月・金星の盤は北極がわから見た図で、公転と自転は反時計回り。太陽の盤は南を左、北を右、東を手前に描く</td></tr>
+  <tr><td>先生に確かめてほしい点 1（太陽）</td><td>北緯 35°、地軸のかたむき 23.4° として、南中高度を 55°・78.4°・31.6° とした。時刻は南中を 12 時とし、日の出・日の入りは 1 時間きざみに合う範囲（夏至 5〜19 時、冬至 8〜16 時）にした見本用の値。実際の日の出・日の入りの時刻（例: 東京）に合わせるか</td></tr>
+  <tr><td>先生に確かめてほしい点 2（星・月）</td><td>真夜中に南に見える星座を 3 月 しし座・6 月 さそり座・9 月 ペガスス座・12 月 オリオン座 とした月の決め方。月の盤で、左下の位置（45°）を「三日月」と呼んでよいか。名前のない 3 つの位置の呼び方（満月の前・あとのふくらんだ月、明け方の細い月）と、見える時・方位の書き方</td></tr>
+  <tr><td>先生に確かめてほしい点 3（金星）</td><td>軌道の半径の割合（金星 108・地球 150）と 30° きざみから形と大きさを決めた。形は 4 つの言葉に分けた（欠け方の数値は出さない）。見える形の向きを肉眼の向き（夕方は右がわが光る）にしてよいか。太陽に近い位置（太陽の向こうがわのとなり）も「見える」としてよいか</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と VOICEVOX Nemo の声を入れる。ほかの単元と同じ</td></tr>
+</table>
+</main>
+</body>
+</html>

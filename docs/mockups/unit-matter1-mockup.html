@@ -1,0 +1,395 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 1 身のまわりの物質）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 1「身のまわりの物質」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>足す単元を「中 1 身のまわりの物質」（盤 4 種類）にすること。</li>
+    <li>盤の中身: 密度／水溶液の濃さ／溶解度と再結晶／状態変化と温度。</li>
+    <li>見た目と進め方は、ほかの単元と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（2.70 × 20 ＝ 54.0 g、20 ÷ 100 × 100 ＝ 20 %、100 － 64 ＝ 36 g、5 分で 0 ℃）。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 1 身のまわりの物質 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">密度</span><span class="question">同じ体積でも、重さがちがうのはなぜ？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">水溶液の濃さ</span><span class="question">水溶液の濃さは、どう表す？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">溶解度と再結晶</span><span class="question">冷やすと、とけていた物質が出てくるのはなぜ？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">状態変化と温度</span><span class="question">氷を熱し続けると、温度はどう変わる？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「密度」（<code>matter-density</code>）</h2>
+<p class="note">質量〔g〕＝ 密度〔g/cm³〕× 体積〔cm³〕。物質は アルミニウム 2.70、鉄 7.87、氷 0.92、木 0.50（g/cm³）から選ぶ。体積は 10〜50 cm³（10 cm³ きざみ）。水（1.00 g/cm³）より密度が大きい物質は沈み、小さい物質は浮く。はじめは アルミニウム・20 cm³（2.70 × 20 ＝ 54.0 g、水に沈む）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">密度</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>体積と質量から、密度を考えよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="アルミニウム 20 立方センチメートルの質量は 54.0 グラム。水に入れると沈む">
+          <!-- 体積のつまみ -->
+          <text x="60" y="48" font-size="19">体積〔cm³〕</text>
+          <path d="M60 90H260" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M60 80V100M110 80V100M160 80V100M210 80V100M260 80V100" stroke="#67748B" stroke-width="2"/>
+          <g font-size="19" text-anchor="middle"><text x="60" y="140">10</text><text x="110" y="140">20</text><text x="160" y="140">30</text><text x="210" y="140">40</text><text x="260" y="140">50</text></g>
+          <!-- てんびん -->
+          <text x="160" y="262" font-size="19" text-anchor="middle">アルミニウム 20 cm³</text>
+          <rect x="120" y="278" width="80" height="40" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <rect x="90" y="318" width="140" height="12" fill="#67748B"/>
+          <rect x="80" y="330" width="160" height="44" rx="6" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="160" y="360" font-size="22" text-anchor="middle">54.0 g</text>
+          <text x="20" y="406" font-size="19">2.70 × 20 ＝ 54.0〔g〕</text>
+          <path d="M310 30V395" stroke="#E3DBC8" stroke-width="2" stroke-dasharray="6 6"/>
+          <!-- 水そう -->
+          <text x="450" y="70" font-size="19" text-anchor="middle">水に入れると</text>
+          <text x="450" y="135" font-size="19" text-anchor="middle">水（密度 1.00 g/cm³）</text>
+          <rect x="342" y="190" width="216" height="188" fill="#176AA3" fill-opacity=".15"/>
+          <path d="M342 190H558" stroke="#176AA3" stroke-width="2.5"/>
+          <path d="M340 150V380H560V150" fill="none" stroke="#1B2430" stroke-width="3" stroke-linejoin="round"/>
+          <rect x="410" y="338" width="80" height="40" fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="450" y="300" font-size="24" text-anchor="middle" style="fill:#B23A36">沈む</text>
+          <circle class="knob" cx="110" cy="90" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="110" y="97" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>密度 2.70 g/cm³</span><span>質量 54.0 g</span><span>水に沈む</span></div>
+        <span class="how">白い丸を左右に引くと体積が、下のボタンで物質が変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>鉄にして、体積 10 cm³ で質量を 78.7 g にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>木にして、質量が 25.0 g になる体積をさがそう。</span></li>
+        <li class="try"><span class="box">□</span><span>体積 50 cm³ で、アルミニウム（135.0 g）と氷（46.0 g）をくらべ、浮くか沈むかをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">物質</span><button type="button" aria-pressed="true">✓ アルミニウム</button><button type="button">鉄</button><button type="button">氷</button><button type="button">木</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「水溶液の濃さ」（<code>matter-solution</code>）</h2>
+<p class="note">質量パーセント濃度〔%〕＝ 溶質の質量 ÷ 溶液の質量 × 100。溶液の質量 ＝ 溶質 ＋ 溶媒（水）。砂糖は 10〜50 g（10 g きざみ）、水は 50〜190 g（10 g きざみ）。砂糖の粒は、水溶液の中に均一に広がる（粒のモデル。粒 1 個が砂糖 2.5 g）。はじめは 砂糖 20 g・水 80 g（砂糖水 100 g、濃度 20 %）。割り切れない組み合わせは、小数第 1 位まで四捨五入して「約」をつける（例: 砂糖 10 g・水 50 g → 約 16.7 %）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">水溶液の濃さ</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>砂糖と水の量から、濃さをもとめよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="砂糖 20 グラムを水 80 グラムにとかした砂糖水 100 グラム。濃度は 20 パーセント">
+          <text x="300" y="60" font-size="24" text-anchor="middle" style="fill:#216E43">濃度 20 %</text>
+          <!-- 砂糖のつまみ -->
+          <text x="90" y="80" font-size="19" text-anchor="middle" style="fill:#B45C00">砂糖〔g〕</text>
+          <path d="M90 120V320" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M80 120H100M80 170H100M80 220H100M80 270H100M80 320H100" stroke="#67748B" stroke-width="2"/>
+          <g font-size="19" text-anchor="end"><text x="56" y="127">50</text><text x="56" y="177">40</text><text x="56" y="227">30</text><text x="56" y="277">20</text><text x="56" y="327">10</text></g>
+          <!-- 水のつまみ -->
+          <text x="510" y="70" font-size="19" text-anchor="middle" style="fill:#176AA3">水〔g〕</text>
+          <path d="M510 110V320" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M500 110H520M500 170H520M500 245H520M500 320H520" stroke="#67748B" stroke-width="2"/>
+          <g font-size="19"><text x="545" y="117">190</text><text x="545" y="177">150</text><text x="545" y="252">100</text><text x="545" y="327">50</text></g>
+          <!-- ビーカー -->
+          <rect x="202" y="270" width="196" height="98" fill="#176AA3" fill-opacity=".15"/>
+          <path d="M202 270H398" stroke="#176AA3" stroke-width="2.5"/>
+          <path d="M200 100V370H400V100" fill="none" stroke="#1B2430" stroke-width="3" stroke-linejoin="round"/>
+          <g fill="#B45C00"><circle cx="232" cy="300" r="7"/><circle cx="277" cy="300" r="7"/><circle cx="322" cy="300" r="7"/><circle cx="367" cy="300" r="7"/><circle cx="232" cy="340" r="7"/><circle cx="277" cy="340" r="7"/><circle cx="322" cy="340" r="7"/><circle cx="367" cy="340" r="7"/></g>
+          <circle cx="222" cy="193" r="7" fill="#B45C00"/>
+          <text x="236" y="200" font-size="19">＝ 砂糖の粒</text>
+          <text x="300" y="250" font-size="19" text-anchor="middle">砂糖水 100 g</text>
+          <text x="300" y="405" font-size="19" text-anchor="middle">20 ÷ (20 ＋ 80) × 100 ＝ 20〔%〕</text>
+          <circle class="knob" cx="90" cy="270" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="90" y="277" font-size="22" text-anchor="middle">↕</text>
+          <circle class="knob" cx="510" cy="275" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="510" y="282" font-size="22" text-anchor="middle">↕</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>砂糖 20 g</span><span>砂糖水 100 g</span><span>濃度 20 %</span></div>
+        <span class="how">左の白い丸で砂糖の量、右の白い丸で水の量を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>砂糖 10 g・水 90 g にして、濃度を 10 % にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>砂糖を 50 g にして、濃度が 25 % になる水の量をさがそう。</span></li>
+        <li class="try"><span class="box">□</span><span>砂糖 30 g で、濃度を 15 % にしてみよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「溶解度と再結晶」（<code>matter-solubility</code>）</h2>
+<p class="note">溶解度は、100 g の水にとける物質の限度の量。80 ℃ の水 100 g に、硝酸カリウムなら 100 g、食塩（塩化ナトリウム）なら 36 g をとかしてから、冷やしていく。出てくる結晶の量 ＝ とかした量 － その温度の溶解度（0 より小さいときは 0）。温度は 0〜80 ℃（20 ℃ きざみ）。溶解度の表は<b>暫定の数値</b>: 硝酸カリウム 0 ℃ 13／20 ℃ 32／40 ℃ 64／60 ℃ 109／80 ℃ 169、食塩 0 ℃ 36／20 ℃ 36／40 ℃ 36／60 ℃ 37／80 ℃ 38（g）。はじめは 硝酸カリウム・40 ℃（とけている量 64 g、結晶 100 － 64 ＝ 36 g）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">溶解度と再結晶</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>冷やして、結晶をとり出そう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="硝酸カリウム 100 グラムをとかした水溶液を 40 度まで冷やした。とけている量は 64 グラム、出てきた結晶は 36 グラム">
+          <!-- グラフ -->
+          <text x="20" y="52" font-size="19">100 g の水にとける量〔g〕</text>
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M145 76V310M220 76V310M295 76V310M370 76V310M70 245H370M70 115H370"/></g>
+          <path d="M70 76V310H370" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <g font-size="19" text-anchor="end"><text x="62" y="252">50</text><text x="62" y="187">100</text><text x="62" y="122">150</text></g>
+          <g font-size="19" text-anchor="middle"><text x="70" y="334">0</text><text x="145" y="334">20</text><text x="220" y="334">40</text><text x="295" y="334">60</text><text x="370" y="334">80</text></g>
+          <path d="M70 180H370" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <text x="78" y="170" font-size="19" style="fill:#67748B">とかした量 100 g</text>
+          <polyline points="70,263 145,263 220,263 295,262 370,261" fill="none" stroke="#216E43" stroke-width="3"/>
+          <text x="310" y="292" font-size="19" style="fill:#216E43">食塩</text>
+          <polyline points="70,293 145,268 220,227 295,168 370,90" fill="none" stroke="#176AA3" stroke-width="3" stroke-linejoin="round"/>
+          <text x="150" y="122" font-size="19" style="fill:#176AA3">硝酸カリウム</text>
+          <!-- 今の温度 -->
+          <path d="M220 310V227" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <path d="M220 180V227" stroke="#B23A36" stroke-width="5"/>
+          <text x="208" y="212" font-size="19" text-anchor="end" style="fill:#B23A36">結晶 36 g</text>
+          <circle cx="220" cy="227" r="9" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <!-- 温度のつまみ -->
+          <path d="M70 385H370" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M70 377V393M145 377V393M220 377V393M295 377V393M370 377V393" stroke="#67748B" stroke-width="2"/>
+          <text x="404" y="392" font-size="19">温度〔℃〕</text>
+          <!-- ビーカー -->
+          <text x="500" y="100" font-size="19" text-anchor="middle">水 100 g・40 ℃</text>
+          <rect x="422" y="170" width="156" height="158" fill="#176AA3" fill-opacity=".15"/>
+          <path d="M422 170H578" stroke="#176AA3" stroke-width="2.5"/>
+          <path d="M420 120V330H580V120" fill="none" stroke="#1B2430" stroke-width="3" stroke-linejoin="round"/>
+          <text x="500" y="218" font-size="19" text-anchor="middle" style="fill:#176AA3">とけている</text>
+          <text x="500" y="246" font-size="19" text-anchor="middle" style="fill:#176AA3">64 g</text>
+          <text x="500" y="290" font-size="19" text-anchor="middle" style="fill:#B23A36">結晶 36 g</text>
+          <g fill="#FFFFFF" stroke="#1B2430" stroke-width="2"><rect x="436" y="312" width="14" height="14"/><rect x="456" y="306" width="14" height="14" transform="rotate(20 463 313)"/><rect x="478" y="312" width="14" height="14"/><rect x="498" y="306" width="14" height="14" transform="rotate(-15 505 313)"/><rect x="520" y="312" width="14" height="14"/><rect x="540" y="306" width="14" height="14" transform="rotate(30 547 313)"/><rect x="558" y="312" width="14" height="14"/></g>
+          <circle class="knob" cx="220" cy="385" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="220" y="392" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>温度 40 ℃</span><span>とけている量 64 g</span><span>出てきた結晶 36 g</span></div>
+        <span class="how">白い丸を左右に引くと、水溶液の温度を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>硝酸カリウムを 20 ℃ まで冷やして、結晶を 68 g にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>硝酸カリウムの結晶が 0 g になる温度を、2 つさがそう。</span></li>
+        <li class="try"><span class="box">□</span><span>食塩に切り替えて、0 ℃ まで冷やしても結晶が 0 g のままであることをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">物質</span><button type="button" aria-pressed="true">✓ 硝酸カリウム（100 g）</button><button type="button">食塩（36 g）</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 盤「状態変化と温度」（<code>matter-state</code>）</h2>
+<p class="note">－20 ℃ の氷を、同じ強さで熱し続ける。加熱した時間は 0〜30 分（1 分きざみ）。温度は、0〜1 分で －20 ℃ から 0 ℃、1〜9 分は 0 ℃ のまま（氷がとけている間。融点）、9〜19 分で 0 ℃ から 100 ℃（1 分に 10 ℃）、19 分からは 100 ℃ のまま（沸騰している間。沸点）。状態は 固体 → 固体と液体 → 液体 → 液体と気体。純粋な物質は、状態が変わっている間、温度が変わらない。時間の数値は<b>暫定</b>。はじめは 5 分（0 ℃、固体と液体）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">状態変化と温度</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>氷を熱して、温度の変わり方を見よう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="加熱して 5 分。温度は 0 度で、固体と液体がまじっている">
+          <!-- グラフ -->
+          <text x="20" y="44" font-size="19">温度〔℃〕</text>
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M170 60V330M270 60V330M370 60V330M70 180H370"/></g>
+          <path d="M70 280H370M70 80H370" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <path d="M70 60V330H370" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <g font-size="19" text-anchor="end"><text x="62" y="87">100</text><text x="62" y="187">50</text><text x="62" y="287">0</text><text x="62" y="327">－20</text></g>
+          <g font-size="19" text-anchor="middle"><text x="70" y="354">0</text><text x="170" y="354">10</text><text x="270" y="354">20</text><text x="370" y="354">30</text></g>
+          <polyline points="70,320 80,280 160,280 260,80 370,80" fill="none" stroke="#176AA3" stroke-width="3.5" stroke-linejoin="round"/>
+          <text x="190" y="270" font-size="19" style="fill:#176AA3">融点 0 ℃</text>
+          <text x="272" y="66" font-size="19" style="fill:#176AA3">沸点 100 ℃</text>
+          <circle cx="120" cy="280" r="9" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <!-- 時間のつまみ -->
+          <path d="M70 392H370" stroke="#67748B" stroke-width="4" stroke-linecap="round"/>
+          <path d="M70 384V400M170 384V400M270 384V400M370 384V400" stroke="#67748B" stroke-width="2"/>
+          <text x="404" y="399" font-size="19">加熱した時間〔分〕</text>
+          <!-- 粒のモデル -->
+          <text x="495" y="58" font-size="22" text-anchor="middle" style="fill:#B23A36">5 分・0 ℃</text>
+          <text x="495" y="98" font-size="19" text-anchor="middle">粒のモデル</text>
+          <rect x="410" y="110" width="170" height="190" rx="8" fill="#FFFFFF" stroke="#1B2430" stroke-width="2.5"/>
+          <text x="457" y="150" font-size="19" text-anchor="middle">固体</text>
+          <text x="540" y="150" font-size="19" text-anchor="middle">液体</text>
+          <g fill="#176AA3"><circle cx="437" cy="238" r="9"/><circle cx="457" cy="238" r="9"/><circle cx="477" cy="238" r="9"/><circle cx="437" cy="258" r="9"/><circle cx="457" cy="258" r="9"/><circle cx="477" cy="258" r="9"/><circle cx="437" cy="278" r="9"/><circle cx="457" cy="278" r="9"/><circle cx="477" cy="278" r="9"/></g>
+          <g fill="#176AA3" fill-opacity=".55"><circle cx="512" cy="282" r="9"/><circle cx="537" cy="276" r="9"/><circle cx="562" cy="284" r="9"/><circle cx="524" cy="254" r="9"/><circle cx="552" cy="250" r="9"/><circle cx="508" cy="228" r="9"/><circle cx="540" cy="222" r="9"/><circle cx="565" cy="230" r="9"/></g>
+          <text x="495" y="332" font-size="19" text-anchor="middle">氷がとけている途中</text>
+          <circle class="knob" cx="120" cy="392" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="120" y="399" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>加熱した時間 5 分</span><span>温度 0 ℃</span><span>状態 固体と液体</span></div>
+        <span class="how">白い丸を左右に引くと、加熱した時間を変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>加熱した時間を 14 分にして、温度を 50 ℃（液体）にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>温度が 0 ℃ のまま変わらないのは、何分から何分まで？ つまみを動かしてたしかめよう。</span></li>
+        <li class="try"><span class="box">□</span><span>25 分にして、100 ℃ で液体と気体がまじっていることをたしかめよう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">6. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>範囲外・選べない値がデータに入ったとき（体積 25 cm³、砂糖 5 g、温度 30 ℃、時間 31 分、知らない物質など）</td><td>丸めたり近い値に直したりせず、「この図は表示できません」と出す（ほかの単元と同じ）</td></tr>
+  <tr><td>濃度が割り切れないとき</td><td>小数第 1 位まで四捨五入し、「約 16.7 %」のように「約」をつける。「ためしてみよう」は、割り切れる組み合わせだけを使う</td></tr>
+  <tr><td>密度が水より小さい物質（氷・木）</td><td>水面に浮く図にし、「水に浮く」と出す。水面より下に入る部分は、密度の割合（氷なら 0.92）で描く</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と声を入れる。ほかの単元と同じ</td></tr>
+  <tr><td>先生に確かめてほしい点 ①（密度）</td><td>密度の値（アルミニウム 2.70、鉄 7.87、氷 0.92、木 0.50 g/cm³）。木は種類で変わるので 0.50 は仮の値。教科書の表に合わせて直したい</td></tr>
+  <tr><td>先生に確かめてほしい点 ②（溶解度）</td><td>溶解度の表は暫定（整数に丸めた）。食塩は 0 ℃ でも 36 g として「結晶が出ない」にしたが、教科書の値と合わせるか。とかす量（100 g と 36 g）もこれでよいか</td></tr>
+  <tr><td>先生に確かめてほしい点 ③（状態変化）</td><td>グラフの時間（1 分・9 分・19 分）は、同じ強さで熱したときの熱の量の比（およそ 1 : 8 : 10）から決めた仮の値。沸騰が終わるところ（すべて気体になる）は描かない。これでよいか</td></tr>
+</table>
+</main>
+</body>
+</html>

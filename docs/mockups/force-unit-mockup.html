@@ -1,0 +1,315 @@
+<!doctype html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>次の単元（中 1 力の世界）モックアップ — ひかりボード（仮称）</title>
+<style>
+  /* 承認済みの第 3 案と今の css/app.css に合わせる。外部の読みこみはしない。 */
+  :root {
+    --background: #EEF3FF; --paper: #FAF7EE; --ink: #1B2430; --sub: #5B6676;
+    --line: #C9D5F0; --card: #FFFFFF; --primary: #1A5CFF; --soft-blue: #DCE6FF;
+    --blue: #176AA3; --red: #B23A36; --green: #216E43; --ray: #B45C00;
+    --normal: #67748B; --notice: #FFF1C2; --disabled: #F4F6FA;
+    --dots: #EEE7D7; --paper-line: #E3DBC8; --shadow: rgba(26,60,140,.12);
+    --hand: "Klee", "Klee One", "UD デジタル 教科書体 NK-R", "UD Digi Kyokasho NK-R",
+      "Hiragino Maru Gothic ProN", "Yu Gothic UI", "Meiryo", sans-serif;
+    --body: "Hiragino Sans", "Yu Gothic UI", "Meiryo", system-ui, sans-serif;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; color: var(--ink); background: var(--background); font-family: var(--body);
+    line-height: 1.65; font-size: 16px; overflow-wrap: anywhere; }
+  main { max-width: 1100px; margin: 0 auto; padding: 24px 16px 72px; }
+  h1 { font-size: 26px; margin: 0 0 8px; }
+  h2.sec { font-size: 22px; margin: 48px 0 6px; }
+  h3.sub { font-size: 18px; margin: 22px 0 8px; }
+  p.note { color: var(--sub); margin: 0 0 12px; }
+  .intro { background: var(--card); border-radius: 16px; padding: 16px 20px; box-shadow: 0 2px 10px var(--shadow); }
+  .intro .warn { background: var(--notice); border-radius: 12px; padding: 10px 14px; font-weight: 700; margin: 0 0 10px; }
+  .intro ol { margin: 6px 0 0; padding-left: 1.4em; }
+  .row2 { display: flex; flex-wrap: wrap; gap: 24px; align-items: flex-start; }
+  .row2 > * { min-width: 0; }
+
+  /* 枠 */
+  .frame { background: var(--background); border-radius: 20px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow);
+    max-width: 100%; }
+  .frame.wide { width: 100%; }
+  .frame.phone { width: 375px; max-width: 100%; flex: none; }
+  .frame.small { width: 420px; max-width: 100%; }
+  .bar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; padding: 10px 14px; background: var(--card); }
+  .brand, .board-title { font-size: 20px; font-weight: 700; margin: 0; }
+  .board-title { font-size: 18px; }
+  .back { border: 0; background: transparent; font: inherit; font-size: 16px; color: var(--primary); font-weight: 700;
+    min-height: 44px; padding: 0 6px; }
+  .statuses { margin-left: auto; display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { display: inline-flex; align-items: center; gap: 6px; font-size: 16px; padding: 4px 12px; border-radius: 999px;
+    border: 1.5px solid var(--line); background: var(--card); color: var(--sub); }
+  .chip.online { color: var(--green); }
+  .chip.wait { border-style: dashed; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: currentColor; }
+
+  /* ホーム */
+  .home { padding: 28px 20px 20px; }
+  .hero { font-size: 26px; font-weight: 700; text-align: center; line-height: 1.4; margin: 0 0 6px; }
+  .mark { background: linear-gradient(transparent 60%, var(--soft-blue) 60%); }
+  .lead { font-size: 16px; text-align: center; color: var(--sub); margin: 0 0 20px; }
+  .list { max-width: 640px; margin: 18px auto 0; padding: 14px 18px 6px; border-radius: 16px; background: var(--card); }
+  .list h2 { font-size: 17px; margin: 0 0 4px; font-weight: 600; }
+  .list .new { font-size: 16px; color: var(--green); font-weight: 700; margin-left: 6px; }
+  .rowb { display: grid; width: 100%; grid-template-columns: 9.5em minmax(0,1fr) auto; gap: 10px; align-items: center;
+    min-height: 56px; padding: 8px 4px; border: 0; border-top: 1px solid var(--line); background: transparent;
+    text-align: left; font: inherit; }
+  .rowb .name { color: var(--primary); font-size: 16px; font-weight: 700; }
+  .rowb .question { font-size: 16px; }
+  .rowb .arrow { color: var(--primary); }
+  .phone .rowb { grid-template-columns: minmax(0,1fr) auto; }
+  .phone .rowb .name { grid-column: 1; }
+  .phone .rowb .question { grid-column: 1; }
+  .phone .rowb .arrow { grid-column: 2; grid-row: 1 / span 2; }
+  .foot { font-size: 16px; color: var(--sub); text-align: center; margin: 12px auto 0; }
+  .unit-card { display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 10px; width: 100%; text-align: left;
+    border: 0; border-radius: 14px; background: var(--card); padding: 14px 16px; margin-top: 10px; font: inherit; }
+  .unit-card b { font-size: 18px; color: var(--primary); }
+  .unit-card span { color: var(--sub); }
+  .unit-card i { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-style: normal; color: var(--primary); }
+
+  /* 盤の画面 */
+  .learn { display: grid; grid-template-columns: minmax(0,64fr) minmax(0,36fr); gap: 12px; padding: 12px; align-items: start; }
+  .phone .learn { grid-template-columns: minmax(0,1fr); }
+  .board { min-width: 0; background: var(--paper); border-radius: 16px; overflow: hidden; box-shadow: 0 2px 10px var(--shadow); }
+  .board-heading { margin: 0; padding: 14px 18px 4px; font-family: var(--hand); font-size: 22px; font-weight: 700; }
+  .board-heading span { background: linear-gradient(transparent 62%, #FFD24D 62%); }
+  .stage { background-image: radial-gradient(var(--dots) 1px, transparent 1px); background-size: 28px 28px; }
+  .bsvg { display: block; width: 100%; height: auto; aspect-ratio: 600 / 420; }
+  .bsvg text { font-family: var(--hand); fill: var(--ink); paint-order: stroke; stroke: #FAF7EE; stroke-width: 5px;
+    stroke-linejoin: round; }
+  .bsvg .knob { fill: #FFFFFF; stroke: var(--primary); stroke-width: 3; }
+  .bsvg text.knob-mark { fill: var(--primary); stroke: none; }
+  .cap { display: flex; flex-wrap: wrap; gap: 6px 18px; padding: 10px 16px 12px; border-top: 1px dashed var(--paper-line); }
+  .readout { display: flex; flex-wrap: wrap; gap: 6px 14px; font-size: 18px; font-weight: 700; }
+  .cap .how { color: var(--sub); font-size: 16px; }
+  .panel { min-width: 0; padding: 14px 16px 16px; display: flex; flex-direction: column; gap: 12px;
+    background: var(--card); border-radius: 16px; box-shadow: 0 2px 10px var(--shadow); }
+  .crumb { font-size: 16px; color: var(--sub); margin: 0; font-weight: 700; }
+  .prompts { list-style: none; margin: 0; padding: 0; }
+  .try { display: flex; gap: 10px; align-items: baseline; font-size: 16px; padding: 8px 2px; border-bottom: 1px solid var(--line); }
+  .try .box { flex: 0 0 auto; font-weight: 700; }
+  .try.done { color: var(--green); font-weight: 700; }
+  .seg { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+  .seg .seg-name { font-size: 16px; color: var(--sub); min-width: 5em; }
+  .seg button { min-height: 44px; padding: 4px 16px; border: 0; border-radius: 12px; background: var(--soft-blue);
+    font: inherit; font-size: 16px; font-weight: 600; }
+  .seg button[aria-pressed="true"] { background: var(--primary); color: var(--card); }
+  .ask { border: 1.5px dashed var(--line); border-radius: 14px; padding: 8px 12px; color: var(--sub); font-size: 16px;
+    background: var(--disabled); }
+  .reset, .btn { min-height: 48px; padding: 0 16px; border-radius: 14px; border: 0; background: var(--soft-blue);
+    color: var(--ink); font: inherit; font-size: 16px; font-weight: 700; }
+  .btn.main { background: var(--primary); color: #fff; }
+  .legend { font-size: 16px; color: var(--sub); margin: 0; }
+
+  /* 先生をえらぶ画面・説明中 */
+  .start { display: flex; flex-direction: column; align-items: center; gap: 12px; padding: 20px 16px 24px; }
+  .start p { margin: 0; font-size: 18px; font-weight: 700; text-align: center; }
+  .pick { display: grid; grid-template-columns: repeat(3, minmax(0,1fr)); gap: 8px; width: 100%; max-width: 420px; }
+  .pick button { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 8px 4px; min-height: 104px;
+    border: 2px solid transparent; border-radius: 14px; background: var(--card); font: inherit; font-size: 16px; font-weight: 700; }
+  .pick button[aria-checked="true"] { border-color: var(--primary); background: var(--soft-blue); }
+  .pick small { font-weight: 400; font-size: 16px; color: var(--sub); }
+  .voice-none { background: var(--disabled); border: 1.5px dashed var(--line); border-radius: 12px; padding: 8px 14px;
+    font-size: 16px !important; font-weight: 400 !important; color: var(--sub); }
+  .start .btn { min-width: 240px; min-height: 56px; font-size: 18px; }
+  .start-skip { border: 0; background: transparent; font: inherit; font-size: 16px; min-height: 48px; color: var(--primary); }
+  .speech { display: flex; gap: 10px; align-items: flex-start; padding: 6px 18px 10px; }
+  .speech p { margin: 0; font-size: 18px; }
+  .term { background: linear-gradient(transparent 58%, #FFD24D 58%); color: inherit; }
+  .controls-row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 10px 14px 14px; }
+  .dots { display: inline-flex; gap: 5px; }
+  .dots i { width: 12px; height: 12px; border-radius: 50%; background: var(--line); }
+  .dots i.done { background: var(--normal); }
+  .dots i.now { background: var(--primary); outline: 2px solid var(--ink); }
+  table.mini { border-collapse: collapse; font-size: 16px; background: var(--card); }
+  table.mini th, table.mini td { border: 1px solid var(--line); padding: 4px 10px; text-align: left; }
+
+  .narrow-note { display: none; background: var(--notice); border-radius: 12px; padding: 10px 14px; margin: 0 0 12px; }
+  @media (max-width: 900px) { .wide .learn { grid-template-columns: minmax(0,1fr); } }
+  @media (max-width: 700px) {
+    main { padding: 16px 8px 48px; }
+    .wide-only { display: none; }
+    .narrow-note { display: block; }
+  }
+</style>
+</head>
+<body>
+<main>
+<h1>次の単元 モックアップ（中 1「力の世界」）</h1>
+<div class="intro">
+  <p class="warn">これはモックアップです（承認まち）。数値や文は案です。アプリにはまだ入っていません。</p>
+  <p>見てほしい点:</p>
+  <ol>
+    <li>次に足す単元を「中 1 力の世界」（盤 3 種類）にすること。</li>
+    <li>盤の中身: ばねののび／力の表し方／2 つの力のつり合い。</li>
+    <li>見た目と進め方は「音の世界」と同じ（ホームに見出しが 1 つ増える。6 体の先生の台本と声を入れる）。</li>
+  </ol>
+  <p class="note">盤の図は、決まりに合う形で描いています（0.6 N と 3.0 cm、矢印の長さと N、つり合いの 3 つの条件）。</p>
+</div>
+
+<h2 class="sec">1. ホーム（見出しが 1 つ増える）</h2>
+<div class="frame small">
+  <div class="home" style="padding-top:12px">
+    <div class="list"><h2>中 1 力の世界 ― ボードをえらぶ</h2>
+      <button class="rowb" type="button"><span class="name">ばねののび</span><span class="question">おもりをふやすと、ばねはどれだけのびる？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">力の表し方</span><span class="question">力は、矢印でどう表す？</span><span class="arrow">→</span></button>
+      <button class="rowb" type="button"><span class="name">力のつり合い</span><span class="question">2 つの力がつり合うのは、どんなとき？</span><span class="arrow">→</span></button>
+    </div>
+  </div>
+</div>
+
+<h2 class="sec">2. 盤「ばねののび」（<code>force-spring</code>）</h2>
+<p class="note">おもり 1 個は 20 g で、ばねを引く力は 0.2 N（100 g の物体にはたらく重力を 1 N とする）。ばね A は 0.2 N で 1.0 cm、ばね B は 0.2 N で 2.0 cm のびる。おもりは 0〜5 個。はじめは ばね A・3 個（0.6 N、3.0 cm）。右のグラフに、今までにためした点が残り、原点を通る直線になる（フックの法則）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">ばねののび</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>力の大きさとばねののびをしらべよう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="ばね A におもり 3 個。力 0.6 ニュートンでのび 3.0 センチメートル">
+          <!-- スタンド -->
+          <path d="M60 50H180M70 50V390M40 390H250" stroke="#67748B" stroke-width="4" stroke-linecap="round" fill="none"/>
+          <!-- ばね -->
+          <polyline points="150,50 150,60 135,69 165,87 135,105 165,123 135,141 165,159 135,177 165,195 135,213 150,222 150,230" fill="none" stroke="#176AA3" stroke-width="3" stroke-linejoin="round"/>
+          <text x="172" y="120" font-size="19">ばね A</text>
+          <!-- おもり 3 個 -->
+          <g fill="#E3DBC8" stroke="#1B2430" stroke-width="2.5"><rect x="134" y="230" width="32" height="22" rx="3"/><rect x="134" y="254" width="32" height="22" rx="3"/><rect x="134" y="278" width="32" height="22" rx="3"/></g>
+          <text x="174" y="272" font-size="19">おもり 3 個</text>
+          <!-- のび -->
+          <path d="M92 170H128M92 230H128" stroke="#67748B" stroke-width="2" stroke-dasharray="5 5"/>
+          <path d="M100 174V226" stroke="#216E43" stroke-width="2.5"/><polygon points="100,170 95,180 105,180" fill="#216E43"/><polygon points="100,230 95,220 105,220" fill="#216E43"/>
+          <text x="76" y="150" font-size="19" style="fill:#216E43">のび</text><text x="76" y="256" font-size="19" style="fill:#216E43" text-anchor="middle"> </text>
+          <!-- 重力の矢印 -->
+          <path d="M150 304V356" stroke="#B23A36" stroke-width="3.5"/><polygon points="150,366 143,352 157,352" fill="#B23A36"/>
+          <text x="162" y="350" font-size="19" style="fill:#B23A36">0.6 N</text>
+          <!-- グラフ -->
+          <path d="M330 60V340H580" stroke="#1B2430" stroke-width="2.5" fill="none"/>
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M374 60V340M418 60V340M462 60V340M506 60V340M550 60V340M330 318H580M330 296H580M330 274H580M330 252H580M330 230H580M330 186H580M330 142H580M330 98H580"/></g>
+          <path d="M330 340L550 230" stroke="#176AA3" stroke-width="3"/>
+          <g fill="#176AA3"><circle cx="330" cy="340" r="5"/><circle cx="374" cy="318" r="5"/><circle cx="418" cy="296" r="5"/></g>
+          <circle cx="462" cy="274" r="9" fill="#FFFFFF" stroke="#B23A36" stroke-width="4"/>
+          <text x="455" y="372" font-size="19" text-anchor="middle">力の大きさ〔N〕</text>
+          <text x="330" y="362" font-size="16" text-anchor="middle">0</text><text x="462" y="362" font-size="16" text-anchor="middle"> </text><text x="550" y="362" font-size="16" text-anchor="middle">1.0</text>
+          <text x="336" y="44" font-size="19">ばねののび〔cm〕</text>
+          <text x="322" y="236" font-size="16" text-anchor="end">5</text><text x="322" y="126" font-size="16" text-anchor="end">10</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>力の大きさ 0.6 N</span><span>ばねののび 3.0 cm</span></div>
+        <span class="how">下のボタンで、おもりの数とばねを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>おもりを 5 個にして、ばねののびを 5.0 cm にしてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>ばね B に替えて、同じ力でののびをくらべよう。</span></li>
+        <li class="try"><span class="box">□</span><span>ばね B で、のびを 4.0 cm にしてみよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">おもりの数</span><button type="button">0</button><button type="button">1</button><button type="button">2</button><button type="button" aria-pressed="true">✓ 3</button><button type="button">4</button><button type="button">5</button></div>
+      <div class="seg"><span class="seg-name">ばね</span><button type="button" aria-pressed="true">✓ ばね A</button><button type="button">ばね B</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">3. 盤「力の表し方」（<code>force-arrow</code>）</h2>
+<p class="note">力の 3 つの要素（作用点・向き・大きさ）を矢印で表す。矢印の先の白い丸を引くと、長さ（1〜5 N、1 目もり ＝ 1 N）と向き（上・下・左・右）が変わる。はじめは 右向き 3 N。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">力の表し方</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>力を矢印で表そう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="箱を右向きに 3 ニュートンの力でおす矢印">
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M60 10V410M100 10V410M140 10V410M180 10V410M220 10V410M260 10V410M300 10V410M340 10V410M380 10V410M420 10V410M460 10V410M500 10V410M540 10V410M20 50H580M20 90H580M20 130H580M20 170H580M20 210H580M20 250H580M20 290H580M20 330H580M20 370H580"/></g>
+          <!-- 箱 -->
+          <rect x="240" y="170" width="120" height="80" rx="6" fill="#E3DBC8" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="286" font-size="19" text-anchor="middle">箱</text>
+          <!-- 力の矢印 -->
+          <path d="M300 210H408" stroke="#B23A36" stroke-width="5"/><polygon points="420,210 402,200 402,220" fill="#B23A36"/>
+          <circle cx="300" cy="210" r="7" fill="#B23A36"/>
+          <text x="262" y="196" font-size="19">作用点</text>
+          <text x="330" y="150" font-size="19" style="fill:#B23A36">力の向き</text>
+          <path d="M300 300H420" stroke="#216E43" stroke-width="2.5"/><path d="M300 292V308M420 292V308" stroke="#216E43" stroke-width="2.5"/>
+          <text x="360" y="330" font-size="19" text-anchor="middle" style="fill:#216E43">力の大きさ 3 N</text>
+          <text x="30" y="400" font-size="19">1 目もり ＝ 1 N</text>
+          <circle class="knob" cx="420" cy="210" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="420" y="217" font-size="20" text-anchor="middle">✥</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>力の大きさ 3 N</span><span>力の向き 右</span></div>
+        <span class="how">矢印の先の白い丸を引くと、力の大きさと向きを変えられるよ。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>右向きに 5 N の力を、矢印で表そう。</span></li>
+        <li class="try"><span class="box">□</span><span>上向きに 2 N の力を、矢印で表そう。</span></li>
+        <li class="try"><span class="box">□</span><span>左向きに 4 N の力を、矢印で表そう。</span></li>
+      </ul>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">4. 盤「力のつり合い」（<code>force-balance</code>）</h2>
+<p class="note">厚紙を左右から引く。左右の力はそれぞれ 1〜5 N。切り替えで、2 つの力を「一直線上」か「ずれている」にできる。つり合うのは、大きさが等しく・向きが反対で・一直線上にあるときだけ。それ以外は「右へ動く」「左へ動く」「回って動く」と出す。はじめは 左 3 N・右 3 N・一直線上（つり合っている）。</p>
+<div class="frame wide">
+  <header class="bar"><button class="back" type="button">← ボード一覧</button><h1 class="board-title">力のつり合い</h1></header>
+  <div class="learn">
+    <section class="board">
+      <h2 class="board-heading"><span>2 つの力がつり合う条件をさがそう</span></h2>
+      <div class="stage">
+        <svg class="bsvg" viewBox="0 0 600 420" role="img" aria-label="厚紙を左に 3 ニュートン、右に 3 ニュートンで引く。つり合っている">
+          <g stroke="#E3DBC8" stroke-width="1.5"><path d="M60 10V410M100 10V410M140 10V410M180 10V410M220 10V410M260 10V410M300 10V410M340 10V410M380 10V410M420 10V410M460 10V410M500 10V410M540 10V410"/></g>
+          <path d="M40 210H560" stroke="#67748B" stroke-width="2" stroke-dasharray="6 6"/>
+          <rect x="250" y="160" width="100" height="100" rx="8" fill="#E3DBC8" stroke="#1B2430" stroke-width="3"/>
+          <text x="300" y="290" font-size="19" text-anchor="middle">厚紙</text>
+          <path d="M250 210H142" stroke="#176AA3" stroke-width="5"/><polygon points="130,210 148,200 148,220" fill="#176AA3"/><circle cx="250" cy="210" r="7" fill="#176AA3"/>
+          <path d="M350 210H458" stroke="#B23A36" stroke-width="5"/><polygon points="470,210 452,200 452,220" fill="#B23A36"/><circle cx="350" cy="210" r="7" fill="#B23A36"/>
+          <text x="190" y="180" font-size="19" text-anchor="middle" style="fill:#176AA3">左の力 3 N</text>
+          <text x="410" y="180" font-size="19" text-anchor="middle" style="fill:#B23A36">右の力 3 N</text>
+          <text x="300" y="60" font-size="24" text-anchor="middle" style="fill:#216E43">つり合っている（動かない）</text>
+          <text x="30" y="400" font-size="19">1 目もり ＝ 1 N</text>
+          <circle class="knob" cx="130" cy="210" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="130" y="217" font-size="22" text-anchor="middle">↔</text>
+          <circle class="knob" cx="470" cy="210" r="26" style="fill-opacity:.85"/><text class="knob-mark" x="470" y="217" font-size="22" text-anchor="middle">↔</text>
+        </svg>
+      </div>
+      <div class="cap">
+        <div class="readout"><span>左の力 3 N</span><span>右の力 3 N</span><span>つり合っている</span></div>
+        <span class="how">白い丸で、左右の力の大きさを変えられるよ。下の切り替えもためそう。</span>
+      </div>
+    </section>
+    <aside class="panel">
+      <p class="crumb">ためしてみよう</p>
+      <ul class="prompts">
+        <li class="try"><span class="box">□</span><span>左右の力を両方 5 N にして、つり合わせてみよう。</span></li>
+        <li class="try"><span class="box">□</span><span>右の力を左の力より大きくして、厚紙が右へ動くのを見よう。</span></li>
+        <li class="try"><span class="box">□</span><span>大きさが同じでも、力をずらすとつり合わないことをたしかめよう。</span></li>
+      </ul>
+      <div class="seg"><span class="seg-name">2 つの力</span><button type="button" aria-pressed="true">✓ 一直線上</button><button type="button">ずれている</button></div>
+      <button class="reset" type="button">はじめの配置にもどす</button>
+    </aside>
+  </div>
+</div>
+
+<h2 class="sec">5. 決めたこと（案）</h2>
+<table class="mini">
+  <tr><th>こと</th><th>案</th></tr>
+  <tr><td>力の単位</td><td>100 g の物体にはたらく重力の大きさを 1 N とする</td></tr>
+  <tr><td>選べない値がデータに入ったとき（おもり 6 個、2.5 N など）</td><td>丸めずに「この図は表示できません」と出す（音の単元と同じ）</td></tr>
+  <tr><td>力のつり合いで、つり合わないとき</td><td>図は動かさず、「右へ動く」「左へ動く」「回って動く」の文字と矢印で知らせる</td></tr>
+  <tr><td>先生と声</td><td>6 体の台本（各盤 9 手ほど）と VOICEVOX Nemo の声。光・音と同じ</td></tr>
+  <tr><td>アプリの名前</td><td>「ひかりボード」のまま（変えるなら教えてください）</td></tr>
+</table>
+</main>
+</body>
+</html>
