@@ -6,16 +6,22 @@ const scripts = require('../content/scripts-light.js');
 const boards = require('../js/boards.js');
 const explain = require('../js/explain.js');
 const config = require('../js/config.js');
+const soundScripts = require('../content/scripts-sound.js');
+const allScripts = { ...scripts.BOARDS, ...soundScripts.BOARDS };
+const scene = require('../js/scene.js');
 
-test('6つの盤と6体の先生がそろい、基本の台本はE', () => {
-  assert.deepEqual(Object.keys(scripts.BOARDS), boards.list().map(b => b.id));
+test('光と音の9つの盤と6体の先生がそろい、基本の台本はE', () => {
+  assert.deepEqual(Object.keys(allScripts), boards.list().map(b => b.id));
   assert.deepEqual(scripts.TEACHERS.map(t => t.id), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(scripts.DEFAULT_TEACHER, 'E');
+  assert.equal(soundScripts.TEACHERS, scripts.TEACHERS);
+  assert.equal(soundScripts.DEFAULT_TEACHER, 'E');
 });
 
-for (const [id, steps] of Object.entries(scripts.BOARDS)) {
+for (const [id, steps] of Object.entries(allScripts)) {
   test(`${id}: 全手に6体の文があり、同じ用語が同じ数で75文字以内`, () => {
     assert.ok(steps.length > 0);
+    for (const { id: teacher } of scripts.TEACHERS) assert.equal(steps.filter(step => typeof step.lines[teacher] === 'string').length, steps.length);
     steps.forEach((step, index) => {
       assert.deepEqual(Object.keys(step.lines).sort(), ['A', 'B', 'C', 'D', 'E', 'F']);
       const terms = text => (text.match(/「[^」]+」/g) || []).sort();
@@ -25,7 +31,11 @@ for (const [id, steps] of Object.entries(scripts.BOARDS)) {
         assert.deepEqual(terms(text), terms(step.lines.E), `${id} ${index} ${teacher}`);
       }
       assert.ok(step.draw.length > 0);
-      for (const token of step.draw) assert.ok(explain.parseDraw(token), token);
+      for (const token of step.draw) {
+        assert.ok(explain.parseDraw(token), token);
+        const current = boards.get(id).scene;
+        assert.ok(explain.resolve(token, current, scene.trace(current), scene.handles(current)).items.length, token);
+      }
     });
   });
 }

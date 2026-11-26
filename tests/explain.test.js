@@ -5,7 +5,7 @@ const assert = require('node:assert/strict');
 const explain = require('../js/explain.js');
 const scene = require('../js/scene.js');
 const boards = require('../js/boards.js');
-const scripts = require('../content/scripts-light.js');
+const scripts = { BOARDS: { ...require('../content/scripts-light.js').BOARDS, ...require('../content/scripts-sound.js').BOARDS } };
 
 function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
 function setup(id = 'reflect') {
@@ -17,9 +17,82 @@ function timeline(draws, options = {}, id = 'reflect') {
   return explain.buildTimeline(draws.map(draw => ({ draw })), s, result, handles, options);
 }
 
+test('読む時間は Unicode の字数で数え、空や文字列以外は最小値、長文は上限なし', () => {
+  for (const value of ['', null, undefined, [], {}, 100, NaN]) assert.equal(explain.readMs(value), 2500);
+  assert.equal(explain.readMs('あ'.repeat(40)), 6000);
+  assert.equal(explain.readMs('あ'.repeat(75)), 11250);
+  assert.equal(explain.readMs('あ'.repeat(10000)), 1500000);
+  assert.equal(explain.readMs('😀'.repeat(20)), 3000);
+});
+
+test('読む時間が不正ならその手は0、配列の長さ違いも従来の時間割になる', () => {
+  const draws = [['point:mirror'], ['el:mirror']], original = timeline(draws);
+  for (const value of [undefined, null, {}, '5000', 5000, [], [5000], [5000, 5000, 5000],
+    [NaN, NaN], [-1, -10], [Infinity, null], ['5000', []]]) {
+    assert.deepEqual(timeline(draws, { readMs: value }), original);
+  }
+  const partial = timeline(draws, { readMs: [NaN, 20000] });
+  assert.deepEqual(partial.steps[0], original.steps[0]);
+  assert.equal(partial.steps[1].duration, 21500);
+});
+
+test('読む時間は速さで割るが描画の時刻を変えず、音声と描画との最大値を使う', () => {
+  for (const rate of [.5, 1, 2]) for (const reading of [0, 2500, 15000]) {
+    const original = timeline([['el:mirror', 'ray:incident']], { rate });
+    const actual = timeline([['el:mirror', 'ray:incident']], { rate, readMs: [reading] });
+    assert.deepEqual(actual.steps[0].parts, original.steps[0].parts);
+    assert.equal(actual.steps[0].drawDuration, original.steps[0].drawDuration);
+    near(actual.total, Math.max(original.steps[0].drawDuration, reading / rate) + 1500 / rate);
+    for (const seconds of [2, 20]) {
+      const voiced = timeline([['el:mirror', 'ray:incident']], { rate, clipSeconds: [seconds] });
+      const both = timeline([['el:mirror', 'ray:incident']], { rate, clipSeconds: [seconds], readMs: [reading] });
+      assert.deepEqual(both.steps[0].parts, voiced.steps[0].parts);
+      near(both.total, Math.max(voiced.steps[0].drawDuration, seconds * 1000 / rate, reading / rate) + 1500 / rate);
+    }
+  }
+  for (const { id } of boards.list()) {
+    const { s, result, handles } = setup(id), steps = scripts.BOARDS[id];
+    const plain = explain.buildTimeline(steps, s, result, handles);
+    const reading = steps.map(step => explain.readMs(step.lines.E));
+    const actual = explain.buildTimeline(steps, s, result, handles, { readMs: reading });
+    actual.steps.forEach((step, index) => {
+      assert.deepEqual(step.parts, plain.steps[index].parts);
+      near(step.duration, Math.max(plain.steps[index].drawDuration, reading[index]) + 1500);
+      if (index) near(step.start, actual.steps[index - 1].start + actual.steps[index - 1].duration);
+    });
+  }
+});
+
+test('音の複合参照は形とラベルをそろえ、弧は内から外へ順に描く', () => {
+  const cases = [
+    ['sound-wave', 'el:tuning-fork', ['fork'], ['tuning-fork']],
+    ['sound-wave', 'grid', ['grid'], ['grid']], ['sound-wave', 'amplitude', ['amplitude'], ['amplitude']],
+    ['sound-wave', 'period', ['period'], ['period']],
+    ['sound-string', 'el:string', ['box', 'string'], ['string']],
+    ['sound-string', 'el:bridge', ['bridge'], ['bridge']],
+    ['sound-speed', 'el:listener', ['ground', 'listener'], ['listener']],
+    ['sound-speed', 'distance', ['distanceArrow'], ['distance']],
+  ];
+  for (const [id, token, shapes, labels] of cases) {
+    const { s, result, handles } = setup(id), items = explain.resolve(token, s, result, handles).items;
+    assert.deepEqual(items.filter(i => i.ref.source === 'sound').map(i => i.ref.key), shapes);
+    assert.deepEqual(items.filter(i => i.type === 'text').map(i => i.ref.key), labels);
+  }
+  const string = setup('sound-string');
+  for (const token of ['controls', 'point:controls']) {
+    assert.deepEqual(explain.resolve(token, string.s, string.result, string.handles).items.map(i => i.ref.key), ['thickness', 'tension']);
+  }
+  const arcs = timeline([['sound-waves']], {}, 'sound-speed').steps[0].parts;
+  assert.equal(arcs.length, 4);
+  arcs.forEach((part, index) => {
+    assert.equal(part.items[0].ref.index, index); assert.equal(part.duration, 600); assert.equal(part.start, index * 600);
+  });
+  for (const token of ['el:oscillo', 'label', 'label:unknown', 'wave:unknown', 'grid:1']) assert.equal(explain.parseDraw(token), null);
+});
+
 test('draw の種類と引数を読み取り、知らない指定や文字列以外を拒む', () => {
   assert.deepEqual(explain.DRAW_KINDS, ['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
-    'ray', 'angle', 'point', 'handles', 'controls']);
+    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label']);
   assert.deepEqual(explain.parseDraw('ray:incident'), { kind: 'ray', arg: 'incident' });
   assert.deepEqual(explain.parseDraw('normal'), { kind: 'normal', arg: null });
   for (const token of ['', 'nope', 12, null, undefined, {}, 'ray', 'ray:', 'ray:unknown',
@@ -36,6 +109,10 @@ function checkRef(item, s, result, handles) {
   else if (ref.source === 'marks' || ref.source === 'angles') assert.ok(result[ref.source].some(v => v.key === ref.key));
   else if (ref.source === 'handles') assert.ok(handles.some(h => h.elementId === ref.elementId && h.handle === ref.handle));
   else if (ref.source === 'options') assert.ok(Object.hasOwn(s.options, ref.key));
+  else if (ref.source === 'sound') {
+    assert.ok(result.sound[ref.key]);
+    if (ref.index !== undefined) assert.ok(result.sound[ref.key][ref.index]);
+  }
   else assert.fail('参照先が不明: ' + JSON.stringify(ref));
 }
 
@@ -233,6 +310,9 @@ function displayedText(item, result, handles) {
 }
 
 const keyWords = {
+  'sound-wave': [[], [], [], [], ['振幅'], [], [], [], []],
+  'sound-string': [['弦'], [], [], [], ['振幅'], [], [], [], []],
+  'sound-speed': [[], [], [], [], [], [], [], [], []],
   straight: [['光源'], [], ['ついたて'], [], [], ['影'], []],
   reflect: [[], [], ['法線'], [], ['入射角'], ['反射角'], []],
   'mirror-image': [[], [], [], [], [], ['像'], []],

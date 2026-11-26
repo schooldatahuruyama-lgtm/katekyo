@@ -127,7 +127,7 @@ function markGap(mark, box) {
 for (const width of [264, 319, 375, 612, 1100]) {
   test(`幅 ${width}px・6 盤の線に付く文字は、線から 5px 以上離す`, () => {
     const s = view.sizes(width);
-    for (const { id } of boards.list()) {
+    for (const { id } of boards.list().filter(board => board.unit === 'light')) {
       const marks = scene.trace(boards.get(id).scene).marks.filter(mark => mark.away);
       assert.ok(marks.length > 0);
       for (const mark of marks) {
@@ -276,9 +276,10 @@ test('長さ 0・40px 未満・破線・矢印なし指定では矢印を付け�
 function labelBoxes(labels, placed) {
   return placed.flatMap((p, i) => {
     if (p.hidden) return [];
-    const size = labels[i].fontSize, width = Array.from(labels[i].text).length * size;
+    const size = labels[i].fontSize, rows = labels[i].lines || [labels[i].text];
+    const width = Math.max(...rows.map(text => Array.from(text).length)) * size;
     const left = p.x - (p.anchor === 'end' ? width : p.anchor === 'middle' ? width / 2 : 0);
-    return [{ id: p.id, left, right: left + width, top: p.y - size, bottom: p.y + size * .2 }];
+    return [{ id: p.id, left, right: left + width, top: p.y - size, bottom: p.y + size * (.2 + (rows.length - 1) * 1.2) }];
   });
 }
 
@@ -289,6 +290,10 @@ function assertClear(boxes) {
       box.left >= other.right || box.right <= other.left || box.top >= other.bottom || box.bottom <= other.top,
       box.id + ' と ' + other.id);
   }
+}
+
+function overlap(a, b) {
+  return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
 }
 
 // 箱と線分の投影を比べる。実装の切り詰め計算とは別の方法で検査する。
@@ -311,7 +316,7 @@ function assertLinesClear(labels, placed, lines, size) {
 }
 
 function assertCirclesClear(box, circles) {
-  for (const circle of circles) assert.ok(Math.hypot(
+  for (const circle of circles.filter(circle => Number.isFinite(circle.r))) assert.ok(Math.hypot(
     circle.x - Math.max(box.left, Math.min(box.right, circle.x)),
     circle.y - Math.max(box.top, Math.min(box.bottom, circle.y))) >= circle.r, box.id);
 }
@@ -383,7 +388,7 @@ test('prefer が知らない値・文字列以外なら従来の右からの順�
 });
 
 test('光軸上の焦点距離・物体・スクリーンだけ下を優先し、初期配置でも下へ置く', () => {
-  for (const width of [319, 612]) for (const { id } of boards.list()) {
+  for (const width of [319, 612]) for (const { id } of boards.list().filter(board => board.unit === 'light')) {
     const board = boards.get(id), s = view.sizes(width);
     const data = boardView.labelData(board, scene.trace(board.scene), s);
     const placed = view.placeLabels(data.labels, data.obstacles, s);
@@ -685,7 +690,7 @@ test('preferOwn は文字の左下を元の点に合わせ、はみ出し・先�
   assert.equal(view.placeLabels([label], [{ x: 100, y: 100, r: 1000 }], s)[0].hidden, true);
 });
 
-test('6 盤の初期配置・幅 612px で、空いている marks は markBox を盤内へ寄せた位置を使う', () => {
+test('9 盤の初期配置・幅 612px で、空いている marks は markBox を盤内へ寄せた位置を使う', () => {
   const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   for (const { id } of boards.list()) {
     const board = boards.get(id), result = scene.trace(board.scene), s = view.sizes(612);
@@ -699,11 +704,12 @@ test('6 盤の初期配置・幅 612px で、空いている marks は markBox �
       const y = Math.max(0, Math.min(420 - own.height, own.y)) + s.textSize;
       assert.equal(label.preferOwn, true); assert.equal(label.x, x); assert.equal(label.y, y);
       const box = view.labelBox({ ...label, anchor: 'start' });
-      const previous = data.labels.flatMap((other, i) => !placed[i].hidden &&
-        (other.priority < label.priority || (other.priority === label.priority && i < index)) ?
+      const previous = data.labels.flatMap((other, i) => !placed[i].hidden && (result.sound ?
+        other.text.length > label.text.length || (other.text.length === label.text.length && i < index) :
+        other.priority < label.priority || (other.priority === label.priority && i < index)) ?
         [view.labelBox({ ...other, ...placed[i] })] : []);
       const clear = box.left >= 0 && box.right <= 600 && box.top >= 0 && box.bottom <= 420 &&
-        !previous.some(other => overlap(box, other)) && !data.obstacles.some(circle => Math.hypot(
+        !previous.some(other => overlap(box, other)) && !data.obstacles.some(other => Number.isFinite(other.left) && overlap(box, other)) && !data.obstacles.some(circle => Math.hypot(
           circle.x - Math.max(box.left, Math.min(box.right, circle.x)),
           circle.y - Math.max(box.top, Math.min(box.bottom, circle.y))) < circle.r);
       if (clear) {
@@ -724,7 +730,7 @@ test('lineData は6盤の面と軸だけを描画と同じ座標で返し、入�
     lens: [[20, 210, 580, 210], [300, 60, 300, 360]],
     'lens-image': [[20, 210, 580, 210], [300, 60, 300, 360], [450, 30, 450, 390]],
   };
-  for (const { id } of boards.list()) {
+  for (const { id } of boards.list().filter(board => board.unit === 'light')) {
     const board = boards.get(id), result = scene.trace(board.scene), before = structuredClone({ board, result });
     const lines = boardView.lineData(board.scene, result);
     assert.equal(lines.length, expected[id].length, id);
@@ -901,6 +907,7 @@ function screen(search = '', width = 600, options = {}) {
   doc.defaultView = win;
   const host = new Element('main');
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
+    scriptsSound: require('../content/scripts-sound.js'), voiceDataSound: require('../content/voice-sound.js'),
     scripts: require('../content/scripts-light.js'), voiceData: options.voiceData || require('../content/voice-light.js'),
     explain: options.explain || require('../js/explain.js'), prefs: require('../js/prefs.js'), voice: options.voice || require('../js/voice.js'),
     geometry: require('../js/geometry.js'), viewMath: options.viewMath || view, boards,
@@ -931,7 +938,7 @@ for (const { id } of boards.list()) {
     assert.equal(ui.find(el => el.tagName === 'svg').attributes.viewBox, '0 0 600 420');
     assert.ok(ui.find(el => el.tagName === 'polygon'));
     for (const handle of scene.handles(board.scene)) {
-      const knob = ui.find(el => el.attributes['data-element-id'] === handle.elementId);
+      const knob = ui.find(el => el.attributes['data-element-id'] === handle.elementId && el.attributes['data-handle'] === handle.handle);
       assert.equal(knob.attributes.tabindex, '0');
       assert.equal(knob.attributes['aria-label'], handle.label);
     }
@@ -939,7 +946,7 @@ for (const { id } of boards.list()) {
   });
 }
 
-test('6 盤の見出し・吹き出し・SVG をカード内にこの順で描く', () => {
+test('9 盤の見出し・吹き出し・SVG をカード内にこの順で描く', () => {
   for (const { id } of boards.list()) {
     const ui = screen('?board=' + id); ui.api.app.start(ui.host);
     const heading = ui.find(el => el.className === 'board-heading');
@@ -961,7 +968,7 @@ test('描画した文字は配置計算の位置・大きさと一致し、ふ�
     const data = boardView.labelData(board, result, s);
     const placed = view.placeLabels(data.labels, data.obstacles, s, boardView.lineData(board.scene, result));
     const rendered = [];
-    function collect(el) { if (el.tagName === 'text') rendered.push(el); el.children.forEach(collect); }
+    function collect(el) { if (el.tagName === 'text' && el.attributes.class !== 'knob-mark') rendered.push(el); el.children.forEach(collect); }
     collect(ui.host);
     assert.equal(rendered.length, placed.filter(p => !p.hidden).length);
     let index = 0;
@@ -1074,6 +1081,15 @@ for (const { id } of boards.list()) {
     ['elements=[]', current => ({ ...current, elements: [] })],
     ['scene=null', () => null],
   ];
+  if (id.startsWith('sound-')) {
+    const key = { 'sound-wave': 'frequencyHz', 'sound-string': 'lengthPercent', 'sound-speed': 'distance' }[id];
+    const offStep = { 'sound-wave': 251, 'sound-string': 82, 'sound-speed': 700 }[id];
+    for (const [name, value] of [['数字の文字列', '250'], ['範囲外', -1], ['きざみ外', offStep]]) {
+      changes.push([name, current => {
+        const next = structuredClone(current); next.elements.find(e => key in e)[key] = value; return next;
+      }]);
+    }
+  }
   if (id === 'refract') changes.push(
     ['options=null', current => ({ ...current, options: null })],
     ['options=x', current => ({ ...current, options: 'x' })]);
@@ -1227,10 +1243,13 @@ test('課題の達成は操作と初期化で消さず、盤を開き直すと�
 });
 
 test('不正な URL の文字を描画せず、ホームに知らせる', () => {
-  const ui = screen('?board=%3Cscript%3E'); ui.api.app.start(ui.host);
-  assert.ok(ui.host.textContent.includes('指定された盤が見つかりませんでした'));
-  assert.ok(!ui.host.textContent.includes('<script>'));
-  assert.ok(ui.button('実像と虚像'));
+  for (const search of ['?board=%3Cscript%3E', '?board=', '?board=sound-wave&board=sound-speed', '?board=' + 'x'.repeat(1000)]) {
+    const ui = screen(search); ui.api.app.start(ui.host);
+    assert.ok(ui.host.textContent.includes('指定された盤が見つかりませんでした'));
+    assert.ok(!ui.host.textContent.includes('<script>'));
+    assert.ok(!ui.host.textContent.includes('x'.repeat(1000)));
+    assert.ok(ui.button('実像と虚像')); assert.ok(ui.button('音の大きさと高さ'));
+  }
 });
 
 test('file:// の履歴変更を拒む環境でも、盤の URL に移動する', () => {
@@ -1242,6 +1261,7 @@ test('file:// の履歴変更を拒む環境でも、盤の URL に移動する'
 
 // 説明の画面は同じ模擬 DOM に、音声と requestAnimationFrame の時計を渡して確かめる。
 const scripts = require('../content/scripts-light.js');
+const scriptsSound = require('../content/scripts-sound.js');
 const explain = require('../js/explain.js');
 const voiceData = require('../content/voice-light.js');
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
@@ -1308,7 +1328,7 @@ test('手が進んでも弧・文字・矢印・強調の印は用意済みの�
   for (const { id } of boards.list()) {
     const { ui, board, renderer, calls } = animationBoard(id);
     const nodes = elements(ui, () => true);
-    const timeline = explain.buildTimeline(scripts.BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const timeline = explain.buildTimeline((id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
     ui.mutations.length = 0;
     for (const step of timeline.steps) for (const part of step.parts) {
       renderer.setState(explain.stateAt(timeline, step.index, part.start + part.duration / 2));
@@ -1463,7 +1483,7 @@ test('start・end・middle の文字の切り抜きは箱の左端から始ま�
   const anchors = new Set();
   for (const { id } of boards.list()) {
     const { ui } = animationBoard(id);
-    const rects = elements(ui, el => el.tagName === 'clipPath').map(el => el.children[0]);
+    const rects = elements(ui, el => el.tagName === 'clipPath' && el.attributes.id.includes('-text-')).map(el => el.children[0]);
     for (const [index, text] of elements(ui, el => el.tagName === 'text').entries()) {
       const anchor = text.attributes['text-anchor']; anchors.add(anchor);
       const size = Number(text.attributes['font-size']), width = Array.from(text.textContent).length * size;
@@ -1659,10 +1679,10 @@ test('反射3手目を50msずつ進めても、乗りかえ途中を含む同じ
   }
 });
 
-for (const { id } of boards.list()) {
+for (const { id } of boards.list().filter(board => board.unit === 'light')) {
   test(`${id}: 全手を16msずつ進めてもペンの座標は有限で、手の変更・再出現以外では40単位を超えて動かない`, () => {
     const { ui, board, renderer, calls } = animationBoard(id);
-    const timeline = explain.buildTimeline(scripts.BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const timeline = explain.buildTimeline((id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id], board.scene, scene.trace(board.scene), scene.handles(board.scene));
     const pen = ui.find(el => el.attributes.class === 'pen');
     let previous = null;
     ui.mutations.length = 0;
@@ -1961,10 +1981,11 @@ test('途中の文字は完成時の位置・大きさで描き、弧と部品�
 for (const { id } of boards.list()) {
   test(`${id}: 全手を100ms刻みで描き、終わるまでは操作不可、最後に従来の盤へ戻る`, () => {
     const ui = screen('?board=' + id); startLesson(ui);
-    const board = boards.get(id), steps = scripts.BOARDS[id];
-    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene));
+    const board = boards.get(id), steps = (id.startsWith('sound-') ? scriptsSound : scripts).BOARDS[id];
+    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), { readMs: steps.map(step => explain.readMs(step.lines.E)) });
     const seen = new Set([currentWords(ui)]), readoutStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
-    const firstReadout = readoutStep < 0 ? steps.length - 1 : readoutStep;
+    const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
+    const firstReadout = readoutStep >= 0 ? readoutStep : labelStep >= 0 ? labelStep : steps.length - 1;
     const limit = timeline.total + steps.length * 100;
     for (let time = 0; time <= limit && !ui.find(el => el.className === 'explain-controls').hidden; time += 100) {
       assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
@@ -2040,7 +2061,7 @@ test('再生拒否は黄色の帯を出し、文字だけで説明を続ける',
   ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click'); await settle();
   assert.equal(ui.find(el => el.className === 'voice-message').textContent, 'この画面では音を出せませんでした。文字だけで続けます。');
   assert.ok(ui.button('🔇 音声オフ'));
-  for (let i = 0; i < 30; i++) ui.advance(100);
+  ui.advance(explain.readMs(scripts.BOARDS.reflect[0].lines.E) + 1500);
   assert.notEqual(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
 });
 
@@ -2184,7 +2205,8 @@ test('動きを減らす設定ではpartが1msで完成し、手と声と間は�
   assert.equal(ui.find(el => el.attributes.class === 'pen' && visible(el)), null);
   assert.ok(ui.find(el => el.tagName === 'text' && el.textContent === '鏡'));
   assert.equal(currentWords(ui), scripts.BOARDS.reflect[0].lines.E);
-  ui.advance(1500); assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
+  ui.advance(explain.readMs(scripts.BOARDS.reflect[0].lines.E) + 1500 - 2);
+  assert.equal(currentWords(ui), scripts.BOARDS.reflect[1].lines.E);
 });
 
 test('読み込み中に音声オンにしたら準備を待ち、失敗すれば文字だけで続ける', async () => {
@@ -2346,3 +2368,386 @@ for (const value of ['3.2', -1, Infinity]) for (const rate of [.5, 1, 2]) {
     ui.advance(1); assert.notEqual(currentWords(ui), words); assert.equal(plays.length, 2);
   });
 }
+
+// 音の全操作値を、実際の描画と同じ模擬 DOM で検査する。
+function soundVariants(id) {
+  const variants = [];
+  if (id === 'sound-wave') for (let frequencyHz = 100; frequencyHz <= 1000; frequencyHz += 50) {
+    for (let amplitude = 1; amplitude <= 4; amplitude++) variants.push({ frequencyHz, amplitude });
+  }
+  if (id === 'sound-string') for (const thickness of ['thin', 'thick']) for (const tension of ['weak', 'strong']) {
+    for (let lengthPercent = 50; lengthPercent <= 100; lengthPercent += 5) {
+      for (let pluck = 1; pluck <= 4; pluck++) variants.push({ lengthPercent, pluck, thickness, tension });
+    }
+  }
+  if (id === 'sound-speed') for (let distance = 170; distance <= 1700; distance += 34) variants.push({ distance });
+  return variants;
+}
+
+for (const width of [319, 375, 768, 1100]) for (const { id } of boards.list().filter(board => board.unit === 'sound')) {
+  test(`${id}: 幅${width}px・全操作値で描画し、全文字を波形・つまみ・文字と重ねず表示する`, () => {
+    const ui = screen('', width), board = boards.get(id), s = view.sizes(width);
+    const renderer = ui.api.boardView.create(ui.host, board), variants = soundVariants(id);
+    assert.equal(variants.length, { 'sound-wave': 76, 'sound-string': 176, 'sound-speed': 46 }[id]);
+    for (const variant of variants) {
+      const current = boards.get(id).scene, { thickness, tension, ...values } = variant;
+      Object.assign(current.elements.find(e => ['wave', 'string', 'listener'].includes(e.type)), values);
+      if (thickness) Object.assign(current.options, { thickness, tension });
+      assert.deepEqual(scene.validateScene(current), []);
+      assert.doesNotThrow(() => renderer.setScene(current));
+      const result = scene.trace(current), data = boardView.labelData(board, result, s);
+      const lines = boardView.lineData(current, result), placed = view.placeLabels(data.labels, data.obstacles, s, lines);
+      assert.ok(placed.every(p => !p.hidden), JSON.stringify(variant) + ': ' + placed.filter(p => p.hidden).map(p => p.id));
+      const boxes = labelBoxes(data.labels, placed);
+      assertClear(boxes); assertLinesClear(data.labels, placed, lines, s);
+      boxes.forEach(box => assertCirclesClear(box, data.obstacles));
+      // 配置用データだけでなく、実際に生成された SVG の文字の箱も検査する。
+      const rendered = elements(ui, el => el.tagName === 'text' && el.attributes.class !== 'knob-mark').map(el => {
+        const rows = el.children.filter(child => child.tagName === 'tspan').map(child => child.textContent);
+        return { text: el.textContent, ...view.labelBox({ text: el.textContent, ...(rows.length ? { lines: rows } : {}),
+          x: Number(el.attributes.x), y: Number(el.attributes.y), fontSize: Number(el.attributes['font-size']),
+          anchor: el.attributes['text-anchor'] }) };
+      });
+      assert.equal(rendered.length, data.labels.length);
+      assertClear(rendered);
+      if (id === 'sound-wave') {
+        const label = rendered.find(box => box.text === 'おんさ（音源）');
+        assert.ok(label);
+        const fork = result.sound.fork, pad = s.surfaceWidth * s.unitPerPx / 2;
+        assert.ok(!overlap(label, { left: fork.x - 16 - pad, right: fork.x + 16 + pad,
+          top: fork.y - 65 - pad, bottom: fork.y + 41 + pad }), JSON.stringify(variant));
+      }
+      if (id === 'sound-speed') {
+        const label = rendered.find(box => box.text.endsWith('秒後に聞こえる'));
+        assert.ok(label);
+        const { x, ear, feetY } = result.sound.listener, pad = s.thinWidth * s.unitPerPx / 2;
+        assert.ok(!overlap(label, { left: x - 18 - pad, right: x + 18 + pad,
+          top: ear.y - 12 - pad, bottom: feetY + pad }), JSON.stringify(variant));
+        // SVG の光の線・距離の矢印（矢じりの幅も含む）との交差を独立に確認する。
+        const { from, to } = result.sound.distanceArrow;
+        for (const line of [...result.rays, { x1: from.x, y1: from.y, x2: to.x, y2: to.y }]) {
+          assert.ok(!crossesLine(label, line, 3 * s.unitPerPx), JSON.stringify(variant));
+        }
+      }
+      for (const el of elements(ui, () => true)) {
+        for (const [key, value] of Object.entries(el.attributes)) {
+          assert.doesNotMatch(value, /NaN|Infinity|undefined/, key);
+        }
+        if (el.tagName === 'text') assert.ok(Number(el.attributes['font-size']) / s.unitPerPx >= 16 - 1e-9);
+        if (el.tagName === 'circle' && el.attributes['pointer-events'] === 'all') {
+          assert.ok(Number(el.attributes.r) / s.unitPerPx >= 24 - 1e-9);
+        }
+      }
+      // 波形の全点、光の線、弧の半径はエンジンの結果に一致する。
+      if (result.sound.wave) {
+        const points = ui.find(el => el.attributes['data-sound'] === 'wave').attributes.d.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+        assert.deepEqual(points, result.sound.wave.points.flatMap(p => [p.x, p.y]));
+      }
+      result.sound.waves?.forEach((arc, index) => {
+        const el = elements(ui, el => el.attributes['data-sound'] === 'arc')[index];
+        assert.ok(el.attributes.d.includes(`A${arc.r} ${arc.r}`));
+        assert.equal(el.attributes['stroke-dasharray'], '8 7');
+      });
+      if (id === 'sound-speed') assert.ok(ui.find(el => el.tagName === 'line' && el.attributes['stroke-dasharray'] === '1 7'));
+      ui.mutations.length = 0;
+    }
+    renderer.destroy();
+  });
+}
+
+for (const id of ['sound-wave', 'sound-string', 'sound-speed']) for (const teacher of scriptsSound.TEACHERS) {
+  test(`${id}・先生${teacher.id}: 全手を16ms刻みで描き、ペンが有限で最後は操作時と同じ絵になる`, () => {
+    const { ui, board, renderer, calls } = animationBoard(id, 319), steps = scriptsSound.BOARDS[id];
+    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
+      clipSeconds: require('../content/voice-sound.js').CLIPS[id][teacher.id].map(clip => clip[1]),
+    });
+    ui.mutations.length = 0;
+    for (const step of timeline.steps) for (let time = 0; time <= step.duration; time += 16) {
+      assert.doesNotThrow(() => renderer.setState(explain.stateAt(timeline, step.index, time), step.start + time));
+      const pen = ui.find(el => el.attributes.class === 'pen');
+      if (pen.hasAttribute('transform')) assert.ok(penTip(ui).every(Number.isFinite));
+    }
+    renderer.setState(explain.finalState(timeline), timeline.total);
+    assertNoStructureChanges(ui);
+    assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
+    function artSnapshot() {
+      return visibleElements(ui, el => ['path', 'line', 'rect', 'polygon', 'circle', 'text'].includes(el.tagName) &&
+        !el.parent?.attributes['data-handle'] && el.parent?.tagName !== 'clipPath').map(el => {
+        const attrs = { ...el.attributes };
+        if (attrs.filter) attrs.filter = 'sketch';
+        delete attrs.display;
+        return { tag: el.tagName, text: el.textContent, attrs };
+      });
+    }
+    const final = artSnapshot();
+    renderer.setState(null);
+    assert.deepEqual(artSnapshot(), final);
+    assert.ok(ui.find(el => el.attributes.class === 'handle'));
+  });
+}
+
+test('音の波形は左から右へ、弧は内側から、重要語句は切り抜き、point は指す印を出す', () => {
+  for (const id of ['sound-wave', 'sound-string', 'sound-speed']) {
+    const { ui, board, renderer } = animationBoard(id);
+    const result = scene.trace(board.scene);
+    if (result.sound.wave) {
+      renderer.setState(drawing(board, 'wave', .5), 100);
+      const path = ui.find(el => el.attributes['data-sound'] === 'wave').attributes.d;
+      const numbers = path.match(/[-+]?\d*\.?\d+(?:e[-+]?\d+)?/gi).map(Number);
+      assert.equal(numbers[0], result.sound.wave.points[0].x);
+      assert.ok(numbers.at(-2) < result.sound.wave.points.at(-1).x);
+      assert.ok(ui.find(el => el.attributes.class === 'pen' && visible(el)));
+      renderer.setState(drawing(board, 'amplitude', .5), 200);
+      assert.ok(ui.find(el => el.tagName === 'text' && el.textContent === '振幅').hasAttribute('clip-path'));
+    } else {
+      const timeline = explain.buildTimeline(scriptsSound.BOARDS[id], board.scene, result, scene.handles(board.scene));
+      const step = timeline.steps[3];
+      renderer.setState(explain.stateAt(timeline, 3, step.parts[0].duration / 2), 300);
+      assert.equal(visibleElements(ui, el => el.attributes['data-sound'] === 'arc').length, 1);
+      renderer.setState(explain.stateAt(timeline, 3, step.parts[1].start + step.parts[1].duration / 2), 400);
+      assert.equal(visibleElements(ui, el => el.attributes['data-sound'] === 'arc').length, 2);
+    }
+    const token = id === 'sound-speed' ? 'point:distance' : 'point:wave';
+    renderer.setState(drawing(board, token, .5), 500);
+    assert.ok(visibleElements(ui, el => el.tagName === 'circle' && el.attributes.fill === 'none').length > 0);
+  }
+});
+
+test('100 Hz・振幅1では2つのつまみの重なりを押しても、中心が近い方だけ動く', () => {
+  for (const selected of ['amplitude', 'frequency']) for (const overlap of [false, true]) {
+    const ui = screen('', 319), board = boards.get('sound-wave');
+    Object.assign(board.scene.elements.find(e => e.type === 'wave'), { frequencyHz: 100, amplitude: 1 });
+    ui.api.boardView.create(ui.host, board);
+    const handles = scene.handles(board.scene), wanted = handles.find(h => h.handle === selected), other = handles.find(h => h !== wanted);
+    const point = overlap ? { x: wanted.x * .55 + other.x * .45, y: wanted.y * .55 + other.y * .45 } : wanted;
+    if (overlap) assert.ok(handles.every(h => Math.hypot(h.x - point.x, h.y - point.y) < view.sizes(319).hitRadius));
+    // 重なったとき上にある相手の DOM に届いても、座標で近い方を選ぶ。
+    ui.find(el => el.attributes['data-handle'] === (overlap ? other.handle : wanted.handle)).dispatch('pointerdown', {
+      pointerId: 1, clientX: 20 + point.x * 319 / 600, clientY: 40 + point.y * 319 / 600,
+    });
+    assert.equal(ui.doc.activeElement.attributes['data-handle'], selected);
+    const target = selected === 'amplitude' ? { x: wanted.x, y: 50 } : { x: 174, y: wanted.y };
+    ui.find(el => el.tagName === 'svg').dispatch('pointermove', {
+      pointerId: 1, clientX: 20 + target.x * 319 / 600, clientY: 40 + target.y * 319 / 600,
+    });
+    assert.equal(board.scene.elements.find(e => e.type === 'wave').amplitude, selected === 'amplitude' ? 4 : 1);
+    assert.equal(board.scene.elements.find(e => e.type === 'wave').frequencyHz, selected === 'frequency' ? 1000 : 100);
+  }
+});
+
+for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed']) for (const rate of [.5, 2]) for (const reduced of [false, true]) {
+  test(`${id}・${rate}倍・動きをへらす${reduced}: 読む時間と間を待ち、停止中は待つ時間も止まる`, () => {
+    const ui = screen('?board=' + id, 375, { reduced, saved: JSON.stringify({ teacher: 'A', rate }) }); startLesson(ui);
+    const board = boards.get(id), steps = (id === 'reflect' ? scripts : scriptsSound).BOARDS[id];
+    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
+      readMs: steps.map(step => explain.readMs(step.lines.A)),
+    });
+    const draw = reduced ? timeline.steps[0].parts.length : timeline.steps[0].drawDuration;
+    const duration = (Math.max(draw, explain.readMs(steps[0].lines.A)) + 1500) / rate;
+    ui.advance(duration - 1); assert.equal(currentWords(ui), steps[0].lines.A);
+    ui.button('止める').dispatch('click'); ui.advance(60000);
+    assert.equal(currentWords(ui), steps[0].lines.A);
+    ui.button('▶ 再生').dispatch('click'); ui.advance(1);
+    assert.equal(currentWords(ui), steps[1].lines.A);
+    // 次へは読み終える前でも描き終わり、その次のクリックで次の手に進める。
+    ui.button('次へ ▶').dispatch('click'); ui.button('次へ ▶').dispatch('click');
+    assert.equal(currentWords(ui), steps[2].lines.A);
+  });
+}
+
+for (const id of ['reflect', 'sound-wave', 'sound-string', 'sound-speed']) {
+  test(`${id}: 音声の読みこみ失敗・途中オフでも読む時間を待つ`, async () => {
+    for (const failure of [true, false]) {
+      const ui = screen('?board=' + id, 375, { fetch: async () => ({ ok: !failure, blob: async () => ({}) }) });
+      ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click'); await settle();
+      if (!failure) ui.button('🔊 音声オン').dispatch('click');
+      assert.equal(ui.find(el => el.className === 'voice-message').hidden, !failure);
+      const steps = (id === 'reflect' ? scripts : scriptsSound).BOARDS[id];
+      const duration = explain.readMs(steps[0].lines.E) + 1500;
+      ui.advance(duration - 1); assert.equal(currentWords(ui), steps[0].lines.E);
+      ui.advance(1); assert.equal(currentWords(ui), steps[1].lines.E);
+    }
+  });
+}
+
+test('光から音へ先生・音声・速さを引き継ぎ、音声は開いた盤の sound パスから準備する', async () => {
+  const urls = [], ui = screen('?board=reflect', 375, { fetch: async url => { urls.push(url); return { ok: true, blob: async () => ({}) }; } });
+  ui.api.app.start(ui.host);
+  elements(ui, el => el.attributes.role === 'radio')[2].dispatch('click');
+  await settle(); ui.button('音声ありで見る').dispatch('click'); ui.button('＋').dispatch('click');
+  ui.button('← ボード一覧').dispatch('click'); urls.length = 0;
+  ui.button('音の大きさと高さ').dispatch('click'); await settle();
+  assert.equal(elements(ui, el => el.attributes.role === 'radio')[2].attributes['aria-checked'], 'true');
+  assert.equal(ui.button('音声ありで見る').className, 'btn main');
+  assert.ok(ui.host.textContent.includes('1.25 倍'));
+  assert.equal(urls.length, 9);
+  assert.ok(urls.every(url => url.startsWith('assets/audio/sound/sound-wave/C/')));
+  assert.deepEqual(ui.saved.at(-1), { teacher: 'C', voice: true, rate: 1.25 });
+  const reopened = screen('?board=sound-speed', 375, { saved: JSON.stringify(ui.saved.at(-1)) });
+  reopened.api.app.start(reopened.host); await settle();
+  assert.equal(elements(reopened, el => el.attributes.role === 'radio')[2].attributes['aria-checked'], 'true');
+  assert.equal(reopened.button('音声ありで見る').className, 'btn main');
+  assert.ok(reopened.host.textContent.includes('1.25 倍'));
+});
+
+test('ホームを単元ごとに並べ、音の凡例・切り替え・単元の担当先生を表示する', () => {
+  const ui = screen(); ui.api.app.start(ui.host);
+  assert.deepEqual(elements(ui, el => el.tagName === 'h2').map(el => el.textContent), boards.units().map(unit => unit.title + ' ― ボードをえらぶ'));
+  assert.equal(elements(ui, el => el.className === 'row').length, 9);
+  assert.ok(ui.host.textContent.includes('図や値がその場で変わります。'));
+  assert.ok(!ui.host.textContent.includes('NEW'));
+  ui.button('音の速さ').dispatch('click');
+  assert.equal(ui.doc.title, '音の速さ | ひかりボード');
+  assert.equal(elements(ui, el => el.attributes.role === 'radio')[4].attributes['aria-checked'], 'true');
+  assert.equal(ui.find(el => el.className === 'legend').textContent, '点線（‥‥）＝ 光（すぐに届く）／ 破線（－ －）＝ 音の波');
+  ui.button('← ボード一覧').dispatch('click'); ui.button('弦の音').dispatch('click');
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  for (const label of ['弦の太さ', '弦の張り']) assert.ok(ui.find(el => el.attributes['aria-label'] === label));
+  ui.button('太い').dispatch('click'); assert.equal(ui.button('太い').attributes['aria-pressed'], 'true');
+  ui.button('強い').dispatch('click'); assert.equal(ui.button('強い').attributes['aria-pressed'], 'true');
+});
+
+for (const id of ['sound-wave', 'sound-string', 'sound-speed']) {
+  test(`${id}: 音声ありの手には読む時間を加えず、音声と描画の終了を待つ`, async () => {
+    const optionsSeen = [], ui = screen('?board=' + id, 375, { explain: { ...explain, buildTimeline(...args) {
+      optionsSeen.push(args[4]); return explain.buildTimeline(...args);
+    } } });
+    ui.api.app.start(ui.host); await settle(); ui.button('音声ありで見る').dispatch('click');
+    const options = optionsSeen.at(-1);
+    assert.ok(Array.isArray(options.clipSeconds)); assert.equal(options.readMs, undefined);
+    const board = boards.get(id), steps = scriptsSound.BOARDS[id];
+    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), options);
+    ui.audios[0].onended();
+    ui.advance(timeline.steps[0].drawDuration + 1499); assert.equal(currentWords(ui), steps[0].lines.E);
+    ui.advance(1); assert.equal(currentWords(ui), steps[1].lines.E);
+  });
+}
+
+test('未保存の先生は units の担当に従い、保存済みの先生は優先する', () => {
+  for (const saved of [null, JSON.stringify({ teacher: 'B' })]) {
+    const ui = screen('?board=sound-wave', 375, { saved });
+    ui.api.boards = { ...boards, units: () => boards.units().map(unit => ({ ...unit, teacher: 'F' })) };
+    vm.runInNewContext(fs.readFileSync(path.join(__dirname, '../js/app.js'), 'utf8'), { document: ui.doc, URL, Hikari: ui.api });
+    ui.api.app.start(ui.host);
+    const chosen = elements(ui, el => el.attributes.role === 'radio').findIndex(el => el.attributes['aria-checked'] === 'true');
+    assert.equal(chosen, saved ? 1 : 5);
+  }
+});
+
+const soundKeys = [
+  ['sound-wave', 'amplitude', 'amplitude', 1, 4, 1, 'ArrowUp', 'ArrowDown'],
+  ['sound-wave', 'frequency', 'frequencyHz', 100, 1000, 50, 'ArrowLeft', 'ArrowRight'],
+  ['sound-string', 'bridge', 'lengthPercent', 50, 100, 5, 'ArrowRight', 'ArrowLeft'],
+  ['sound-string', 'pluck', 'pluck', 1, 4, 1, 'ArrowUp', 'ArrowDown'],
+  ['sound-speed', 'move', 'distance', 170, 1700, 34, 'ArrowRight', 'ArrowLeft'],
+];
+
+for (const [id, handle, field, min, max, step, increase, decrease] of soundKeys) {
+  test(`${id} ${handle}: 全値・全方向のキーで1きざみ進み、端と無関係な方向では止まる`, () => {
+    const ui = screen(), board = boards.get(id);
+    const renderer = ui.api.boardView.create(ui.host, board);
+    for (let value = min; value <= max; value += step) for (const key of ['ArrowLeft', 'ArrowRight', 'ArrowUp', 'ArrowDown']) {
+      const current = boards.get(id).scene;
+      current.elements.find(e => field in e)[field] = value;
+      renderer.setScene(current);
+      const expected = JSON.parse(JSON.stringify(current));
+      expected.elements.find(e => field in e)[field] = Math.max(min, Math.min(max,
+        value + (key === increase ? step : key === decrease ? -step : 0)));
+      const knob = ui.find(el => el.attributes['data-handle'] === handle);
+      knob.focus(); knob.dispatch('keydown', { key });
+      assert.deepEqual(board.scene, expected, value + ': ' + key);
+      assert.deepEqual(scene.validateScene(board.scene), []);
+      assert.equal(ui.doc.activeElement, knob);
+      assert.equal(ui.find(el => el.className === 'board-error').hidden, true);
+      ui.mutations.length = 0;
+    }
+    renderer.destroy();
+  });
+
+  test(`${id} ${handle}: 最小から最大・最大から最小まで飛ばさず進み、画面の値と達成判定が合う`, () => {
+    let current = boards.get(id).scene;
+    const ui = screen('?board=' + id, 375, { scene: { ...scene, stepSoundHandle(...args) {
+      current = scene.stepSoundHandle(...args); return current;
+    } } });
+    const app = ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+    const completed = new Set(), board = boards.get(id);
+    function check() {
+      assert.deepEqual(scene.validateScene(current), []);
+      const wave = current.elements.find(e => e.type === 'wave'), string = current.elements.find(e => e.type === 'string');
+      const distance = current.elements.find(e => e.type === 'listener')?.distance;
+      const frequency = string ? 20000 / string.lengthPercent : null;
+      const expected = wave ? ['振動数 ' + wave.frequencyHz + ' Hz', '振幅 目もり ' + wave.amplitude + ' つ分'] :
+        string ? ['音の高さ ' + (frequency === 250 ? 'はじめと同じ' : frequency > 250 ? 'はじめより高い' : 'はじめより低い'),
+          '音の大きさ ' + (string.pluck === 2 ? 'はじめと同じ' : string.pluck > 2 ? 'はじめより大きい' : 'はじめより小さい')] :
+          ['花火まで ' + distance + ' m', '聞こえるまで ' + (distance / 340).toFixed(1) + ' 秒', '音の速さ 約 340 m/s'];
+      assert.deepEqual(ui.find(el => el.className === 'readout').children.map(el => el.textContent), expected);
+      const achieved = wave ? [wave.amplitude === 4, wave.frequencyHz === 500, wave.frequencyHz === 100] :
+        string ? [frequency > 250, false, string.pluck > 2] : [distance === 170, distance === 340, distance === 1700];
+      achieved.forEach((done, i) => { if (done) completed.add(i); });
+      board.prompts.forEach((prompt, i) => {
+        const row = ui.find(el => el.className.split(' ').includes('try') && el.textContent.includes(prompt.text));
+        assert.equal(row.className.split(' ').includes('done'), completed.has(i));
+      });
+      ui.mutations.length = 0;
+    }
+    function press(key) { ui.find(el => el.attributes['data-handle'] === handle).dispatch('keydown', { key }); check(); }
+    check();
+    while (current.elements.find(e => field in e)[field] > min) press(decrease);
+    for (const [key, start, end, delta] of [[increase, min, max, step], [decrease, max, min, -step]]) {
+      const seen = [start];
+      for (let value = start + delta; delta > 0 ? value <= end : value >= end; value += delta) {
+        press(key); seen.push(current.elements.find(e => field in e)[field]);
+        assert.equal(seen.at(-1), value);
+      }
+      assert.equal(seen.length, (max - min) / step + 1);
+      press(key); assert.equal(current.elements.find(e => field in e)[field], end);
+    }
+    app.destroy();
+  });
+}
+
+test('弦の4通りの切り替えで見える見出し・チェック・aria-pressedをそろえる', () => {
+  const ui = screen('?board=sound-string'); ui.api.app.start(ui.host);
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  for (const thickness of ['細い', '太い']) for (const tension of ['弱い', '強い']) {
+    ui.button(thickness).dispatch('click'); ui.button(tension).dispatch('click');
+    for (const [name, choices, selected] of [['弦の太さ', ['細い', '太い'], thickness], ['弦の張り', ['弱い', '強い'], tension]]) {
+      const group = ui.find(el => el.attributes['aria-label'] === name);
+      assert.equal(group.children[0].className, 'seg-name');
+      assert.equal(group.children[0].textContent, name); assert.equal(group.children[0].hidden, false);
+      assert.equal(group.hidden, false); assert.equal(group.parent.hidden, false);
+      for (const label of choices) {
+        assert.equal(ui.button(label).textContent, (label === selected ? '✓ ' : '') + label);
+        assert.equal(ui.button(label).attributes['aria-pressed'], String(label === selected));
+      }
+    }
+  }
+});
+
+test('屈折の切り替えの文と構造は変わらない', () => {
+  const ui = screen('?board=refract'); ui.api.app.start(ui.host);
+  ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  for (const control of boards.get('refract').controls) for (const choice of control.choices) {
+    const el = ui.find(el => el.tagName === 'button' && el.textContent === choice.label);
+    el.dispatch('click');
+    assert.equal(el.textContent, choice.label); assert.equal(el.attributes['aria-pressed'], 'true');
+    assert.ok(el.parent.children.every(child => child.tagName === 'button'));
+    assert.equal(el.parent.className, 'seg');
+  }
+});
+
+test('光の6盤の全つまみは矢印キーで従来の4単位の座標移動を使う', () => {
+  for (const { id } of boards.list().filter(board => board.unit === 'light')) {
+    const ui = screen(), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    for (const handle of scene.handles(board.scene)) for (const [key, dx, dy] of [
+      ['ArrowLeft', -4, 0], ['ArrowRight', 4, 0], ['ArrowUp', 0, -4], ['ArrowDown', 0, 4],
+    ]) {
+      const initial = boards.get(id).scene; renderer.setScene(initial);
+      const expected = scene.moveElement(initial, handle.elementId, handle.handle, { x: handle.x + dx, y: handle.y + dy });
+      ui.find(el => el.attributes['data-element-id'] === handle.elementId && el.attributes['data-handle'] === handle.handle)
+        .dispatch('keydown', { key });
+      assert.deepEqual(board.scene, expected);
+    }
+    renderer.destroy();
+  }
+});

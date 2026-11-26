@@ -5,13 +5,15 @@
   const config = typeof module === 'object' && module.exports ? require('./config.js') : root.Hikari.config;
   const C = config.explain;
   const DRAW_KINDS = Object.freeze(['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
-    'ray', 'angle', 'point', 'handles', 'controls']);
-  const ELEMENTS = ['source', 'blocker', 'screen', 'object', 'eye', 'mirror', 'boundary', 'lens'];
+    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label']);
+  const ELEMENTS = ['source', 'blocker', 'screen', 'object', 'eye', 'mirror', 'boundary', 'lens',
+    'tuning-fork', 'string', 'bridge', 'firework', 'listener'];
   const ARGS = {
     el: ELEMENTS,
     ray: ['edge', 'incident', 'reflected', 'refracted', 'to-mirror', 'to-eye', 'extension',
-      'to-lens', 'to-focus', 'beyond-focus', 'ray1', 'ray2', 'ray3'],
-    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls'],
+      'to-lens', 'to-focus', 'beyond-focus', 'ray1', 'ray2', 'ray3', 'light'],
+    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance'],
+    label: ['frequency', 'time', 'speed'],
   };
 
   function parseDraw(token) {
@@ -22,7 +24,7 @@
     return arg === undefined ? { kind, arg: null } : null;
   }
 
-  // ref.source は elements / rays / marks / angles / images / handles / options。
+  // ref.source は elements / rays / marks / angles / images / handles / options / sound。
   // id・key・index、または elementId と handle で相手を選ぶ。
   // part は形の部分（body / normal / axis / dot / shadow / highlight）、field は文字の項目。
   function resolve(token, scene, traceResult, handles) {
@@ -32,10 +34,44 @@
     const elements = scene?.elements || [], result = traceResult || {}, knobs = handles || [];
     const marks = result.marks || [], angles = result.angles || [], images = result.images || [];
     const focus = marks.filter(m => m.key === 'focus-left' || m.key === 'focus-right');
-    const options = scene?.kind === 'refract' && scene.options ? ['direction', 'medium'] : [];
+    const options = scene?.options ? scene.kind === 'refract' ? ['direction', 'medium'] :
+      scene.kind === 'sound-string' ? ['thickness', 'tension'] : [] : [];
     const add = (type, ref) => items.push({ type, ref });
     const markText = m => add('text', { source: 'marks', key: m.key, field: 'text' });
     const handleRef = h => ({ source: 'handles', elementId: h.elementId, handle: h.handle });
+
+    if (result.sound) {
+      const shapes = result.sound;
+      const shape = (key, type = 'element', part) => {
+        if (shapes[key]) add(type, { source: 'sound', key, ...(part ? { part } : {}) });
+      };
+      const label = key => marks.filter(m => m.key === key).forEach(markText);
+      if (kind === 'el') {
+        const keys = { 'tuning-fork': ['fork'], string: ['box', 'string'], bridge: ['bridge'],
+          firework: ['firework'], listener: ['ground', 'listener'] };
+        if (Object.hasOwn(keys, arg)) {
+          keys[arg].forEach(key => shape(key));
+          label(arg);
+          return { kind, arg, items };
+        }
+      }
+      const keys = { grid: 'grid', wave: 'wave', amplitude: 'amplitude', period: 'period',
+        vibration: 'vibration', distance: 'distanceArrow' };
+      if (Object.hasOwn(keys, kind)) {
+        shape(keys[kind], kind === 'grid' ? 'element' : 'line');
+        label(kind);
+        return { kind, arg, items };
+      }
+      if (kind === 'sound-waves') {
+        (shapes.waves || []).forEach((wave, index) => add('arc', { source: 'sound', key: 'waves', index }));
+        return { kind, arg, items };
+      }
+      if (kind === 'label') { label(arg); return { kind, arg, items }; }
+      if (kind === 'point' && ['tuning-fork', 'wave', 'bridge', 'distance'].includes(arg)) {
+        shape(arg === 'tuning-fork' ? 'fork' : arg === 'distance' ? 'distanceArrow' : arg, 'point', 'highlight');
+        return { kind, arg, items };
+      }
+    }
 
     if (kind === 'el') {
       for (const e of elements.filter(e => e.type === arg)) {
@@ -134,7 +170,8 @@
         for (const item of resolved.items) {
           if (item.type === 'text') item.key = item.ref.field !== 'valueDeg' && terms.has(itemText(item, traceResult, handles));
           const previous = groups[groups.length - 1];
-          if (previous && previous[0].type === item.type && previous[0].ref.field === item.ref.field) previous.push(item);
+          if (previous && previous[0].type === item.type && previous[0].ref.field === item.ref.field &&
+              !(item.ref.source === 'sound' && item.ref.key === 'waves')) previous.push(item);
           else groups.push([item]);
         }
         if (!groups.length) groups.push([]);
@@ -153,7 +190,9 @@
         part.duration *= stretch / rate;
         drawDuration += part.duration;
       }
-      const duration = Math.max(drawDuration, voice / rate) + C.gapMs / rate;
+      const reading = Array.isArray(options.readMs) && options.readMs.length === steps.length &&
+        Number.isFinite(options.readMs[index]) && options.readMs[index] >= 0 ? options.readMs[index] : 0;
+      const duration = Math.max(drawDuration, voice / rate, reading / rate) + C.gapMs / rate;
       const entry = { index, start: total, drawDuration, duration, parts };
       total += duration;
       return entry;
@@ -193,7 +232,11 @@
 
   function backTarget(stepIndex) { return Math.max(0, position(stepIndex, Number.MAX_SAFE_INTEGER) - 1); }
 
-  const api = { DRAW_KINDS, parseDraw, resolve, clipSeconds, buildTimeline, stateAt, finalState, nextTarget, backTarget };
+  function readMs(text) {
+    return Math.max(C.readMinMs, (typeof text === 'string' ? Array.from(text).length : 0) * C.readCharMs);
+  }
+
+  const api = { DRAW_KINDS, parseDraw, resolve, clipSeconds, readMs, buildTimeline, stateAt, finalState, nextTarget, backTarget };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hikari = Object.assign(root.Hikari || {}, { explain: api });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

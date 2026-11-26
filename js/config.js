@@ -18,10 +18,30 @@
     singleColumnWidthPx: 900,
     angleNamesWidthPx: 360,
     boardParamMaxLength: 40,
+    sound: Object.freeze({
+      speed: 340, windowSec: .01, cells: 10, cellSec: .001,
+      frequency: Object.freeze({ min: 100, max: 1000, step: 50, initial: 250 }),
+      amplitude: Object.freeze({ min: 1, max: 4, step: 1, initial: 2 }),
+      string: Object.freeze({
+        length: Object.freeze({ min: 50, max: 100, step: 5, initial: 80 }),
+        pluck: Object.freeze({ min: 1, max: 4, step: 1, initial: 2 }),
+        base: 200, weight: Object.freeze({ thin: 1, thick: 4 }), tension: Object.freeze({ weak: 1, strong: 2 }),
+        initial: Object.freeze({ thickness: 'thin', tension: 'weak' }),
+      }),
+      distance: Object.freeze({ min: 170, max: 1700, step: 34, initial: 680 }),
+      layout: Object.freeze({
+        wave: Object.freeze({ x: 130, width: 440, axisY: 210, cellH: 40, amplitudeCol: 9, forkX: 60 }),
+        string: Object.freeze({ x: 80, width: 440, axisY: 290, cellH: 25,
+          boxX: 60, boxY: 90, boxWidth: 480, boxHeight: 50, stringY: 90, pluckPx: 12 }),
+        speed: Object.freeze({ groundY: 360, fireworkX: 70, fireworkY: 80,
+          listenerMinX: 128, listenerMaxX: 560, earY: 300, eyeY: 294, handleY: 330, arrowOffset: 24 }),
+      }),
+    }),
     explain: Object.freeze({
       elementMs: 350, lineMs: 800, textCharMs: 90, textMinMs: 300, textFadeMs: 400, arcMs: 600, pointMs: 600,
       penSizePx: 36, penTransferMs: 150, penFadeMs: 200, penMaxDeltaMs: 1000,
       gapMs: 1500, stretchRatio: .8, voiceCharMs: 180, voiceExtraMs: 1000, voiceWaitMs: 4000,
+      readCharMs: 150, readMinMs: 2500,
       rates: Object.freeze([.5, .75, 1, 1.25, 1.5, 1.75, 2]), defaultRate: 1, maxTextLength: 75,
     }),
     motion: Object.freeze({

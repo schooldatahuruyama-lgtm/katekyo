@@ -118,7 +118,8 @@ test('Service Worker は http(s) だけで登録し、利用不可でも続け�
 
 test('説明用JSと先生6体を事前保存し、音声は事前保存しない。依存は描画・アプリより先に読む', () => {
   const html = read('index.html'), cache = Array.from(worker().value('PRECACHE'));
-  const dependencies = ['content/scripts-light.js', 'content/voice-light.js', 'js/explain.js', 'js/prefs.js', 'js/voice.js'];
+  const dependencies = ['js/sound.js', 'content/scripts-light.js', 'content/scripts-sound.js',
+    'content/voice-light.js', 'content/voice-sound.js', 'js/explain.js', 'js/prefs.js', 'js/voice.js'];
   for (const file of dependencies) {
     assert.ok(cache.includes(file), file);
     assert.ok(html.indexOf(file) > html.indexOf('js/config.js'));
@@ -128,6 +129,32 @@ test('説明用JSと先生6体を事前保存し、音声は事前保存しな�
   for (const id of 'ABCDEF') assert.ok(cache.includes('assets/mascots/mascot_' + id + '.svg'));
   assert.ok(cache.every(file => !file.startsWith('assets/audio/')));
   assert.equal(worker().value('AUDIO_CACHE'), 'hikari-board-audio-v1');
+});
+
+test('HTML の順で全 JS を読むと音の3盤・台本・音声を利用できる', () => {
+  const context = vm.createContext({ URL });
+  for (const [, file] of read('index.html').matchAll(/<script defer src="([^"]+)"/g)) vm.runInContext(read(file), context);
+  for (const id of ['sound-wave', 'sound-string', 'sound-speed']) {
+    assert.equal(context.Hikari.scene.trace(context.Hikari.boards.get(id).scene).sound.kind, id);
+    assert.equal(context.Hikari.scriptsSound.BOARDS[id].length, 9);
+    assert.equal(context.Hikari.voiceDataSound.CLIPS[id].E.length, 9);
+  }
+  assert.equal(context.Hikari.voiceDataSound.BASE, 'assets/audio/sound/');
+});
+
+test('音の音声も専用キャッシュに保存し、保存済みなら通信しない', async () => {
+  const asset = { status: 200, clone() { return this; } }, saved = new Map();
+  let calls = 0;
+  const sw = worker({ caches: { open: async name => {
+    assert.equal(name, 'hikari-board-audio-v1');
+    return { match: async request => saved.get(request.url), put: async (request, response) => saved.set(request.url, response), keys: async () => [] };
+  } }, fetch: async () => { calls++; return asset; } });
+  const request = { url: 'https://example.test/app/assets/audio/sound/sound-wave/E/01.mp3?h=123456789abc', method: 'GET' };
+  for (let i = 0; i < 2; i++) {
+    let response; sw.handlers.fetch({ request, respondWith: promise => { response = promise; } });
+    assert.equal(await response, asset);
+  }
+  assert.equal(calls, 1); assert.equal(saved.size, 1);
 });
 
 test('音声専用キャッシュを先に見て、通信せず返す', async () => {

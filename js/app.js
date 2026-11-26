@@ -10,6 +10,9 @@
   const boardView = node ? require('./board-view.js') : root.Hikari.boardView;
   const scripts = node ? require('../content/scripts-light.js') : root.Hikari.scripts;
   const voiceData = node ? require('../content/voice-light.js') : root.Hikari.voiceData;
+  const scriptsSound = node ? require('../content/scripts-sound.js') : root.Hikari.scriptsSound;
+  const voiceDataSound = node ? require('../content/voice-sound.js') : root.Hikari.voiceDataSound;
+  const content = { light: { scripts, voiceData }, sound: { scripts: scriptsSound, voiceData: voiceDataSound } };
   const explain = node ? require('./explain.js') : root.Hikari.explain;
   const prefs = node ? require('./prefs.js') : root.Hikari.prefs;
   const voice = node ? require('./voice.js') : root.Hikari.voice;
@@ -22,6 +25,9 @@
     refract: 'オレンジの丸（光源）は指で動かせるよ。下の切り替えもためそう。',
     lens: 'オレンジの丸で光源の高さを、白い丸で焦点距離を変えられるよ。',
     'lens-image': '白い丸で物体やスクリーンを左右に動かせるよ。',
+    'sound-wave': '白い丸で、振幅（上下）と振動数（左右）を変えられるよ。',
+    'sound-string': '白い丸で、ことじとはじく強さを動かせるよ。下の切り替えもためそう。',
+    'sound-speed': '白い丸で、見る人の位置を変えられるよ。',
   };
 
   function registerWorker(win) {
@@ -44,6 +50,8 @@
     let storage;
     try { storage = win.localStorage; } catch (_) { /* 保存できなくても、その場で使える。 */ }
     const settings = prefs.load(storage, scripts.TEACHERS.map(teacher => teacher.id), scripts.DEFAULT_TEACHER);
+    let chosenTeacher = false;
+    try { chosenTeacher = scripts.TEACHERS.some(t => t.id === JSON.parse(storage.getItem(prefs.KEY))?.teacher); } catch (_) { /* 初めての端末。 */ }
     const save = () => prefs.save(storage, settings);
     function element(tag, className, text, parent) {
       const el = doc.createElement(tag);
@@ -91,20 +99,25 @@
       const main = element('section', 'home', undefined, frame);
       heading = element('h1', 'hero', 'つまずいたら、', main); heading.tabIndex = -1;
       element('span', 'mark', '動かして確かめよう。', heading);
-      element('p', 'lead', '光源・鏡・レンズを指で動かすと、光の道すじがその場で変わります。', main);
+      element('p', 'lead', '盤の上の部品を指で動かすと、図や値がその場で変わります。', main);
       if (error) element('p', 'notice', '指定された盤が見つかりませんでした', main).setAttribute('role', 'status');
-      const list = element('section', 'list', undefined, main);
-      element('h2', '', '中 1 光の世界 ― ボードをえらぶ', list);
-      all.forEach(board => {
-        const row = button('row', undefined, list, () => navigate(board.id));
-        element('span', 'name', board.title, row);
-        element('span', 'question', board.question, row);
-        element('span', 'arrow', '→', row).setAttribute('aria-hidden', 'true');
+      boards.units().forEach(unit => {
+        const list = element('section', 'list', undefined, main);
+        element('h2', '', unit.title + ' ― ボードをえらぶ', list);
+        all.filter(board => board.unit === unit.id).forEach(board => {
+          const row = button('row', undefined, list, () => navigate(board.id));
+          element('span', 'name', board.title, row);
+          element('span', 'question', board.question, row);
+          element('span', 'arrow', '→', row).setAttribute('aria-hidden', 'true');
+        });
       });
       element('p', 'foot', '一度開けば、通信がなくても使えます。', main);
       element('p', 'foot', credit, main);
     }
     function openBoard(frame, board) {
+      const unit = boards.units().find(unit => unit.id === all.find(item => item.id === board.id).unit);
+      const { scripts, voiceData } = content[unit.id];
+      if (!chosenTeacher) settings.teacher = unit.teacher;
       const completed = new Set(), promptNodes = new Map(), controlNodes = new Map();
       const steps = scripts.BOARDS[board.id];
       let mode = scene.validateScene(board.scene).length ? 'invalid' : 'start';
@@ -136,6 +149,7 @@
       const face = element('img', '', undefined, speech); face.width = 48; face.height = 48;
       const speechText = element('p', '', '', speech);
       const stage = element('div', 'board-stage', undefined, paper);
+      if (board.id === 'sound-speed') element('p', 'legend', '点線（‥‥）＝ 光（すぐに届く）／ 破線（－ －）＝ 音の波', paper);
       const cap = element('div', 'cap', undefined, paper);
       const readout = element('div', 'readout', undefined, cap);
       const instruction = element('span', '', instructions[board.id], cap);
@@ -206,15 +220,16 @@
         const fraction = old ? Math.min(1, elapsed / old) : 0, rest = Math.max(0, elapsed - old);
         // 時計は1倍の時間を持ち、速さを掛けた経過を足す。速さを変えても進み具合は変わらない。
         timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
-          rate: 1, ...(settings.voice ? { clipSeconds: steps.map((_, index) => stepSeconds(index)) } : {}),
+          rate: 1, ...(settings.voice ? { clipSeconds: steps.map((_, index) => stepSeconds(index)) } :
+            { readMs: steps.map(step => explain.readMs(step.lines[settings.teacher])) }),
         });
         if (reduced) {
           let total = 0;
-          timeline.steps.forEach(step => {
+          timeline.steps.forEach((step, index) => {
             const voiceDuration = step.duration - config.explain.gapMs;
             step.parts.forEach((part, index) => { part.start = index; part.duration = 1; });
             step.drawDuration = step.parts.length;
-            step.duration = Math.max(step.drawDuration, settings.voice ? voiceDuration : 0) + config.explain.gapMs;
+            step.duration = Math.max(step.drawDuration, settings.voice ? voiceDuration : explain.readMs(steps[index].lines[settings.teacher])) + config.explain.gapMs;
             step.start = total; total += step.duration;
           });
           timeline.total = total;
@@ -245,7 +260,8 @@
         if (disposed || mode !== 'explain' || paused) return;
         syncTime();
         const state = updateDrawing();
-        if (state.stepDone && voiceDone && elapsed >= Math.max(timeline.steps[stepIndex].drawDuration, voiceEndTime) + config.explain.gapMs) {
+        const reading = settings.voice ? 0 : explain.readMs(steps[stepIndex].lines[settings.teacher]);
+        if (state.stepDone && voiceDone && elapsed >= Math.max(timeline.steps[stepIndex].drawDuration, voiceEndTime, reading) + config.explain.gapMs) {
           if (stepIndex + 1 === steps.length) explore(); else enterStep(stepIndex + 1);
         }
         schedule();
@@ -336,7 +352,7 @@
         if (mode !== 'start') return;
         const changed = settings.teacher !== id;
         if (changed) cancelSoundWait();
-        settings.teacher = id; save();
+        settings.teacher = id; chosenTeacher = true; save();
         const teacher = scripts.TEACHERS.find(teacher => teacher.id === id);
         teacherNodes.forEach((choice, index) => {
           const checked = scripts.TEACHERS[index].id === id;
@@ -424,7 +440,9 @@
       };
       function updateReadoutVisibility() {
         const angleStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
-        const hidden = invalidScene || mode === 'start' || (mode === 'explain' && stepIndex < (angleStep < 0 ? steps.length - 1 : angleStep));
+        const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
+        const first = angleStep >= 0 ? angleStep : labelStep >= 0 ? labelStep : steps.length - 1;
+        const hidden = invalidScene || mode === 'start' || (mode === 'explain' && stepIndex < first);
         if (readout.hidden !== hidden) readout.hidden = hidden;
       }
       // 初回も操作・サイズ変更のたびも、表示や判定に先立って検査する。
@@ -461,7 +479,8 @@
         if (!controlNodes.size) currentControls.forEach(control => {
           const group = element('div', 'seg', undefined, controls);
           group.setAttribute('role', 'group');
-          group.setAttribute('aria-label', control.key === 'direction' ? '光の進む向き' : '物質');
+          group.setAttribute('aria-label', { direction: '光の進む向き', medium: '物質', thickness: '弦の太さ', tension: '弦の張り' }[control.key]);
+          if (board.id === 'sound-string') element('span', 'seg-name', group.getAttribute('aria-label'), group);
           control.choices.forEach(choice => {
             const el = button('', choice.label, group, () => view.setScene(scene.setOption(board.scene, control.key, choice.value)));
             controlNodes.set(control.key + ':' + choice.value, el);
@@ -469,8 +488,9 @@
         });
         currentControls.forEach(control => control.choices.forEach(choice => {
           const el = controlNodes.get(control.key + ':' + choice.value);
-          el.textContent = choice.label;
-          el.setAttribute('aria-pressed', String(board.scene.options[control.key] === choice.value));
+          const selected = board.scene.options[control.key] === choice.value;
+          el.textContent = (board.id === 'sound-string' && selected ? '✓ ' : '') + choice.label;
+          el.setAttribute('aria-pressed', String(selected));
         }));
       }
       if (mode === 'start') buildTimeline();

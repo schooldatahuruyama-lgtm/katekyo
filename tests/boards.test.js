@@ -9,6 +9,15 @@ const boards = require('../js/boards.js');
 const scene = require('../js/scene.js');
 
 const solutions = {
+  'sound-wave': [s => scene.moveElement(s, 'wave', 'amplitude', { x: 526, y: 50 }),
+    s => scene.moveElement(s, 'wave', 'frequency', { x: 218, y: 210 }),
+    s => scene.moveElement(s, 'wave', 'frequency', { x: 570, y: 210 })],
+  'sound-string': [s => scene.moveElement(s, 'string', 'bridge', { x: 300, y: 90 }),
+    s => scene.setOption(s, 'thickness', 'thick'),
+    s => scene.moveElement(s, 'string', 'pluck', { x: 256, y: 42 })],
+  'sound-speed': [s => scene.moveElement(s, 'listener', 'move', { x: 128, y: 330 }),
+    s => scene.moveElement(s, 'listener', 'move', { x: 176, y: 330 }),
+    s => scene.moveElement(s, 'listener', 'move', { x: 560, y: 330 })],
   straight: [s => scene.moveElement(s, 'blocker', 'move', { x: 200, y: 210 }),
     s => scene.moveElement(s, 'blocker', 'move', { x: 400, y: 210 })],
   reflect: [s => scene.moveElement(s, 'src', 'move', { x: 300 - 100 * Math.sqrt(3), y: 170 }),
@@ -27,14 +36,88 @@ const solutions = {
 };
 
 test('6 種類が指定の順序・名前・問いかけでそろう', () => {
-  const all = boards.list();
-  assert.deepEqual(all.map(b => b.id), scene.KINDS);
+  const all = boards.list().filter(board => board.unit === 'light');
+  assert.deepEqual(all.map(b => b.id), scene.KINDS.slice(0, 6));
   assert.deepEqual(all.map(b => b.title), ['直進', '反射', '鏡の像', '屈折・全反射', '凸レンズ', '実像と虚像']);
   assert.deepEqual(all.map(b => b.question), [
     '光はどう進む？ 影はなぜできる？', '鏡ではね返る光のきまりは？',
     '鏡の奥に見えるものは、どこにある？', '水に入ると、光はなぜ曲がる？ 出られなくなるのはいつ？',
     '虫めがねは、なぜ光を集める？', 'スクリーンに映る像と、映らない像のちがいは？',
   ]);
+});
+
+test('単元の順・盤の重複・空の単元・list との一致と独立した写し', () => {
+  const units = boards.units(), all = boards.list();
+  assert.deepEqual(units.map(u => u.id), ['light', 'sound']);
+  assert.deepEqual(units.map(u => u.title), ['中 1 光の世界', '中 1 音の世界']);
+  assert.ok(units.every(u => u.teacher === 'E' && !Object.hasOwn(u, 'voice') && u.boards.length > 0));
+  assert.equal(new Set(all.map(b => b.id)).size, all.length);
+  assert.deepEqual(all.map(b => b.id), scene.KINDS);
+  assert.deepEqual(units.flatMap(u => u.boards.map(b => ({ ...b, unit: u.id }))), all);
+  units[0].boards[0].title = '変更'; units[1].boards.pop();
+  assert.equal(boards.units()[0].boards[0].title, '直進');
+  assert.equal(boards.units()[1].boards.length, 3);
+
+  // 定義に空の単元があっても返さない。公開する API は増やさない。
+  const source = fs.readFileSync(path.join(__dirname, '..', 'js', 'boards.js'), 'utf8');
+  const context = { Hikari: { config: require('../js/config.js'), scene } };
+  vm.runInNewContext(source.replace('const UNITS = [', "const UNITS = [{ id: 'empty', title: 'empty', teacher: 'E', boards: [] },"), context);
+  assert.ok(context.Hikari.boards.units().every(u => u.id !== 'empty'));
+  vm.runInNewContext(source.replace('const api = { units,', 'const api = { data, UNITS, units,'), context);
+  const definitions = context.Hikari.boards.data.map(b => b.id);
+  assert.equal(new Set(definitions).size, definitions.length);
+  assert.deepEqual(Array.from(definitions), all.map(b => b.id));
+  for (const unit of context.Hikari.boards.UNITS) assert.ok(unit.boards.length > 0);
+});
+
+test('音の盤の見出し・問いかけ・切り替え・初期値', () => {
+  assert.deepEqual(boards.list().filter(b => b.unit === 'sound').map(b => [b.title, b.question]), [
+    ['音の大きさと高さ', '大きい音と高い音は、波の形のどこがちがう？'],
+    ['弦の音', '弦をどうすると、音は高くなる？'], ['音の速さ', '花火は、なぜ光ってから音が聞こえる？'],
+  ]);
+  const board = boards.get('sound-string'), C = require('../js/config.js').sound;
+  assert.deepEqual(board.scene.options, C.string.initial);
+  assert.equal(board.scene.elements[0].lengthPercent, C.string.length.initial);
+  assert.equal(board.scene.elements[0].pluck, C.string.pluck.initial);
+  assert.deepEqual(board.controls.map(c => [c.key, c.label, c.choices.map(v => v.label)]), [
+    ['thickness', '弦の太さ', ['細い', '太い']], ['tension', '弦の張り', ['弱い', '強い']],
+  ]);
+  for (const options of [undefined, null, [], {}, { thickness: 'bad', tension: 'weak' }]) {
+    board.scene.options = options; assert.deepEqual(board.controls, []);
+    assert.deepEqual(boards.readout(board.id, { pitch: 'higher' }, board.scene), []);
+    assert.equal(boards.checkPrompt(board.prompts[0], { pitch: 'higher' }, board.scene), false);
+  }
+});
+
+test('音の全操作値で、読み出しと課題の判定が一致する', () => {
+  function check(id, current, expected, achieved) {
+    const board = boards.get(id), result = scene.trace(current);
+    assert.deepEqual(boards.readout(id, result.measures, current).map(line => line.text), expected);
+    assert.deepEqual(board.prompts.map(p => p.when.op), ['is', 'is', 'is']);
+    assert.deepEqual(board.prompts.map(p => boards.checkPrompt(p, result.measures, current)), achieved);
+  }
+  for (let hz = 100; hz <= 1000; hz += 50) for (let amp = 1; amp <= 4; amp++) {
+    const s = boards.get('sound-wave').scene; Object.assign(s.elements[1], { frequencyHz: hz, amplitude: amp });
+    check('sound-wave', s, ['振動数 ' + hz + ' Hz', '振幅 目もり ' + amp + ' つ分'], [amp === 4, hz === 500, hz === 100]);
+  }
+  for (const thickness of ['thin', 'thick']) for (const tension of ['weak', 'strong']) {
+    for (let length = 50; length <= 100; length += 5) for (let pluck = 1; pluck <= 4; pluck++) {
+      const s = boards.get('sound-string').scene;
+      s.options = { thickness, tension }; Object.assign(s.elements[0], { lengthPercent: length, pluck });
+      const frequency = 200 * 100 / length * Math.sqrt(tension === 'strong' ? 2 : 1) / (thickness === 'thick' ? 2 : 1);
+      check('sound-string', s, ['音の高さ ' + (frequency === 250 ? 'はじめと同じ' : frequency > 250 ? 'はじめより高い' : 'はじめより低い'),
+        '音の大きさ ' + (pluck === 2 ? 'はじめと同じ' : pluck > 2 ? 'はじめより大きい' : 'はじめより小さい')],
+      [frequency > 250, thickness === 'thick', pluck > 2]);
+    }
+  }
+  for (let distance = 170; distance <= 1700; distance += 34) {
+    const s = boards.get('sound-speed').scene; s.elements[1].distance = distance;
+    const time = (distance / 34 / 10).toFixed(1);
+    check('sound-speed', s, ['花火まで ' + distance + ' m', '聞こえるまで ' + time + ' 秒', '音の速さ 約 340 m/s'],
+      [distance === 170, distance === 340, distance === 1700]);
+    const labels = scene.trace(s).sound.labels;
+    assert.equal(labels.distance.text, distance + ' m'); assert.equal(labels.time.text, time + ' 秒後に聞こえる');
+  }
 });
 
 for (const id of Object.keys(solutions)) {
@@ -141,7 +224,7 @@ test('屈折の切り替えは水・ガラスに合わせたラベルになる',
   board.scene = scene.setOption(board.scene, 'medium', 'glass');
   assert.deepEqual(board.controls[0].choices.map(c => c.label), ['空気 → ガラス', 'ガラス → 空気']);
   assert.deepEqual(boards.get('refract').controls[0].choices.map(c => c.label), ['空気 → 水', '水 → 空気']);
-  for (const id of scene.KINDS.filter(id => id !== 'refract')) assert.deepEqual(boards.get(id).controls, []);
+  for (const id of scene.KINDS.filter(id => !['refract', 'sound-string'].includes(id))) assert.deepEqual(boards.get(id).controls, []);
 });
 
 test('表示だけで角度を四捨五入する', () => {
@@ -257,7 +340,7 @@ test('像の倍率が 50 倍以上なら上限の文を出す', () => {
 
 test('DOM なしのブラウザ名前空間でも Node と同じ結果を返す', () => {
   const context = vm.createContext({ URLSearchParams });
-  for (const file of ['config', 'geometry', 'optics', 'scene', 'boards', 'entry']) {
+  for (const file of ['config', 'geometry', 'optics', 'sound', 'scene', 'boards', 'entry']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', file + '.js'), 'utf8'), context);
   }
   assert.deepEqual(JSON.parse(JSON.stringify(context.Hikari.boards.list())), boards.list());

@@ -6,6 +6,7 @@ const scene = require('../js/scene.js');
 const boards = require('../js/boards.js');
 const geometry = require('../js/geometry.js');
 const config = require('../js/config.js');
+const sound = require('../js/sound.js');
 
 function near(a, b, tolerance = 1e-8) { assert.ok(Math.abs(a - b) <= tolerance, `${a} ≈ ${b}`); }
 function part(s, type) { return s.elements.find(e => e.type === type); }
@@ -47,7 +48,7 @@ function inside(result) {
   for (const ray of result.rays) {
     for (const key of ['x1', 'x2']) assert.ok(ray[key] >= 0 && ray[key] <= 600);
     for (const key of ['y1', 'y2']) assert.ok(ray[key] >= 0 && ray[key] <= 420);
-    assert.ok(['solid', 'dashed'].includes(ray.style));
+    assert.ok(['solid', 'dashed', 'dotted'].includes(ray.style));
     assert.equal(typeof ray.arrow, 'boolean');
     assert.equal(typeof ray.role, 'string');
   }
@@ -57,7 +58,8 @@ function valid(s) {
   const result = scene.trace(s);
   finite(result);
   inside(result);
-  assert.ok(result.rays.length > 0);
+  assert.ok(result.rays.length > 0 || result.sound);
+  if (!s.kind.startsWith('sound-')) assert.equal(result.sound, null);
   return result;
 }
 function reject(s) {
@@ -65,9 +67,203 @@ function reject(s) {
   const result = scene.trace(s);
   for (const key of ['rays', 'angles', 'images', 'marks']) assert.deepEqual(result[key], []);
   assert.ok(result.notes.includes('この図は表示できません'));
+  assert.equal(result.sound, null);
   assert.deepEqual(scene.handles(s), []);
   finite(result);
 }
+
+const soundRanges = [
+  ['sound-wave', 'wave', 'frequencyHz', [50, 1050, 1e12, 260]],
+  ['sound-wave', 'wave', 'amplitude', [0, 5, -1, 2.5]],
+  ['sound-string', 'string', 'lengthPercent', [45, 105, 82]],
+  ['sound-string', 'string', 'pluck', [0, 5, 2.5]],
+  ['sound-speed', 'listener', 'distance', [136, 1734, 700]],
+];
+for (const [id, type, key, outside] of soundRanges) {
+  test(`${id}: ${key} の型・範囲・きざみを丸めずに拒む`, () => {
+    for (const value of [...outside, '250', '680', NaN, Infinity, -Infinity, null, [], {}, undefined, true]) {
+      const current = boards.get(id).scene;
+      part(current, type)[key] = value;
+      reject(current);
+      assert.deepEqual(boards.readout(id, scene.trace(current).measures, current), []);
+    }
+  });
+}
+
+for (const id of ['sound-wave', 'sound-string', 'sound-speed']) {
+  test(`${id}: 部品の不足・余分な部品・重複・不正な構造`, () => {
+    const changes = [
+      s => { s.elements = []; }, s => { s.elements = null; }, s => { s.elements = [null]; },
+      s => { s.elements.pop(); }, s => { s.elements.push({ id: 'unknown', type: 'unknown' }); },
+      s => { s.elements.push({ ...s.elements[0] }); }, s => { s.elements[0].x = 60; },
+      s => { s.elements.push({ id: 'extra', type: 'source', x: 40, y: 40 }); },
+    ];
+    if (id !== 'sound-string') changes.push(s => { s.elements[1].id = s.elements[0].id; });
+    for (const change of changes) { const s = boards.get(id).scene; change(s); reject(s); }
+  });
+
+  test(`${id}: つまみの範囲外・最大の座標・NaN と刻みの間`, () => {
+    const s = boards.get(id).scene, before = structuredClone(s);
+    for (const h of scene.handles(s)) {
+      for (const point of [{ x: NaN, y: 100 }, { x: 100, y: NaN }, { x: Infinity, y: 0 }, null]) {
+        assert.equal(scene.moveElement(s, h.elementId, h.handle, point), s);
+      }
+      for (const v of [-Number.MAX_VALUE, -1e12, -100, 37.3, 155.7, 500.1, 1000, 1e12, Number.MAX_VALUE]) {
+        valid(scene.moveElement(s, h.elementId, h.handle, { x: v, y: v }));
+      }
+    }
+    assert.deepEqual(s, before);
+  });
+}
+
+test('音のつまみははしで止まり、位置が近い刻みに乗る', () => {
+  const wave = boards.get('sound-wave').scene, string = boards.get('sound-string').scene, speed = boards.get('sound-speed').scene;
+  for (const [y, amplitude] of [[-1e12, 4], [1e12, 1], [115, 2], [105, 3]]) {
+    assert.equal(part(scene.moveElement(wave, 'wave', 'amplitude', { x: 0, y }), 'wave').amplitude, amplitude);
+  }
+  for (const [x, length] of [[-1e12, 50], [1e12, 100], [440, 80], [448, 85]]) {
+    assert.equal(part(scene.moveElement(string, 'string', 'bridge', { x, y: 0 }), 'string').lengthPercent, length);
+  }
+  for (const [y, pluck] of [[-1e12, 4], [1e12, 1], [61, 2], [59, 3]]) {
+    assert.equal(part(scene.moveElement(string, 'string', 'pluck', { x: 0, y }), 'string').pluck, pluck);
+  }
+  for (const [x, distance] of [[-1e12, 170], [1e12, 1700], [132, 170], [134, 204]]) {
+    assert.equal(part(scene.moveElement(speed, 'listener', 'move', { x, y: 0 }), 'listener').distance, distance);
+  }
+  const hzValues = Array.from({ length: 19 }, (_, i) => 100 + 50 * i);
+  for (let x = 100; x <= 600; x += 1.7) {
+    const nearest = hzValues.reduce((a, b) => Math.abs(130 + 44000 / a - x) <= Math.abs(130 + 44000 / b - x) ? a : b);
+    assert.equal(part(scene.moveElement(wave, 'wave', 'frequency', { x, y: 210 }), 'wave').frequencyHz, nearest);
+  }
+});
+
+function soundPointInside(p) {
+  assert.ok(p.x >= -1e-8 && p.x <= 600 + 1e-8, JSON.stringify(p));
+  assert.ok(p.y >= -1e-8 && p.y <= 420 + 1e-8, JSON.stringify(p));
+}
+function checkWave(result, frequency, amplitude) {
+  const { grid, wave } = result.sound;
+  near(wave.points[0].x, grid.x); near(wave.points.at(-1).x, grid.x + grid.width);
+  near(Math.min(...wave.points.map(p => p.y)), grid.axisY - amplitude * grid.cellH, .5);
+  near(Math.max(...wave.points.map(p => p.y)), grid.axisY + amplitude * grid.cellH, .5);
+  for (const [i, p] of wave.points.entries()) {
+    soundPointInside(p);
+    near(p.y, grid.axisY - amplitude * grid.cellH * Math.sin(2 * Math.PI * frequency * (p.x - grid.x) / grid.width * .01));
+    if (i) assert.ok(p.x >= wave.points[i - 1].x && p.x - wave.points[i - 1].x <= 2 + 1e-8);
+  }
+  const count = result.measures.cycles;
+  // 左はしを含み右はしを除く上向きの横切りは、端の半周期も含め ceil(cycles) 回。
+  const signs = wave.points.map(p => Math.abs(p.y - grid.axisY) < 1e-8 ? 0 : Math.sign(grid.axisY - p.y));
+  let crossings = 0, previous = 0;
+  for (const sign of signs) if (sign) { if (sign > 0 && previous <= 0) crossings++; previous = sign; }
+  assert.equal(crossings, Math.ceil(count));
+  for (let quarter = 1; quarter <= count * 4; quarter += 2) {
+    assert.ok(wave.points.some(p => Math.abs(p.x - (grid.x + quarter / (4 * count) * grid.width)) < 1e-8));
+  }
+}
+
+test('振動数19通り × 振幅4通りの波・矢印・つまみが値と一致する', () => {
+  for (let hz = 100; hz <= 1000; hz += 50) for (let amp = 1; amp <= 4; amp++) {
+    const s = boards.get('sound-wave').scene;
+    Object.assign(part(s, 'wave'), { frequencyHz: hz, amplitude: amp });
+    const result = valid(s), [a, f] = scene.handles(s), shape = result.sound;
+    [a, f].forEach(soundPointInside);
+    assert.ok(Math.hypot(a.x - f.x, a.y - f.y) >= 40);
+    assert.equal(a.x, 526); near(f.x, 130 + 44000 / hz);
+    assert.deepEqual(result.measures, { frequencyHz: hz, amplitude: amp, cycles: hz * .01, periodSec: 1 / hz });
+    checkWave(result, hz, amp);
+    near(shape.amplitude.to.x, 130 + 11000 / hz);
+    near(shape.amplitude.from.y, 210); near(shape.amplitude.to.y, 210 - amp * 40);
+    assert.deepEqual(shape.amplitude.guide.to, { x: a.x, y: a.y });
+    assert.deepEqual(shape.amplitude.guide.from, shape.amplitude.to);
+    near(shape.period.to.x - shape.period.from.x, 44000 / hz);
+    near(shape.period.from.x, hz === 100 ? 130 : shape.amplitude.to.x);
+    [shape.period.from, shape.period.to, ...Object.values(shape.labels)].forEach(soundPointInside);
+  }
+  for (const hz of [100, 1000]) for (const amp of [1, 4]) {
+    const s = boards.get('sound-wave').scene; part(s, 'wave').frequencyHz = hz;
+    const moved = scene.moveElement(s, 'wave', 'amplitude', { x: 526, y: 210 - amp * 40 });
+    assert.equal(valid(moved).measures.amplitude, amp);
+  }
+});
+
+test('弦4通り × 長さ11通り × 強さ4通りが盤に収まり、高さ・大きさが法則と合う', () => {
+  for (const thickness of ['thin', 'thick']) for (const tension of ['weak', 'strong']) {
+    for (let length = 50; length <= 100; length += 5) for (let pluck = 1; pluck <= 4; pluck++) {
+      const s = boards.get('sound-string').scene;
+      s.options = { thickness, tension }; Object.assign(part(s, 'string'), { lengthPercent: length, pluck });
+      const result = valid(s), shape = result.sound, m = result.measures;
+      const hz = sound.stringFrequency(length, thickness, tension);
+      assert.equal(m.pitch, sound.compare(hz, 250));
+      assert.equal(m.loudness, { higher: 'louder', same: 'same', lower: 'softer' }[sound.compare(pluck, 2)]);
+      assert.deepEqual(Object.keys(m), ['pitch', 'loudness', 'thickness', 'tension', 'lengthPercent', 'pluck', 'cycles']);
+      assert.ok(m.cycles >= 1 && m.cycles <= 10);
+      checkWave(result, hz, pluck);
+      near(shape.bridge.x, 80 + 440 * length / 100);
+      assert.equal(shape.string.thick, thickness === 'thick');
+      assert.equal(shape.vibration.heightPx, 12 * pluck);
+      assert.deepEqual(shape.vibration.to, shape.bridge);
+      [shape.string.from, shape.string.to, shape.bridge, shape.box,
+        { x: shape.box.x + shape.box.width, y: shape.box.y + shape.box.height },
+        { x: shape.string.from.x, y: 90 - shape.vibration.heightPx },
+        { x: shape.bridge.x, y: 90 + shape.vibration.heightPx },
+        ...scene.handles(s), ...Object.values(shape.labels)].forEach(soundPointInside);
+    }
+  }
+  const m = valid(boards.get('sound-string').scene).measures;
+  assert.equal(m.pitch, 'same'); assert.equal(m.loudness, 'same');
+});
+
+test('距離46通りで弧が耳を通り、斜めの距離・時間と文字の座標が正しい', () => {
+  for (let distance = 170; distance <= 1700; distance += 34) {
+    const s = boards.get('sound-speed').scene; part(s, 'listener').distance = distance;
+    const result = valid(s), shape = result.sound, m = result.measures, { firework, listener, distanceArrow } = shape;
+    assert.equal(m.delayTenths, distance / 34); assert.ok(Number.isInteger(m.delayTenths));
+    assert.equal(m.delaySec, m.delayTenths / 10); assert.equal(m.speed, 340);
+    assert.equal(shape.labels.time.text, (m.delayTenths / 10).toFixed(1) + ' 秒後に聞こえる');
+    assert.equal(shape.labels.distance.text, distance + ' m');
+    assert.notEqual(distanceArrow.from.y, distanceArrow.to.y);
+    near(Math.hypot(distanceArrow.from.x - firework.x, distanceArrow.from.y - firework.y), config.sound.layout.speed.arrowOffset);
+    near(Math.hypot(distanceArrow.to.x - listener.ear.x, distanceArrow.to.y - listener.ear.y), config.sound.layout.speed.arrowOffset);
+    near(distanceArrow.to.x - distanceArrow.from.x, listener.ear.x - firework.x);
+    near(distanceArrow.to.y - distanceArrow.from.y, listener.ear.y - firework.y);
+    assert.equal(result.rays.length, 1); assert.equal(result.rays[0].role, 'light'); assert.equal(result.rays[0].style, 'dotted');
+    near(result.rays[0].x1, firework.x); near(result.rays[0].y1, firework.y);
+    near(result.rays[0].x2, listener.eye.x); near(result.rays[0].y2, listener.eye.y);
+    assert.ok(distanceArrow.from.y < firework.y && distanceArrow.to.y < listener.eye.y);
+    const last = shape.waves.at(-1), direction = Math.atan2(listener.ear.y - firework.y, listener.ear.x - firework.x) * 180 / Math.PI;
+    near(last.r, Math.hypot(listener.ear.x - firework.x, listener.ear.y - firework.y));
+    assert.ok(direction >= last.startDeg && direction <= last.endDeg);
+    shape.waves.forEach((arc, index) => {
+      if (index) assert.ok(arc.r > shape.waves[index - 1].r);
+      for (let i = 0; i <= 100; i++) {
+        const angle = (arc.startDeg + (arc.endDeg - arc.startDeg) * i / 100) * Math.PI / 180;
+        soundPointInside({ x: arc.cx + arc.r * Math.cos(angle), y: arc.cy + arc.r * Math.sin(angle) });
+      }
+    });
+    [firework, listener.ear, listener.eye, { x: listener.x, y: listener.feetY },
+      distanceArrow.from, distanceArrow.to, ...Object.values(shape.labels), ...scene.handles(s)].forEach(soundPointInside);
+  }
+});
+
+test('弦の切り替えを検査し、知らないキー・値・他の盤は変更しない', () => {
+  for (const options of [undefined, null, [], {}, { thickness: 'other', tension: 'weak' },
+    { thickness: 'thin', tension: 'other' }, { thickness: 'thin', tension: 'weak', extra: true }]) {
+    const s = boards.get('sound-string').scene; s.options = options; reject(s);
+  }
+  const initial = boards.get('sound-string').scene;
+  for (const [key, value] of [['thickness', 'thick'], ['tension', 'strong']]) {
+    const changed = scene.setOption(initial, key, value);
+    assert.notEqual(changed, initial); assert.equal(changed.options[key], value); valid(changed);
+  }
+  for (const [key, value] of [['unknown', 'thin'], ['thickness', 'unknown'], ['tension', null], ['toString', 'x']]) {
+    assert.equal(scene.setOption(initial, key, value), initial);
+  }
+  for (const { id } of boards.list().filter(b => b.unit === 'light')) {
+    const s = boards.get(id).scene; assert.equal(scene.setOption(s, 'thickness', 'thin'), s);
+  }
+  assert.deepEqual(initial.options, config.sound.string.initial);
+});
 
 for (const id of ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image']) {
   test(`${id}: はじめの配置とつかめる所`, () => {

@@ -77,9 +77,11 @@
   }
 
   function labelBox(label) {
-    const width = Array.from(label.text).length * label.fontSize;
+    const rows = label.lines || [label.text];
+    const width = Math.max(...rows.map(text => Array.from(text).length)) * label.fontSize;
     const left = label.x - (label.anchor === 'end' ? width : label.anchor === 'middle' ? width / 2 : 0);
-    return { left, right: left + width, top: label.y - label.fontSize, bottom: label.y + label.fontSize * .2 };
+    return { left, right: left + width, top: label.y - label.fontSize,
+      bottom: label.y + label.fontSize * (.2 + (rows.length - 1) * 1.2) };
   }
 
   // 線分を箱の各軸で切り詰める。辺や端に触れる場合も交わるとみなす。
@@ -106,17 +108,22 @@
     if (!Array.isArray(labels)) return [];
     const circles = (Array.isArray(obstacles) ? obstacles : []).filter(circle => circle &&
       [circle.x, circle.y, circle.r].every(Number.isFinite) && circle.r >= 0);
+    const boxes = (Array.isArray(obstacles) ? obstacles : []).filter(box => box &&
+      [box.left, box.right, box.top, box.bottom].every(Number.isFinite));
     const segments = (Array.isArray(lines) ? lines : []).filter(line => line &&
       [line.x1, line.y1, line.x2, line.y2].every(Number.isFinite) &&
       (line.x1 !== line.x2 || line.y1 !== line.y2));
     const occupied = [], placed = new Array(labels.length);
     const order = labels.map((label, index) => ({ label, index })).sort((a, b) =>
-      (a.label?.priority ?? 3) - (b.label?.priority ?? 3) || a.index - b.index);
+      a.label?.searchBoard && b.label?.searchBoard ?
+        Array.from(b.label.text).length - Array.from(a.label.text).length || a.index - b.index :
+        (a.label?.priority ?? 3) - (b.label?.priority ?? 3) || a.index - b.index);
     function withinBoard(box) {
       return box.left >= 0 && box.right <= config.width && box.top >= 0 && box.bottom <= config.height;
     }
     function fits(box) {
       return withinBoard(box) && !occupied.some(other => overlaps(box, other)) &&
+        !boxes.some(other => overlaps(box, other)) &&
         !segments.some(line => crossesBox(line, box, 3 * size.unitPerPx)) &&
         !circles.some(circle => {
           const x = Math.max(box.left, Math.min(box.right, circle.x));
@@ -171,7 +178,18 @@
         if (label.prefer === 'below') directions.unshift(...directions.splice(2, 2));
         return directions;
       });
+      if (label.alternatives) candidates.unshift(...label.alternatives);
       if (label.preferOwn) candidates.unshift({ x: label.x, y: label.y, anchor: label.anchor || 'start' });
+      // 音の波形が候補をふさぐときは、盤全体の空いている場所も探す。
+      if (label.searchBoard) {
+        const extra = [];
+        const box = labelBox(label), width = box.right - box.left;
+        for (let y = label.fontSize; y <= config.height - label.fontSize * .2; y += 8) {
+          for (let x = 0; x <= config.width - width; x += 8) extra.push({ x, y, anchor: 'start' });
+        }
+        extra.sort((a, b) => Math.hypot(a.x - label.x, a.y - label.y) - Math.hypot(b.x - label.x, b.y - label.y));
+        candidates.push(...extra);
+      }
       for (const candidate of candidates) {
         const box = labelBox({ ...label, ...candidate });
         if (!fits(box)) continue;

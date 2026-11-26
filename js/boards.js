@@ -1,9 +1,15 @@
-// 6 種類の盤の初期配置、先生の案内、ためしてみようと現在の値。
+// 単元と盤の初期配置、先生の案内、ためしてみようと現在の値。
 (function (root) {
   'use strict';
 
   const config = typeof module === 'object' && module.exports ? require('./config.js') : root.Hikari.config;
   const scene = typeof module === 'object' && module.exports ? require('./scene.js') : root.Hikari.scene;
+  const S = config.sound;
+  const UNITS = [
+    { id: 'light', title: '中 1 光の世界', teacher: 'E',
+      boards: ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image'] },
+    { id: 'sound', title: '中 1 音の世界', teacher: 'E', boards: ['sound-wave', 'sound-string', 'sound-speed'] },
+  ];
 
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
 
@@ -99,7 +105,66 @@
     },
   ];
 
-  function list() { return data.map(({ id, title, question }) => ({ id, title, question })); }
+  data.push(
+    {
+      id: 'sound-wave', title: '音の大きさと高さ', heading: '波の形で音をくらべよう',
+      question: '大きい音と高い音は、波の形のどこがちがう？',
+      intro: '波の形は、音源の振動のようすを表します。つまみで振幅と振動数を変えて、波の形と音のちがいをくらべましょう。',
+      scene: { id: 'sound-wave-basic', kind: 'sound-wave', elements: [
+        { id: 'fork', type: 'tuning-fork' },
+        { id: 'wave', type: 'wave', frequencyHz: S.frequency.initial, amplitude: S.amplitude.initial },
+      ] },
+      prompts: [
+        prompt('amplitude-large', '振幅を目もり 4 つ分にして、大きい音にしてみよう。', 'amplitude', 'is', 4),
+        prompt('frequency-double', '振動数を 500 Hz にして、波の数が 2 倍になるのを見よう。', 'frequencyHz', 'is', 500),
+        prompt('frequency-low', '振動数を 100 Hz にして、いちばん低い音にしてみよう。', 'frequencyHz', 'is', 100),
+      ], controls: [],
+    },
+    {
+      id: 'sound-string', title: '弦の音', heading: '弦をかえて音をくらべよう',
+      question: '弦をどうすると、音は高くなる？',
+      intro: '弦の長さ・太さ・張りと、はじく強さを変えて、音の高さと大きさがどう変わるか、波の形でくらべましょう。',
+      scene: { id: 'sound-string-basic', kind: 'sound-string', elements: [
+        { id: 'string', type: 'string', lengthPercent: S.string.length.initial, pluck: S.string.pluck.initial },
+      ], options: { ...S.string.initial } },
+      prompts: [
+        prompt('pitch-high', '弦を短くしたり張りを強くしたりして、はじめより高い音にしてみよう。', 'pitch', 'is', 'higher'),
+        prompt('string-thick', '弦を太いものに替えて、音の高さをくらべよう。', 'thickness', 'is', 'thick'),
+        prompt('pluck-strong', '強くはじいて、はじめより大きい音にしてみよう。', 'loudness', 'is', 'louder'),
+      ], controls: [],
+    },
+    {
+      id: 'sound-speed', title: '音の速さ', heading: '音がとどくまでの時間をはかろう',
+      question: '花火は、なぜ光ってから音が聞こえる？',
+      intro: '音は空気の振動として伝わるので、届くまでに時間がかかります。見る人を動かして、距離と時間の関係を見てみましょう。',
+      scene: { id: 'sound-speed-basic', kind: 'sound-speed', elements: [
+        { id: 'firework', type: 'firework' }, { id: 'listener', type: 'listener', distance: S.distance.initial },
+      ] },
+      prompts: [
+        prompt('time-near', '花火にいちばん近づいて、聞こえるまで 0.5 秒にしてみよう。', 'delayTenths', 'is', 5),
+        prompt('time-one', '聞こえるまでが 1.0 秒になる所に立ってみよう。', 'delayTenths', 'is', 10),
+        prompt('time-far', '花火からいちばん遠くへ行って、何秒かかるか見よう。', 'delayTenths', 'is', 50),
+      ], controls: [],
+    }
+  );
+
+  function list() {
+    return UNITS.flatMap(unit => unit.boards.map(id => data.find(board => board.id === id)).filter(Boolean)
+      .map(({ id, title, question }) => ({ id, title, question, unit: unit.id })));
+  }
+  function units() {
+    const all = list();
+    return UNITS.map(({ id, title, teacher }) => ({ id, title, teacher,
+      boards: all.filter(board => board.unit === id).map(({ id, title, question }) => ({ id, title, question }))
+    })).filter(unit => unit.boards.length);
+  }
+
+  function stringControls() {
+    return [
+      { key: 'thickness', label: '弦の太さ', choices: [{ value: 'thin', label: '細い' }, { value: 'thick', label: '太い' }] },
+      { key: 'tension', label: '弦の張り', choices: [{ value: 'weak', label: '弱い' }, { value: 'strong', label: '強い' }] },
+    ];
+  }
 
   function controls(medium) {
     const name = medium === 'glass' ? 'ガラス' : '水';
@@ -118,6 +183,11 @@
     if (id === 'refract') Object.defineProperty(board, 'controls', {
       enumerable: true, configurable: true, get() {
         return scene.validateScene(board.scene).length || board.scene.kind !== 'refract' ? [] : controls(board.scene.options.medium);
+      },
+    });
+    if (id === 'sound-string') Object.defineProperty(board, 'controls', {
+      enumerable: true, configurable: true, get() {
+        return scene.validateScene(board.scene).length || board.scene.kind !== 'sound-string' ? [] : stringControls();
       },
     });
     return board;
@@ -155,6 +225,21 @@
       return Number.isFinite(result) ? result : null;
     }
     const elements = currentScene?.elements || [];
+    if (id === 'sound-wave') {
+      if (Number.isFinite(measures.frequencyHz)) text('振動数 ' + measures.frequencyHz + ' Hz');
+      if (Number.isFinite(measures.amplitude)) text('振幅 目もり ' + measures.amplitude + ' つ分');
+    }
+    if (id === 'sound-string') {
+      const pitch = { higher: 'はじめより高い', same: 'はじめと同じ', lower: 'はじめより低い' };
+      const loudness = { louder: 'はじめより大きい', same: 'はじめと同じ', softer: 'はじめより小さい' };
+      if (Object.hasOwn(pitch, measures.pitch)) text('音の高さ ' + pitch[measures.pitch]);
+      if (Object.hasOwn(loudness, measures.loudness)) text('音の大きさ ' + loudness[measures.loudness]);
+    }
+    if (id === 'sound-speed') {
+      if (Number.isFinite(measures.distance)) text('花火まで ' + measures.distance + ' m');
+      if (Number.isInteger(measures.delayTenths)) text('聞こえるまで ' + (measures.delayTenths / 10).toFixed(1) + ' 秒');
+      if (Number.isFinite(measures.speed)) text('音の速さ 約 ' + measures.speed + ' m/s');
+    }
     if (id === 'straight') {
       const scale = ratio(measures.shadowSize, elements.find(e => e.type === 'blocker')?.height);
       if (scale !== null) text('影の大きさ ついたての ' + scale.toFixed(1) + ' 倍');
@@ -196,7 +281,7 @@
     return lines;
   }
 
-  const api = { list, get, checkPrompt, readout };
+  const api = { units, list, get, checkPrompt, readout };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hikari = Object.assign(root.Hikari || {}, { boards: api });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
