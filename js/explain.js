@@ -5,15 +5,16 @@
   const config = typeof module === 'object' && module.exports ? require('./config.js') : root.Hikari.config;
   const C = config.explain;
   const DRAW_KINDS = Object.freeze(['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
-    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label']);
+    'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label',
+    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line']);
   const ELEMENTS = ['source', 'blocker', 'screen', 'object', 'eye', 'mirror', 'boundary', 'lens',
-    'tuning-fork', 'string', 'bridge', 'firework', 'listener'];
+    'tuning-fork', 'string', 'bridge', 'firework', 'listener', 'stand', 'spring', 'weights', 'box', 'card'];
   const ARGS = {
     el: ELEMENTS,
     ray: ['edge', 'incident', 'reflected', 'refracted', 'to-mirror', 'to-eye', 'extension',
       'to-lens', 'to-focus', 'beyond-focus', 'ray1', 'ray2', 'ray3', 'light'],
-    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance'],
-    label: ['frequency', 'time', 'speed'],
+    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance', 'graph', 'force', 'pulls', 'state'],
+    label: ['frequency', 'time', 'speed', 'force', 'scale', 'state'], pull: ['left', 'right'],
   };
 
   function parseDraw(token) {
@@ -24,7 +25,7 @@
     return arg === undefined ? { kind, arg: null } : null;
   }
 
-  // ref.source は elements / rays / marks / angles / images / handles / options / sound。
+  // ref.source は elements / rays / marks / angles / images / handles / options / sound / force。
   // id・key・index、または elementId と handle で相手を選ぶ。
   // part は形の部分（body / normal / axis / dot / shadow / highlight）、field は文字の項目。
   function resolve(token, scene, traceResult, handles) {
@@ -35,10 +36,61 @@
     const marks = result.marks || [], angles = result.angles || [], images = result.images || [];
     const focus = marks.filter(m => m.key === 'focus-left' || m.key === 'focus-right');
     const options = scene?.options ? scene.kind === 'refract' ? ['direction', 'medium'] :
-      scene.kind === 'sound-string' ? ['thickness', 'tension'] : [] : [];
+      scene.kind === 'sound-string' ? ['thickness', 'tension'] :
+      scene.kind === 'force-spring' && result.force ? ['weights', 'spring'] :
+      scene.kind === 'force-balance' && result.force ? ['line'] : [] : [];
     const add = (type, ref) => items.push({ type, ref });
     const markText = m => add('text', { source: 'marks', key: m.key, field: 'text' });
     const handleRef = h => ({ source: 'handles', elementId: h.elementId, handle: h.handle });
+
+    if (result.force) {
+      const shapes = result.force;
+      const shape = (key, type = 'element', part, index) => {
+        if (shapes[key]) add(type, { source: 'force', key, ...(part ? { part } : {}), ...(index !== undefined ? { index } : {}) });
+      };
+      const label = key => marks.filter(m => m.key === key).forEach(markText);
+      if (kind === 'el' && ['stand', 'spring', 'weights', 'box', 'card'].includes(arg)) {
+        if (arg === 'box' || arg === 'card') shape('grid');
+        if (arg === 'card') label('scale');
+        shape(arg, arg === 'spring' ? 'line' : 'element'); label(arg);
+        return { kind, arg, items };
+      }
+      if (['grid', 'stretch', 'application', 'force', 'direction', 'magnitude'].includes(kind)) {
+        if (kind !== 'direction') shape(kind === 'force' ? 'arrow' : kind,
+          kind === 'application' ? 'point' : kind === 'grid' ? 'element' : 'line');
+        label(kind);
+        return { kind, arg, items };
+      }
+      if (kind === 'graph') {
+        shape('graph', 'element', 'axes'); label('graph-x'); label('graph-y');
+        return { kind, arg, items };
+      }
+      if (kind === 'graph-point' || kind === 'graph-line') {
+        if (kind === 'graph-line') shape('graph', 'line', 'line');
+        (shapes.graph?.points || []).forEach((p, index) => {
+          if (p.current === (kind === 'graph-point')) shape('graph', 'point', 'points', index);
+        });
+        return { kind, arg, items };
+      }
+      if (kind === 'pull') {
+        shape('pulls', 'line', arg); label(arg);
+        return { kind, arg, items };
+      }
+      if (kind === 'line') {
+        (shapes.lines || []).forEach((line, index) => shape('lines', 'line', undefined, index));
+        return { kind, arg, items };
+      }
+      if (kind === 'label') {
+        if (arg === 'force') shape('forceArrow', 'line');
+        label(arg);
+        return { kind, arg, items };
+      }
+      if (kind === 'point' && ['spring', 'weights', 'graph', 'force', 'pulls', 'card', 'state'].includes(arg)) {
+        if (arg === 'state') marks.filter(m => m.key === 'state').forEach(m => add('point', { source: 'marks', key: m.key, part: 'highlight' }));
+        else shape(arg === 'force' ? 'arrow' : arg, 'point', 'highlight');
+        return { kind, arg, items };
+      }
+    }
 
     if (result.sound) {
       const shapes = result.sound;

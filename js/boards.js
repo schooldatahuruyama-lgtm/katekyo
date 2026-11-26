@@ -4,11 +4,13 @@
 
   const config = typeof module === 'object' && module.exports ? require('./config.js') : root.Hikari.config;
   const scene = typeof module === 'object' && module.exports ? require('./scene.js') : root.Hikari.scene;
+  const force = typeof module === 'object' && module.exports ? require('./force.js') : root.Hikari.force;
   const S = config.sound;
   const UNITS = [
     { id: 'light', title: '中 1 光の世界', teacher: 'E',
       boards: ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image'] },
     { id: 'sound', title: '中 1 音の世界', teacher: 'E', boards: ['sound-wave', 'sound-string', 'sound-speed'] },
+    { id: 'force', title: '中 1 力の世界', teacher: 'E', boards: ['force-spring', 'force-arrow', 'force-balance'] },
   ];
 
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -148,6 +150,58 @@
     }
   );
 
+  data.push(
+    {
+      id: 'force-spring', title: 'ばねののび', heading: '力の大きさとばねののびをしらべよう',
+      question: 'おもりをふやすと、ばねはどれだけのびる？',
+      intro: 'ばねにおもりをつるして、力の大きさとばねののびの関係をしらべましょう。',
+      scene: { id: 'force-spring-basic', kind: 'force-spring', elements: [
+        { id: 'stand', type: 'stand' }, { id: 'spring', type: 'spring' }, { id: 'weights', type: 'weights' },
+      ], options: { weights: 3, spring: 'A' } },
+      prompts: [
+        { id: 'spring-five', text: 'おもりを 5 個にして、ばねののびを 5.0 cm にしてみよう。', when: { all: [
+          { measure: 'weights', op: 'is', value: 5 }, { measure: 'spring', op: 'is', value: 'A' },
+        ] } },
+        prompt('spring-b', 'ばね B に替えて、同じ力でののびをくらべよう。', 'spring', 'is', 'B'),
+        { id: 'spring-four', text: 'ばね B で、のびを 4.0 cm にしてみよう。', when: { all: [
+          { measure: 'weights', op: 'is', value: 2 }, { measure: 'spring', op: 'is', value: 'B' },
+        ] } },
+      ], controls: [],
+    },
+    {
+      id: 'force-arrow', title: '力の表し方', heading: '力を矢印で表そう',
+      question: '力は、矢印でどう表す？',
+      intro: '力は、作用点・向き・大きさを矢印で表します。矢印の先を動かして、いろいろな力を表しましょう。',
+      scene: { id: 'force-arrow-basic', kind: 'force-arrow', elements: [
+        { id: 'box', type: 'box' }, { id: 'force', type: 'force', newtons: 3, direction: 'right' },
+      ] },
+      prompts: [
+        ['right', 5, '右'], ['up', 2, '上'], ['left', 4, '左'],
+      ].map(([direction, newtons, name]) => ({ id: 'arrow-' + direction,
+        text: name + '向きに ' + newtons + ' N の力を、矢印で表そう。', when: { all: [
+          { measure: 'direction', op: 'is', value: direction }, { measure: 'newtons', op: 'is', value: newtons },
+        ] } })), controls: [],
+    },
+    {
+      id: 'force-balance', title: '力のつり合い', heading: '2 つの力がつり合う条件をさがそう',
+      question: '2 つの力がつり合うのは、どんなとき？',
+      intro: '厚紙を左右から引きます。力の大きさや力の線を変えて、2 つの力がつり合う条件をさがしましょう。',
+      scene: { id: 'force-balance-basic', kind: 'force-balance', elements: [
+        { id: 'card', type: 'card' }, { id: 'left', type: 'pull', side: 'left', newtons: 3 },
+        { id: 'right', type: 'pull', side: 'right', newtons: 3 },
+      ], options: { line: 'same' } },
+      prompts: [
+        { id: 'balance-five', text: '左右の力を両方 5 N にして、つり合わせてみよう。', when: { all: [
+          { measure: 'left', op: 'is', value: 5 }, { measure: 'right', op: 'is', value: 5 }, { measure: 'state', op: 'is', value: 'balanced' },
+        ] } },
+        prompt('balance-right', '右の力を左の力より大きくして、厚紙が右へ動くのを見よう。', 'state', 'is', 'moves-right'),
+        { id: 'balance-offset', text: '大きさが同じでも、力をずらすとつり合わないことをたしかめよう。', when: { all: [
+          { measure: 'left', op: 'equal', other: 'right' }, { measure: 'line', op: 'is', value: 'offset' },
+        ] } },
+      ], controls: [],
+    }
+  );
+
   function list() {
     return UNITS.flatMap(unit => unit.boards.map(id => data.find(board => board.id === id)).filter(Boolean)
       .map(({ id, title, question }) => ({ id, title, question, unit: unit.id })));
@@ -164,6 +218,13 @@
       { key: 'thickness', label: '弦の太さ', choices: [{ value: 'thin', label: '細い' }, { value: 'thick', label: '太い' }] },
       { key: 'tension', label: '弦の張り', choices: [{ value: 'weak', label: '弱い' }, { value: 'strong', label: '強い' }] },
     ];
+  }
+
+  function forceControls(kind) {
+    return kind === 'force-spring' ? [
+      { key: 'weights', label: 'おもりの数', choices: [0, 1, 2, 3, 4, 5].map(value => ({ value, label: String(value) })) },
+      { key: 'spring', label: 'ばね', choices: ['A', 'B'].map(value => ({ value, label: 'ばね ' + value })) },
+    ] : [{ key: 'line', label: '2 つの力', choices: [{ value: 'same', label: '一直線上' }, { value: 'offset', label: 'ずれている' }] }];
   }
 
   function controls(medium) {
@@ -190,16 +251,25 @@
         return scene.validateScene(board.scene).length || board.scene.kind !== 'sound-string' ? [] : stringControls();
       },
     });
+    if (['force-spring', 'force-balance'].includes(id)) Object.defineProperty(board, 'controls', {
+      enumerable: true, configurable: true, get() {
+        return scene.validateScene(board.scene).length || board.scene.kind !== id ? [] : forceControls(id);
+      },
+    });
     return board;
   }
 
   function checkPrompt(prompt, measures, currentScene) {
     if (!record(prompt) || !record(prompt.when) || !record(measures) ||
         (currentScene !== undefined && scene.validateScene(currentScene).length)) return false;
+    if (Object.hasOwn(prompt.when, 'all')) return Array.isArray(prompt.when.all) && prompt.when.all.length > 0 &&
+      prompt.when.all.every(when => checkPrompt({ when }, measures));
     const { measure, op, value, tol = 0 } = prompt.when;
     if (typeof measure !== 'string' || !Object.hasOwn(measures, measure)) return false;
     const actual = measures[measure];
     if (actual === null || actual === undefined) return false;
+    if (op === 'equal') return Object.hasOwn(measures, prompt.when.other) &&
+      Number.isFinite(actual) && actual === measures[prompt.when.other];
     if (op === 'is') {
       return ['string', 'boolean', 'number'].includes(typeof actual) &&
         (typeof actual !== 'number' || Number.isFinite(actual)) && actual === value;
@@ -225,6 +295,23 @@
       return Number.isFinite(result) ? result : null;
     }
     const elements = currentScene?.elements || [];
+    if (id === 'force-spring') {
+      const n = force.tenthsText(measures.forceTenths), cm = force.tenthsText(measures.stretchMm);
+      if (n !== null) text('力の大きさ ' + n + ' N');
+      if (cm !== null) text('ばねののび ' + cm + ' cm');
+    }
+    if (id === 'force-arrow') {
+      const names = { up: '上', down: '下', left: '左', right: '右' };
+      if (Number.isInteger(measures.newtons)) text('力の大きさ ' + measures.newtons + ' N');
+      if (Object.hasOwn(names, measures.direction)) text('力の向き ' + names[measures.direction]);
+    }
+    if (id === 'force-balance') {
+      if (Number.isInteger(measures.left)) text('左の力 ' + measures.left + ' N');
+      if (Number.isInteger(measures.right)) text('右の力 ' + measures.right + ' N');
+      const states = { balanced: 'つり合っている', 'moves-right': 'つり合わない（右へ動く）',
+        'moves-left': 'つり合わない（左へ動く）', turns: 'つり合わない（回って動く）' };
+      if (Object.hasOwn(states, measures.state)) text(states[measures.state]);
+    }
     if (id === 'sound-wave') {
       if (Number.isFinite(measures.frequencyHz)) text('振動数 ' + measures.frequencyHz + ' Hz');
       if (Number.isFinite(measures.amplitude)) text('振幅 目もり ' + measures.amplitude + ' つ分');

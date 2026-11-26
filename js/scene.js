@@ -7,9 +7,11 @@
   const geometry = typeof module === 'object' && module.exports ? require('./geometry.js') : root.Hikari.geometry;
   const optics = typeof module === 'object' && module.exports ? require('./optics.js') : root.Hikari.optics;
   const sound = typeof module === 'object' && module.exports ? require('./sound.js') : root.Hikari.sound;
+  const force = typeof module === 'object' && module.exports ? require('./force.js') : root.Hikari.force;
   const S = config.sound;
+  const F = config.force;
   const KINDS = Object.freeze(['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image',
-    'sound-wave', 'sound-string', 'sound-speed']);
+    'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']);
   const W = config.width, H = config.height, M = config.motion.margin, GAP = config.motion.gap;
   const EPS = config.criticalEpsilon;
   const DEG = 180 / Math.PI;
@@ -18,11 +20,13 @@
     'mirror-image': ['object', 'eye', 'mirror'], refract: ['source', 'boundary'],
     lens: ['source', 'lens'], 'lens-image': ['object', 'lens', 'screen'],
     'sound-wave': ['tuning-fork', 'wave'], 'sound-string': ['string'], 'sound-speed': ['firework', 'listener'],
+    'force-spring': ['stand', 'spring', 'weights'], 'force-arrow': ['box', 'force'], 'force-balance': ['card', 'pull'],
   };
   const fields = {
     source: [], blocker: ['height'], screen: ['height'], object: ['height'], eye: [],
     mirror: ['length', 'tiltDeg'], boundary: [], lens: ['focalLength'],
     'tuning-fork': [], wave: ['frequencyHz', 'amplitude'], string: ['lengthPercent', 'pluck'], firework: [], listener: ['distance'],
+    stand: [], spring: [], weights: [], box: [], force: ['newtons', 'direction'], card: [], pull: ['side', 'newtons'],
   };
 
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -63,12 +67,17 @@
         errors.push('知らない部品の type です'); continue;
       }
       const soundPart = ['tuning-fork', 'wave', 'string', 'firework', 'listener'].includes(e.type);
-      const allowed = ['id', 'type', ...(soundPart ? [] : ['x', 'y']), ...fields[e.type]];
+      const forcePart = ['stand', 'spring', 'weights', 'box', 'force', 'card', 'pull'].includes(e.type);
+      const allowed = ['id', 'type', ...(soundPart || forcePart ? [] : ['x', 'y']), ...fields[e.type]];
       if (Object.keys(e).some(key => !allowed.includes(key))) errors.push(`${e.id}: 知らない項目があります`);
-      if (!soundPart && (!between(e.x, M, W - M) || !between(e.y, M, H - M))) errors.push(`${e.id}: 座標を盤の操作範囲内の数値にしてください`);
+      if (!soundPart && !forcePart && (!between(e.x, M, W - M) || !between(e.y, M, H - M))) errors.push(`${e.id}: 座標を盤の操作範囲内の数値にしてください`);
       for (const key of fields[e.type]) {
-        if (!number(e[key])) errors.push(`${e.id}: ${key} を有限の数値にしてください`);
+        if (!['direction', 'side'].includes(key) && !number(e[key])) errors.push(`${e.id}: ${key} を有限の数値にしてください`);
       }
+      if (forcePart && fields[e.type].includes('newtons') &&
+          (!Number.isInteger(e.newtons) || e.newtons < F.newtons.min || e.newtons > F.newtons.max)) errors.push(`${e.id}: newtons を 1〜5 の整数にしてください`);
+      if (e.type === 'force' && !['up', 'down', 'left', 'right'].includes(e.direction)) errors.push('力の direction を選んでください');
+      if (e.type === 'pull' && !['left', 'right'].includes(e.side)) errors.push('力の side を選んでください');
       const ranges = { frequencyHz: S.frequency, amplitude: S.amplitude, lengthPercent: S.string.length,
         pluck: S.string.pluck, distance: S.distance };
       if (soundPart) for (const key of fields[e.type]) {
@@ -83,8 +92,11 @@
     }
     if (!KINDS.includes(scene.kind)) return errors;
     for (const type of roles[scene.kind]) {
-      if (scene.elements.filter(e => record(e) && e.type === type).length !== 1) errors.push(`${type} を1つだけ入れてください`);
+      const count = scene.kind === 'force-balance' && type === 'pull' ? 2 : 1;
+      if (scene.elements.filter(e => record(e) && e.type === type).length !== count) errors.push(`${type} を${count}つだけ入れてください`);
     }
+    if (scene.kind === 'force-balance' && ['left', 'right'].some(side =>
+      scene.elements.filter(e => record(e) && e.type === 'pull' && e.side === side).length !== 1)) errors.push('左右の力を1つずつ入れてください');
     if (scene.elements.some(e => record(e) && !roles[scene.kind].includes(e.type))) errors.push('この盤では使えない部品があります');
     if (scene.kind === 'refract') {
       if (!record(scene.options) || !['air-to-medium', 'medium-to-air'].includes(scene.options.direction) ||
@@ -96,6 +108,14 @@
           !['weak', 'strong'].includes(scene.options.tension) || Object.keys(scene.options).some(k => !['thickness', 'tension'].includes(k))) {
         errors.push('弦の thickness・tension を選んでください');
       }
+    } else if (scene.kind === 'force-spring') {
+      if (!record(scene.options) || force.forceTenths(scene.options.weights) === null ||
+          !['A', 'B'].includes(scene.options.spring) || Object.keys(scene.options).some(k => !['weights', 'spring'].includes(k))) {
+        errors.push('ばねの weights を 0〜5 の整数、spring を A・B から選んでください');
+      }
+    } else if (scene.kind === 'force-balance') {
+      if (!record(scene.options) || !['same', 'offset'].includes(scene.options.line) ||
+          Object.keys(scene.options).some(k => k !== 'line')) errors.push('2 つの力の line を選んでください');
     } else if (scene.options !== undefined) errors.push('この盤には切り替えはありません');
     if (errors.length) return errors;
 
@@ -142,7 +162,7 @@
     return errors;
   }
 
-  function empty() { return { rays: [], angles: [], images: [], marks: [], notes: [], measures: {}, sound: null }; }
+  function empty() { return { rays: [], angles: [], images: [], marks: [], notes: [], measures: {}, sound: null, force: null }; }
 
   // 線分も半直線も盤の四辺で切る。始点が盤の外でも、見える部分だけを返す。
   function ray(result, start, dir, end = Infinity, style = 'solid', role) {
@@ -417,13 +437,107 @@
     soundLabel(result, 'speed', { x: 330, y: 30 }, '音の速さ 約 ' + S.speed + ' m/s');
   }
 
+  function forceLabel(result, key, p, text) {
+    mark(result, key, p, text);
+    result.force.labels[key] = result.marks[result.marks.length - 1];
+  }
+
+  function traceForceSpring(scene, result) {
+    const { weights, spring } = scene.options, l = F.layout.spring;
+    const forceTenths = force.forceTenths(weights), stretchMm = force.stretchMm(weights, spring);
+    const top = { x: l.x, y: l.y }, naturalBottom = { x: l.x, y: l.y + l.naturalLength };
+    const bottom = { x: l.x, y: naturalBottom.y + stretchMm / 10 * l.cmPx };
+    const springPoints = end => {
+      const points = [top, { x: l.x, y: top.y + 10 }];
+      for (let i = 0; i < l.turns * 2; i++) points.push({
+        x: l.x + (i % 2 ? l.halfWidth : -l.halfWidth),
+        y: top.y + 10 + (end.y - top.y - 20) * (i + .5) / (l.turns * 2),
+      });
+      points.push({ x: l.x, y: end.y - 10 }, end);
+      return points;
+    };
+    const points = springPoints(bottom), naturalPoints = springPoints(naturalBottom);
+    const weightBottom = { x: bottom.x, y: bottom.y + weights * l.weightHeight };
+    const origin = { x: l.graphX, y: l.graphY };
+    const graphPoints = Array.from({ length: F.weights.max + 1 }, (_, n) => ({
+      x: origin.x + n * l.graphStepX, y: origin.y - force.stretchMm(n, spring) / 10 * l.graphCmPx, current: n === weights,
+    }));
+    result.force = { kind: scene.kind,
+      stand: { lines: [[{ x: 60, y: l.y }, { x: 180, y: l.y }],
+        [{ x: 70, y: l.y }, { x: 70, y: 390 }], [{ x: 40, y: 390 }, { x: 250, y: 390 }]] },
+      spring: { points, naturalPoints, top, bottom, naturalBottom },
+      weights: Array.from({ length: weights }, (_, i) => ({ x: l.x - l.weightWidth / 2,
+        y: bottom.y + i * l.weightHeight, width: l.weightWidth, height: l.weightHeight })),
+      stretch: weights ? { from: { x: 100, y: naturalBottom.y }, to: { x: 100, y: bottom.y } } : null,
+      forceArrow: weights ? { from: weightBottom, to: { x: weightBottom.x, y: weightBottom.y + weights * l.forceStep } } : null,
+      graph: { origin, xEnd: { x: 580, y: origin.y }, yEnd: { x: origin.x, y: 60 },
+        xTicks: graphPoints.map((p, i) => ({ x: p.x, text: force.tenthsText(force.forceTenths(i)) })),
+        yTicks: Array.from({ length: 11 }, (_, i) => ({ y: origin.y - i * l.graphCmPx, text: String(i) })),
+        line: { from: { ...origin }, to: { x: graphPoints[5].x, y: graphPoints[5].y } }, points: graphPoints }, labels: {} };
+    result.measures = { weights, spring, forceTenths, stretchMm };
+    forceLabel(result, 'spring', { x: 175, y: 110 }, 'ばね ' + spring);
+    forceLabel(result, 'weights', { x: 175, y: bottom.y + 15 }, weights ? 'おもり ' + weights + ' 個' : 'おもり なし');
+    forceLabel(result, 'stretch', { x: 85, y: naturalBottom.y - 15 }, 'のび');
+    forceLabel(result, 'force', { x: 175, y: weightBottom.y + weights * l.forceStep / 2 }, force.tenthsText(forceTenths) + ' N');
+    forceLabel(result, 'graph-x', { x: 430, y: 390 }, '力の大きさ〔N〕');
+    forceLabel(result, 'graph-y', { x: 330, y: 40 }, 'ばねののび〔cm〕');
+  }
+
+  function forceGrid(l) { return { x: l.x - 8 * l.cell, y: l.y - 5 * l.cell, width: 16 * l.cell, height: 10 * l.cell, cell: l.cell }; }
+  function forceVector(direction) { return { up: { x: 0, y: -1 }, down: { x: 0, y: 1 }, left: { x: -1, y: 0 }, right: { x: 1, y: 0 } }[direction]; }
+  function forceArrow(from, newtons, direction, cell) { return { from, to: add(from, scale(forceVector(direction), newtons * cell)) }; }
+
+  function forceOrigin(direction) {
+    const l = F.layout.arrow;
+    return { x: l.x, y: l.y - forceVector(direction).y * l.verticalOffset };
+  }
+
+  function traceForceArrow(scene, result) {
+    const { newtons, direction } = part(scene, 'force'), l = F.layout.arrow;
+    const application = forceOrigin(direction), arrow = forceArrow(application, newtons, direction, l.cell);
+    const v = forceVector(direction), offset = { x: -v.y * l.magnitudeOffset, y: v.x * l.magnitudeOffset };
+    const magnitude = { from: add(arrow.from, offset), to: add(arrow.to, offset) };
+    result.force = { kind: scene.kind, grid: forceGrid({ ...l, ...application }),
+      box: { x: application.x - l.boxSize / 2, y: application.y - l.boxSize / 2, width: l.boxSize, height: l.boxSize },
+      application, arrow, magnitude, labels: {} };
+    result.measures = { newtons, direction };
+    forceLabel(result, 'box', { x: l.x - 30, y: l.y - 45 }, '箱');
+    forceLabel(result, 'application', add(application, { x: 12, y: 55 }), '作用点');
+    forceLabel(result, 'direction', add(arrow.to, { x: 12, y: -12 }), '力の向き');
+    forceLabel(result, 'magnitude', add(scale(add(magnitude.from, magnitude.to), .5), { x: 12, y: 20 }), '力の大きさ ' + newtons + ' N');
+    forceLabel(result, 'scale', { x: 360, y: 400 }, '1 目もり ＝ 1 N');
+  }
+
+  function pullArrow(e, line) {
+    const l = F.layout.balance, sign = e.side === 'left' ? -1 : 1;
+    return forceArrow({ x: l.x + sign * l.cardSize / 2, y: l.y + (line === 'offset' ? sign * l.offset : 0) }, e.newtons, e.side, l.cell);
+  }
+
+  function traceForceBalance(scene, result) {
+    const l = F.layout.balance, line = scene.options.line;
+    const left = scene.elements.find(e => e.side === 'left'), right = scene.elements.find(e => e.side === 'right');
+    const state = force.balanceState(left.newtons, right.newtons, line);
+    const pulls = { left: pullArrow(left, line), right: pullArrow(right, line) };
+    result.force = { kind: scene.kind, grid: forceGrid(l),
+      card: { x: l.x - l.cardSize / 2, y: l.y - l.cardSize / 2, width: l.cardSize, height: l.cardSize }, pulls,
+      lines: (line === 'same' ? [l.y] : [pulls.left.from.y, pulls.right.from.y]).map(y => ({ from: { x: 44, y }, to: { x: 556, y } })), labels: {} };
+    result.measures = { left: left.newtons, right: right.newtons, line, state };
+    forceLabel(result, 'card', { x: 275, y: 145 }, '厚紙');
+    forceLabel(result, 'left', { x: 80, y: pulls.left.to.y - 25 }, '左の力 ' + left.newtons + ' N');
+    forceLabel(result, 'right', { x: 400, y: pulls.right.to.y - 25 }, '右の力 ' + right.newtons + ' N');
+    forceLabel(result, 'state', { x: 180, y: 330 }, { balanced: 'つり合っている（動かない）',
+      'moves-right': 'つり合わない（右へ動く）', 'moves-left': 'つり合わない（左へ動く）', turns: 'つり合わない（回って動く）' }[state]);
+    forceLabel(result, 'scale', { x: 360, y: 400 }, '1 目もり ＝ 1 N');
+  }
+
   function trace(scene) {
     const result = empty();
     const errors = validateScene(scene);
     if (errors.length) { result.notes.push('この図は表示できません', ...errors); return result; }
     const tracers = { straight: traceStraight, reflect: traceReflect, 'mirror-image': traceMirrorImage,
       refract: traceRefract, lens: traceLens, 'lens-image': traceLensImage,
-      'sound-wave': traceSoundWave, 'sound-string': traceSoundString, 'sound-speed': traceSoundSpeed };
+      'sound-wave': traceSoundWave, 'sound-string': traceSoundString, 'sound-speed': traceSoundSpeed,
+      'force-spring': traceForceSpring, 'force-arrow': traceForceArrow, 'force-balance': traceForceBalance };
     tracers[scene.kind](scene, result);
     return result;
   }
@@ -433,6 +547,11 @@
     const result = [];
     function push(e, handle, p, label) { result.push({ elementId: e.id, handle, x: p.x, y: p.y, label }); }
     for (const e of scene.elements) {
+      if (e.type === 'force') {
+        const l = F.layout.arrow;
+        push(e, 'tip', forceArrow(forceOrigin(e.direction), e.newtons, e.direction, l.cell).to, '力の矢印');
+      }
+      if (e.type === 'pull') push(e, 'tip', pullArrow(e, scene.options.line).to, e.side === 'left' ? '左の力' : '右の力');
       if (e.type === 'wave') {
         const l = S.layout.wave, cellW = l.width / S.cells;
         push(e, 'amplitude', { x: l.x + l.amplitudeCol * cellW, y: l.axisY - e.amplitude * l.cellH }, '振幅');
@@ -490,10 +609,45 @@
     return next;
   }
 
+  function stepForceHandle(scene, elementId, handle, key) {
+    if (!handles(scene).some(h => h.elementId === elementId && h.handle === handle) || !scene.kind.startsWith('force-')) return scene;
+    const direction = { ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right' }[key];
+    if (!['up', 'down', 'left', 'right'].includes(direction)) return scene;
+    const e = scene.elements.find(item => item.id === elementId);
+    if (e.type === 'pull' && !['left', 'right'].includes(direction)) return scene;
+    const current = e.type === 'pull' ? e.side : e.direction;
+    const opposite = { up: 'down', down: 'up', left: 'right', right: 'left' }[current];
+    const next = copy(scene), target = next.elements.find(item => item.id === elementId);
+    if (direction === current || direction === opposite) target.newtons = clamp(e.newtons + (direction === current ? 1 : -1), F.newtons.min, F.newtons.max);
+    else target.direction = direction;
+    return target.newtons === e.newtons && target.direction === e.direction ? scene : next;
+  }
+
+  function stepHandle(scene, elementId, handle, key) {
+    if (validateScene(scene).length) return scene;
+    return scene.kind.startsWith('force-') ? stepForceHandle(scene, elementId, handle, key) : stepSoundHandle(scene, elementId, handle, key);
+  }
+
   function moveElement(scene, elementId, handle, point) {
     if (!record(point) || !number(point.x) || !number(point.y)) return scene;
     if (!handles(scene).some(h => h.elementId === elementId && h.handle === handle)) return scene;
     const next = copy(scene), e = next.elements.find(item => item.id === elementId);
+    if (scene.kind.startsWith('force-')) {
+      let length;
+      if (e.type === 'force') {
+        const l = F.layout.arrow, origin = forceOrigin(e.direction), dx = point.x - origin.x, dy = point.y - origin.y;
+        if (dx === 0 && dy === 0) return scene;
+        if (Math.abs(dx) > Math.abs(dy)) e.direction = dx > 0 ? 'right' : 'left';
+        else if (Math.abs(dy) > Math.abs(dx)) e.direction = dy > 0 ? 'down' : 'up';
+        const target = forceOrigin(e.direction);
+        length = (e.direction === 'left' || e.direction === 'right' ? Math.abs(point.x - target.x) : Math.abs(point.y - target.y)) / l.cell;
+      } else {
+        const from = pullArrow(e, scene.options.line).from;
+        length = (point.x - from.x) * (e.side === 'left' ? -1 : 1) / F.layout.balance.cell;
+      }
+      e.newtons = Math.round(clamp(length, F.newtons.min, F.newtons.max));
+      return next;
+    }
     if (scene.kind.startsWith('sound-')) {
       const snap = (value, range) => range.min + Math.round((clamp(value, range.min, range.max) - range.min) / range.step) * range.step;
       if (e.type === 'wave') {
@@ -562,6 +716,13 @@
   }
 
   function setOption(scene, key, value) {
+    if (!validateScene(scene).length && ['force-spring', 'force-balance'].includes(scene.kind)) {
+      const choices = scene.kind === 'force-spring' ? { weights: [0, 1, 2, 3, 4, 5], spring: ['A', 'B'] } : { line: ['same', 'offset'] };
+      if (!Object.hasOwn(choices, key) || !choices[key].includes(value)) return scene;
+      const next = copy(scene);
+      next.options[key] = value;
+      return next;
+    }
     if (!validateScene(scene).length && scene.kind === 'sound-string') {
       const choices = { thickness: ['thin', 'thick'], tension: ['weak', 'strong'] };
       if (!Object.hasOwn(choices, key) || !choices[key].includes(value)) return scene;
@@ -586,7 +747,7 @@
     return next;
   }
 
-  const api = { KINDS, validateScene, trace, handles, moveElement, stepSoundHandle, setOption };
+  const api = { KINDS, validateScene, trace, handles, moveElement, stepHandle, stepSoundHandle, stepForceHandle, setOption };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hikari = Object.assign(root.Hikari || {}, { scene: api });
 })(typeof globalThis !== 'undefined' ? globalThis : this);

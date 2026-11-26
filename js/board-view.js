@@ -14,9 +14,44 @@
 
   // 描画とテストで同じ文字・障害物を使う。角度以外の座標は付けたい相手の位置。
   function labelData(board, result, size, handles = scene.handles(board.scene)) {
+    handles = math.forceHandles(handles, result, size);
     const labels = [];
     const obstacles = handles.map(handle => ({ x: handle.x, y: handle.y, r: size.knobRadius }));
     const padding = 3 * size.unitPerPx;
+    if (result.force) {
+      const shapes = result.force, small = size.textSize > 22;
+      // つまみのつかむ範囲と、ばね・おもり・箱の面を空ける。
+      obstacles.forEach(circle => { circle.r = size.hitRadius; });
+      for (const rect of [...(shapes.weights || []), shapes.box, shapes.card].filter(Boolean)) {
+        obstacles.push({ left: rect.x - padding, right: rect.x + rect.width + padding,
+          top: rect.y - padding, bottom: rect.y + rect.height + padding });
+      }
+      if (shapes.graph) {
+        const g = shapes.graph;
+        const tick = (id, text, x, y, anchor) => labels.push({ id, text, x, y, anchor,
+          fontSize: size.textSize, textLength: Math.min(text.length * size.textSize * .55, g.xTicks[1].x - g.xTicks[0].x - 6),
+          priority: 0, fixed: true, color: C.normal });
+        g.xTicks.forEach((p, i) => tick('tick-x-' + i, p.text, p.x, g.origin.y + size.textSize + 4, 'middle'));
+        g.yTicks.forEach((p, i) => tick('tick-y-' + i, p.text,
+          g.origin.x - 16 - (small ? i % 2 * size.textSize * 1.3 : 0), p.y + size.textSize * .35, 'end'));
+      }
+      result.marks.forEach(mark => {
+        const state = mark.key === 'state', fontSize = size.textSize * (state ? 1.15 : 1);
+        const lines = small && mark.key === 'weights' ? mark.text.split(' ').length === 3 ?
+          ['おもり ', mark.text.slice(4)] : ['おもり ', 'なし'] :
+          small && mark.key === 'graph-y' ? ['ばねののび', '〔cm〕'] : undefined;
+        const width = Math.max(...(lines || [mark.text]).map(text => Array.from(text).length)) * fontSize;
+        labels.push({ id: 'mark-' + mark.key, text: mark.text, ...(lines ? { lines } : {}),
+          ...(mark.key === 'force' ? { textLength: mark.text.length * fontSize * .65 } : {}),
+          x: Math.max(0, Math.min(W - width, mark.x)),
+          y: small && mark.key === 'graph-x' ? H - fontSize * .2 - 4 : mark.y + (mark.key === 'force' ? fontSize * .35 : 0),
+          priority: mark.key === 'force' ? 1 : 4, fontSize, bold: state, preferOwn: true, searchBoard: mark.key !== 'force',
+          color: state ? result.measures.state === 'balanced' ? C.green : C.redPen :
+            ['force', 'application', 'direction', 'right'].includes(mark.key) ? C.redPen :
+              ['stretch', 'magnitude'].includes(mark.key) ? C.green : C.bluePen });
+      });
+      return { labels, obstacles };
+    }
     if (result.sound?.fork) {
       const { x, y } = result.sound.fork;
       obstacles.push({ left: x - 16 - padding, right: x + 16 + padding,
@@ -76,6 +111,19 @@
   // 文字を重ねない面と軸。光線・延長線・角度の弧は含めない。
   function lineData(currentScene, result) {
     const lines = [];
+    if (result.force) {
+      const f = result.force;
+      const segment = (a, b) => lines.push({ x1: a.x, y1: a.y, x2: b.x, y2: b.y });
+      (f.stand?.lines || []).forEach(([a, b]) => segment(a, b));
+      f.spring?.points.slice(1).forEach((p, i) => segment(f.spring.points[i], p));
+      [f.stretch, f.forceArrow, f.arrow, f.magnitude, ...Object.values(f.pulls || {})].filter(Boolean)
+        .forEach(({ from, to }) => segment(from, to));
+      if (f.graph) {
+        segment(f.graph.origin, f.graph.xEnd); segment(f.graph.origin, f.graph.yEnd);
+        segment(f.graph.line.from, f.graph.line.to);
+      }
+      return lines;
+    }
     if (result.sound?.distanceArrow) {
       const { from, to } = result.sound.distanceArrow;
       lines.push({ x1: from.x, y1: from.y, x2: to.x, y2: to.y }, ...result.rays);
@@ -168,9 +216,11 @@
         const states = entry.keys.map(key => progress.get(key)).filter(Boolean);
         const p = Math.max(0, ...states.map(state => state.p));
         const key = states.some(state => state.p === p && state.key);
-        if (p !== entry.previous || key !== entry.key) {
+        const dependency = entry.keys.map(key => progress.get(key)?.p || 0).join('|');
+        if (p !== entry.previous || key !== entry.key || dependency !== entry.dependency) {
           attribute(entry.element, 'display', entry.visible(p) ? null : 'none');
-          entry.pen = entry.update(p, key);
+          entry.pen = entry.update(p, key, progress);
+          entry.dependency = dependency;
           entry.previous = p; entry.key = key;
         }
         if (p === 1 && entry.keys.join(';') === penEntry && entry.pen) completedTip = entry.pen;
@@ -346,6 +396,103 @@
       });
     }
 
+    // 力の形は trace の点列・長方形・両端を使う。値や配置はここでは求めない。
+    function drawForce(shapes, s) {
+      const ref = (key, part, index) => ({ source: 'force', key,
+        ...(part ? { part } : {}), ...(index !== undefined ? { index } : {}) });
+      const rectangle = rect => svgNode('rect', { ...rect, fill: C.normal, 'fill-opacity': .12,
+        stroke: C.normal, 'stroke-width': s.thinWidth }, art);
+      const dot = (p, color, r = 5) => svgNode('circle', { cx: p.x, cy: p.y, r,
+        fill: color, 'data-force': 'point' }, art);
+      function vector(reference, vector, color, width = 3, ends = false) {
+        const { from: a, to: b } = vector;
+        growingLine(reference, a, b, color, width, false, { 'data-force': reference.key, 'stroke-linecap': 'butt' });
+        const group = svgNode('g', { 'data-force-head': reference.key, 'data-side': reference.part || '' }, art); art = group;
+        const distance = Math.hypot(b.x - a.x, b.y - a.y);
+        const length = Math.min(14 * s.unitPerPx, distance / (ends ? 2 : 1));
+        const halfWidth = Math.min(6 * s.unitPerPx, length * .4);
+        function head(from, to) {
+          const dx = (to.x - from.x) / distance, dy = (to.y - from.y) / distance;
+          svgNode('polygon', { points: [
+            [to.x, to.y],
+            [to.x - dx * length - dy * halfWidth, to.y - dy * length + dx * halfWidth],
+            [to.x - dx * length + dy * halfWidth, to.y - dy * length - dx * halfWidth],
+          ].map(p => p.join(',')).join(' '), fill: color }, art);
+        }
+        head(a, b);
+        if (ends) head(b, a);
+        art = artRoot;
+        animate(group, [reference], undefined, p => p === 1);
+      }
+      if (shapes.grid) pop(ref('grid'), shapes.grid, () => {
+        const g = shapes.grid;
+        for (let x = g.x; x <= g.x + g.width; x += g.cell)
+          line({ x, y: g.y }, { x, y: g.y + g.height }, C.normal, .6, false, { opacity: .25 });
+        if (shapes.kind === 'force-arrow') for (let y = g.y; y <= g.y + g.height; y += g.cell)
+          line({ x: g.x, y }, { x: g.x + g.width, y }, C.normal, .6, false, { opacity: .25 });
+      });
+      if (shapes.stand) pop(ref('stand'), shapes.stand.lines[0][0], () =>
+        shapes.stand.lines.forEach(([a, b]) => line(a, b, C.normal, s.surfaceWidth)));
+      for (const key of ['box', 'card']) if (shapes[key]) pop(ref(key), shapes[key], () => rectangle(shapes[key]));
+      if (shapes.spring) {
+        const points = shapes.spring.points, prefix = points.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`);
+        const el = svgNode('path', { d: prefix.join(' '), fill: 'none', stroke: C.bluePen,
+          'stroke-width': 3, 'stroke-linejoin': 'round', 'data-force': 'spring' }, art);
+        animate(el, [ref('spring'), ref('weights')], (_, key, progress) => {
+          const p = progress.get(refKey(ref('spring')))?.p || 0;
+          const stretch = math.ease(progress.get(refKey(ref('weights')))?.p || 0);
+          const mixed = points.map((p, i) => {
+            const natural = shapes.spring.naturalPoints[i];
+            return { x: natural.x + (p.x - natural.x) * stretch, y: natural.y + (p.y - natural.y) * stretch };
+          });
+          const prefix = mixed.map((p, i) => `${i ? 'L' : 'M'}${p.x} ${p.y}`);
+          const position = math.ease(p) * (mixed.length - 1), i = Math.floor(position), a = mixed[i], b = mixed[Math.min(i + 1, mixed.length - 1)];
+          const tip = { x: a.x + (b.x - a.x) * (position - i), y: a.y + (b.y - a.y) * (position - i) };
+          attribute(el, 'd', prefix.slice(0, i + 1).join(' ') + (p < 1 ? ` L${tip.x} ${tip.y}` : ''));
+          return tip;
+        });
+      }
+      if (shapes.weights?.length) pop(ref('weights'), shapes.weights[0], () => shapes.weights.forEach(rectangle));
+      if (shapes.stretch) {
+        vector(ref('stretch'), shapes.stretch, C.green, 2, true);
+        for (const p of [shapes.spring.naturalBottom, shapes.spring.bottom])
+          growingLine(ref('stretch'), { x: shapes.stretch.from.x, y: p.y }, p, C.normal, 1, false, { 'stroke-dasharray': '6 5' });
+      }
+      if (shapes.forceArrow) vector(ref('forceArrow'), shapes.forceArrow, C.redPen);
+      if (shapes.graph) {
+        const g = shapes.graph;
+        pop(ref('graph', 'axes'), g.origin, () => {
+          line(g.origin, g.xEnd, C.normal, 2); line(g.origin, g.yEnd, C.normal, 2);
+          g.xTicks.forEach(p => line({ x: p.x, y: g.origin.y }, { x: p.x, y: g.yEnd.y }, C.normal, .6, false, { opacity: .25 }));
+          g.yTicks.forEach(p => line({ x: g.origin.x, y: p.y }, { x: g.xEnd.x, y: p.y }, C.normal, .6, false, { opacity: .25 }));
+        });
+        growingLine(ref('graph', 'line'), g.line.from, g.line.to, C.bluePen, 3, false, { 'data-force': 'graph-line' });
+        g.points.forEach((p, i) => {
+          const el = dot(p, p.current ? 'white' : C.bluePen, p.current ? 6 : 4);
+          if (p.current) { el.setAttribute('stroke', C.redPen); el.setAttribute('stroke-width', 2); }
+          animate(el, [ref('graph', 'points', i)]);
+        });
+      }
+      if (shapes.application) {
+        const el = dot(shapes.application, C.redPen);
+        animate(el, [ref('application')]);
+      }
+      if (shapes.arrow) vector(ref('arrow'), shapes.arrow, C.redPen, 5);
+      if (shapes.magnitude) {
+        const { from: a, to: b } = shapes.magnitude, horizontal = a.y === b.y;
+        growingLine(ref('magnitude'), a, b, C.green, 2);
+        for (const p of [a, b]) growingLine(ref('magnitude'),
+          { x: p.x - (horizontal ? 0 : 5), y: p.y - (horizontal ? 5 : 0) },
+          { x: p.x + (horizontal ? 0 : 5), y: p.y + (horizontal ? 5 : 0) }, C.green, 2);
+      }
+      (shapes.lines || []).forEach((l, i) => growingLine(ref('lines', null, i), l.from, l.to, C.normal, 1.5, false, { 'stroke-dasharray': '7 6' }));
+      for (const [side, pull] of Object.entries(shapes.pulls || {})) {
+        const color = side === 'left' ? C.bluePen : C.redPen;
+        vector(ref('pulls', side), pull, color, 5);
+        animate(dot(pull.from, color), [ref('pulls', side)]);
+      }
+    }
+
     function draw() {
       if (disposed) return;
       let width = svg.getBoundingClientRect().width;
@@ -373,11 +520,11 @@
       width = svg.getBoundingClientRect().width;
       const result = scene.trace(board.scene);
       const s = math.sizes(width), f = s.textSize / 16;
-      const handles = scene.handles(board.scene);
+      const rawHandles = scene.handles(board.scene), handles = math.forceHandles(rawHandles, result, s);
       art = artRoot; artRoot.replaceChildren(); labels.replaceChildren();
 
       // 部品の外形は配置データ、光の道すじと像は trace の結果をそのまま描く。
-      for (const e of (result.sound ? [] : board.scene.elements)) {
+      for (const e of (result.sound || result.force ? [] : board.scene.elements)) {
         if (e.type === 'lens') growingLine({ source: 'elements', id: e.id, part: 'axis' },
           { x: 20, y: e.y }, { x: W - 20, y: e.y }, C.normal, s.thinWidth);
         pop({ source: 'elements', id: e.id, part: 'body' }, { x: e.x ?? W / 2, y: e.y }, () => {
@@ -418,6 +565,7 @@
         });
       }
       if (result.sound) drawSound(result.sound, s);
+      if (result.force) drawForce(result.force, s);
       if (board.id === 'straight') {
         const screen = board.scene.elements.find(e => e.type === 'screen');
         pop({ source: 'elements', id: screen.id, part: 'shadow' }, screen, () =>
@@ -502,7 +650,9 @@
               }
             }
             event.preventDefault(); group.focus({ preventScroll: true });
-            dragging = { pointerId: event.pointerId, elementId: handle.elementId, handle: handle.handle };
+            const current = math.forceHandles(scene.handles(board.scene), scene.trace(board.scene), math.sizes(svg.getBoundingClientRect().width))
+              .find(h => h.elementId === handle.elementId && h.handle === handle.handle);
+            dragging = { pointerId: event.pointerId, elementId: handle.elementId, handle: handle.handle, offset: current?.offset };
             svg.setPointerCapture(event.pointerId);
           });
           group.addEventListener('keydown', event => {
@@ -512,7 +662,8 @@
             const current = scene.handles(board.scene).find(h => h.elementId === handle.elementId && h.handle === handle.handle);
             if (!current) return;
             const [dx, dy] = steps[event.key];
-            const next = result.sound ? scene.stepSoundHandle(board.scene, current.elementId, current.handle, event.key) :
+            const next = result.force ? scene.stepHandle(board.scene, current.elementId, current.handle, event.key) :
+              result.sound ? scene.stepSoundHandle(board.scene, current.elementId, current.handle, event.key) :
               scene.moveElement(board.scene, current.elementId, current.handle, { x: current.x + dx, y: current.y + dy });
             if (next === board.scene) return;
             board.scene = next;
@@ -526,9 +677,9 @@
         svgNode('circle', { r: s.hitRadius, fill: source ? C.ray : C.bluePen, opacity: .12 }, group);
         svgNode('circle', { class: 'knob', r: s.knobRadius, fill: source ? C.ray : 'white',
           stroke: C.text, 'stroke-width': 2, 'vector-effect': 'non-scaling-stroke' }, group);
-        if (result.sound) svgNode('text', { class: 'knob-mark', x: 0, y: s.textSize * .35, 'text-anchor': 'middle',
+        if (result.sound || result.force) svgNode('text', { class: 'knob-mark', x: 0, y: s.textSize * .35, 'text-anchor': 'middle',
           'font-size': s.textSize, fill: C.bluePen, 'aria-hidden': 'true', 'pointer-events': 'none' }, group,
-          ['amplitude', 'pluck'].includes(handle.handle) ? '↕' : '↔');
+          board.id === 'force-arrow' ? '✥' : ['amplitude', 'pluck'].includes(handle.handle) ? '↕' : '↔');
         svgNode('circle', { r: s.hitRadius, fill: 'transparent', 'pointer-events': 'all' }, group);
       });
       for (const [key, group] of handleNodes) {
@@ -543,8 +694,9 @@
           animate(el, [{ source: 'marks', key: mark.key, part: 'dot' }]);
         }
       });
-      const data = labelData(board, result, s, handles);
+      const data = labelData(board, result, s, rawHandles);
       function textRefs(label) {
+        if (label.id.startsWith('tick-')) return [{ source: 'force', key: 'graph', part: 'axes' }];
         const ref = label.id.startsWith('angle-name-') ? { source: 'angles', key: label.id.slice(11), field: 'name' } :
           label.id.startsWith('angle-') ? { source: 'angles', key: label.id.slice(6), field: 'valueDeg' } :
           label.id.startsWith('image-') ? { source: 'images', index: Number(label.id.slice(6)), field: 'kind' } :
@@ -561,8 +713,15 @@
       math.placeLabels(data.labels, data.obstacles, s, lineData(board.scene, result)).forEach((place, index) => {
         if (place.hidden) return;
         const label = data.labels[index];
+        if (label.id === 'mark-application' && result.force?.application) {
+          const box = math.labelBox({ ...label, ...place }), point = result.force.application;
+          const end = { x: Math.max(box.left, Math.min(box.right, point.x)), y: Math.max(box.top, Math.min(box.bottom, point.y)) };
+          if (Math.hypot(place.x - point.x, place.y - point.y) > 60)
+            growingLine({ source: 'marks', key: 'application', field: 'text' }, point, end, C.redPen, 1, false, { 'data-force': 'application-leader' });
+        }
         const el = svgNode('text', { x: place.x, y: place.y, 'text-anchor': place.anchor, fill: label.color,
-          'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400 }, labels, label.lines ? undefined : label.text);
+          'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400,
+          ...(label.textLength ? { textLength: label.textLength, lengthAdjust: 'spacingAndGlyphs' } : {}) }, labels, label.lines ? undefined : label.text);
         if (label.lines) label.lines.forEach((text, index) => svgNode('tspan', {
           x: place.x, dy: index ? label.fontSize * 1.2 : 0 }, el, text));
         if (drawingState === null) return;
@@ -595,8 +754,14 @@
             return Number.isFinite(target?.x) && Number.isFinite(target?.y) ?
               [{ target, ref: { source: 'sound', key, part: 'highlight' } }] : [];
           }),
+          ...Object.entries(result.force || {}).flatMap(([key, value]) => {
+            const target = value?.points?.[Math.floor(value.points.length / 2)] || value?.origin || value?.from ||
+              value?.left?.from || (Array.isArray(value) ? value[0] : value);
+            return Number.isFinite(target?.x) && Number.isFinite(target?.y) ?
+              [{ target, ref: { source: 'force', key, part: 'highlight' } }] : [];
+          }),
           ...result.marks.map(target => ({ target, ref: { source: 'marks', key: target.key, part: 'highlight' } })),
-          ...(['refract', 'sound-string'].includes(board.scene.kind) ? Object.keys(board.scene.options).map(key => ({
+          ...(['refract', 'sound-string', 'force-spring', 'force-balance'].includes(board.scene.kind) ? Object.keys(board.scene.options).map(key => ({
             target: { x: W / 2, y: H - 25 }, ref: { source: 'options', key, part: 'highlight' },
           })) : []),
         ];
@@ -621,6 +786,7 @@
       if (drawingState !== null || !dragging || event.pointerId !== dragging.pointerId) return;
       const point = math.toBoardPoint(event.clientX, event.clientY, svg.getBoundingClientRect());
       if (!point) return;
+      if (dragging.offset) { point.x -= dragging.offset.x; point.y -= dragging.offset.y; }
       event.preventDefault();
       board.scene = scene.moveElement(board.scene, dragging.elementId, dragging.handle, point);
       draw();

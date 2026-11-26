@@ -23,6 +23,19 @@
 
   function angleValue(value) { return Number.isFinite(value) && value >= .5 ? value : 0; }
 
+  // 力のつまみだけを矢じりの先へ離す。エンジンへは矢の先の座標を渡す。
+  function forceHandles(handles, result, size) {
+    if (!result.force) return handles;
+    return handles.map(handle => {
+      const vector = result.force.arrow || result.force.pulls?.[handle.elementId];
+      if (!vector) return handle;
+      const length = Math.hypot(vector.to.x - vector.from.x, vector.to.y - vector.from.y);
+      const gap = size.knobRadius + 3 * size.unitPerPx;
+      const offset = { x: (vector.to.x - vector.from.x) / length * gap, y: (vector.to.y - vector.from.y) / length * gap };
+      return { ...handle, x: handle.x + offset.x, y: handle.y + offset.y, offset };
+    });
+  }
+
   function overlaps(a, b) {
     return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
   }
@@ -78,7 +91,7 @@
 
   function labelBox(label) {
     const rows = label.lines || [label.text];
-    const width = Math.max(...rows.map(text => Array.from(text).length)) * label.fontSize;
+    const width = label.textLength || Math.max(...rows.map(text => Array.from(text).length)) * label.fontSize;
     const left = label.x - (label.anchor === 'end' ? width : label.anchor === 'middle' ? width / 2 : 0);
     return { left, right: left + width, top: label.y - label.fontSize,
       bottom: label.y + label.fontSize * (.2 + (rows.length - 1) * 1.2) };
@@ -222,7 +235,7 @@
     return 1 - (1 - p) * (1 - p);
   }
 
-  const api = { sizes, angleValue, angleLabel, markBox, labelBox, placeLabels, arrowAt, toBoardPoint, ease, easeOut };
+  const api = { sizes, forceHandles, angleValue, angleLabel, markBox, labelBox, placeLabels, arrowAt, toBoardPoint, ease, easeOut };
   if (typeof module === 'object' && module.exports) module.exports = api;
   else root.Hikari = Object.assign(root.Hikari || {}, { viewMath: api });
 })(typeof globalThis !== 'undefined' ? globalThis : this);
