@@ -6,11 +6,13 @@
   const scene = typeof module === 'object' && module.exports ? require('./scene.js') : root.Hikari.scene;
   const force = typeof module === 'object' && module.exports ? require('./force.js') : root.Hikari.force;
   const S = config.sound;
+  const picture = typeof module === 'object' && module.exports ? require('./picture.js') : root.Hikari.picture;
   const UNITS = [
     { id: 'light', title: '中 1 光の世界', teacher: 'E',
       boards: ['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image'] },
     { id: 'sound', title: '中 1 音の世界', teacher: 'E', boards: ['sound-wave', 'sound-string', 'sound-speed'] },
     { id: 'force', title: '中 1 力の世界', teacher: 'E', boards: ['force-spring', 'force-arrow', 'force-balance'] },
+    { id: 'bio1', title: '中 1 生物の観察と分類', teacher: 'E', boards: ['bio-flower', 'bio-plants', 'bio-animals'] },
   ];
 
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -202,6 +204,38 @@
     }
   );
 
+  data.push(
+    { id: 'bio-flower', title: '花のつくり', question: '花は、どんな部分からできている？', heading: '花のつくりをしらべよう',
+      intro: '花は、外側から がく・花弁・おしべ・めしべ の順についています。部分や図を切り替えて、つくりをしらべましょう。',
+      scene: { id: 'bio-flower-basic', kind: 'bio-flower', elements: [{ id: 'picture', type: 'picture' }],
+        options: { figure: 'abrana-section', part: 'pistil' } }, controls: [],
+      prompts: [
+        prompt('flower-stamen', '部分を「おしべ」にして、花粉をつくる所を見つけよう。', 'part', 'is', 'stamen'),
+        prompt('flower-parts', '図を「アブラナ（分けてならべる）」にして、花の部分を外側から順に見よう。', 'figure', 'is', 'abrana-parts'),
+        { id: 'flower-naked', text: '図を「マツ（りん片）」、部分を「めしべ」にして、胚珠がむき出しであることをたしかめよう。', when: { all: [
+          { measure: 'figure', op: 'is', value: 'matsu-scale' }, { measure: 'part', op: 'is', value: 'pistil' },
+        ] } },
+      ] },
+    { id: 'bio-plants', title: '植物のなかま分け', question: '植物は、どこを見ればなかま分けできる？', heading: '特徴をえらんで、植物をなかま分けしよう',
+      intro: '植物は、ふえ方や体のつくりで 5 つのなかまに分けられます。特徴を切り替えて、どのなかまになるか見てみましょう。',
+      scene: { id: 'bio-plants-basic', kind: 'bio-plants', elements: [{ id: 'picture', type: 'picture' }],
+        options: { reproduce: 'seed', ovule: 'in', cotyledon: 'two', organs: 'yes' } }, controls: [],
+      prompts: [
+        prompt('plant-monocot', '子葉を 1 枚にして、単子葉類の葉脈と根を見よう。', 'group', 'is', 'monocot'),
+        prompt('plant-gymnosperm', '胚珠を「むき出し」にして、裸子植物を見つけよう。', 'group', 'is', 'gymnosperm'),
+        prompt('plant-moss', '胞子でふえて、根・茎・葉の区別がないなかまを見つけよう。', 'group', 'is', 'moss'),
+      ] },
+    { id: 'bio-animals', title: '動物のなかま分け', question: '背骨のある動物は、どう分けられる？', heading: '特徴をえらんで、動物をなかま分けしよう',
+      intro: '背骨のある動物（脊椎動物）は、呼吸のしかた・体の表面・子のうまれ方で 5 つのなかまに分けられます。',
+      scene: { id: 'bio-animals-basic', kind: 'bio-animals', elements: [{ id: 'picture', type: 'picture' }],
+        options: { breath: 'gill', skin: 'scale', birth: 'egg-water' } }, controls: [],
+      prompts: [
+        prompt('animal-bird', '肺・羽毛・卵生（殻あり）をえらんで、鳥類を見つけよう。', 'group', 'is', 'bird'),
+        prompt('animal-mammal', '胎生のなかまを見つけよう。', 'group', 'is', 'mammal'),
+        prompt('animal-amphibian', '子はえら・親は肺で呼吸するなかまを見つけよう。', 'group', 'is', 'amphibian'),
+      ] }
+  );
+
   function list() {
     return UNITS.flatMap(unit => unit.boards.map(id => data.find(board => board.id === id)).filter(Boolean)
       .map(({ id, title, question }) => ({ id, title, question, unit: unit.id })));
@@ -240,6 +274,11 @@
     const original = data.find(board => board.id === id);
     if (!original) return null;
     const board = JSON.parse(JSON.stringify(original));
+    if (picture.isKind(id)) Object.defineProperty(board, 'controls', {
+      enumerable: true, configurable: true, get() {
+        return scene.validateScene(board.scene).length || board.scene.kind !== id ? [] : picture.controls(id, board.scene.options);
+      },
+    });
     // board.scene を操作結果に置き換えると、次に読む controls の文も切り替わる。
     if (id === 'refract') Object.defineProperty(board, 'controls', {
       enumerable: true, configurable: true, get() {
@@ -295,6 +334,37 @@
       return Number.isFinite(result) ? result : null;
     }
     const elements = currentScene?.elements || [];
+    if (id === 'bio-flower') {
+      const m = measures, names = { pistil: 'めしべ', stamen: 'おしべ', petal: '花弁', sepal: 'がく' };
+      if (Object.hasOwn(names, m.part) && ['abrana', 'matsu'].includes(m.plant)) {
+        const pine = m.plant === 'matsu';
+        text('えらんだ部分 ' + (pine && m.part === 'pistil' ? '雌花' : pine && m.part === 'stamen' ? '雄花' : names[m.part]));
+        const work = pine ? { pistil: 'りん片に胚珠がついている', stamen: 'りん片の花粉のうで花粉をつくる', petal: 'マツの花にはない', sepal: 'マツの花にはない' } :
+          { pistil: '受粉すると、子房は果実に、胚珠は種子になる', stamen: 'やくの中で花粉をつくる', petal: 'めしべとおしべを守る', sepal: 'つぼみのとき、内側を守る' };
+        text((pine ? '' : 'はたらき ') + work[m.part]);
+        text('胚珠 ' + (pine ? 'むき出し（子房がない）' : '子房の中にある'));
+      }
+    }
+    if (id === 'bio-plants') {
+      const values = {
+        dicot: ['なかま 被子植物の双子葉類', '葉脈 網状脈', '根 主根と側根'],
+        monocot: ['なかま 被子植物の単子葉類', '葉脈 平行脈', '根 ひげ根'],
+        gymnosperm: ['なかま 裸子植物', '胚珠 むき出し', 'ふえ方 種子'],
+        fern: ['なかま シダ植物', 'ふえ方 胞子', '根・茎・葉の区別 ある'],
+        moss: ['なかま コケ植物', 'ふえ方 胞子', '根・茎・葉の区別 ない'],
+      };
+      if (Object.hasOwn(values, measures.group)) values[measures.group].forEach(value => text(value));
+    }
+    if (id === 'bio-animals') {
+      const match = picture.animals.find(a => a[0] === measures.group);
+      if (match) { text('あてはまるなかま ' + match[1]); text('合った特徴 3 つ'); text('例 ' + match[5]); }
+      else if (measures.group === 'none' && record(measures.matches) && Array.isArray(measures.best)) {
+        text('あてはまるなかま なし');
+        const best = picture.animals.filter(a => measures.best.includes(a[0]));
+        const count = Math.max(0, ...Object.values(measures.matches));
+        text('いちばん近いなかま ' + (count > 0 ? best.map(a => a[1]).join('・') + '（' + count + ' つ合う）' : 'なし'));
+      }
+    }
     if (id === 'force-spring') {
       const n = force.tenthsText(measures.forceTenths), cm = force.tenthsText(measures.stretchMm);
       if (n !== null) text('力の大きさ ' + n + ' N');

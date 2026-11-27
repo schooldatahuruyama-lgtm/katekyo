@@ -10,6 +10,526 @@ const boards = require('../js/boards.js');
 const scene = require('../js/scene.js');
 const boardView = require('../js/board-view.js');
 
+function bioVariants(id) {
+  const board = boards.get(id);
+  return board.controls.reduce((all, c) => all.flatMap(o => c.choices.map(v => ({ ...o, [c.key]: v.value }))), [{}])
+    .map(options => ({ ...boards.get(id).scene, options }));
+}
+
+test('動物: appのクリックで魚類から鳥類にすると合う特徴の数も鳥類になる', () => {
+  const ui = screen('?board=bio-animals', 375);
+  ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  for (const label of ['肺', '羽毛', '卵生（殻あり）']) {
+    elements(ui, el => el.tagName === 'button' && el.textContent.replace(/^✓ /, '') === label)[0].dispatch('click');
+  }
+  assert.equal(ui.find(el => (el.attributes['data-picture-text'] || el.attributes['data-picture-below']) === 'count-match').textContent, '鳥類 3 つ（ぜんぶ）');
+});
+
+function openBio(id, width = 375, initial = null) {
+  let current;
+  const ui = screen('?board=' + id, width, {
+    boards: { ...boards, get(key) {
+      const board = boards.get(key);
+      if (key === id && initial) board.scene = structuredClone(initial);
+      return board;
+    } },
+    scene: { ...scene, trace(value, layout) { current = value; return scene.trace(value, layout); } },
+  });
+  ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  ui.current = () => current;
+  return ui;
+}
+
+function bioResult(ui, current = ui.current()) {
+  const width = ui.find(el => el.attributes.class === 'board-svg').getBoundingClientRect().width;
+  const layout = { compact: width < 420, widthPx: width }, result = scene.trace(current, layout);
+  const data = boardView.labelData({ scene: current }, result, view.sizes(width));
+  const places = view.placeLabels(data.labels, data.obstacles, view.sizes(width), []);
+  layout.belowKeys = places.flatMap((p, i) => p.hidden ? [data.labels[i].id.slice(5)] : []);
+  return layout.belowKeys.length ? scene.trace(current, layout) : result;
+}
+
+function isBioBelow(picture, key) { return picture.below.some(row => row.key === key || row.keys?.includes(key)); }
+
+function checkBioPicture(ui) {
+  const r = bioResult(ui), p = r.picture;
+  const colors = require('../js/config.js').colors;
+  const color = tone => colors[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray' }[tone]];
+  const texts = elements(ui, el => el.attributes['data-picture-text']);
+  const marks = r.marks.filter(mark => !isBioBelow(p, mark.key));
+  assert.deepEqual(texts.map(el => el.textContent), marks.map(mark => mark.text));
+  assert.deepEqual(elements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent), p.below.map(row => row.text));
+  assert.deepEqual(texts.map(el => el.attributes.fill), marks.map(mark => color(mark.tone)));
+  for (const [kind, items] of [['tag', p.tags], ['pin', p.pins], ['ring', p.rings], ['image', p.images]]) {
+    assert.deepEqual(elements(ui, el => el.attributes['data-picture-' + kind]).map(el => el.attributes['data-picture-' + kind]), items.map(item => item.key));
+  }
+  assert.deepEqual(elements(ui, el => el.tagName === 'image').map(el => el.attributes.href), p.images.map(img => img.src));
+  assert.deepEqual(elements(ui, el => el.attributes['data-picture-ring']).map(el =>
+    ['cx', 'cy', 'rx', 'ry'].map(key => Number(el.attributes[key]))), p.rings.map(ring => [ring.cx, ring.cy, ring.rx, ring.ry]));
+  assert.equal(ui.find(el => el.className === 'readout').textContent,
+    boards.readout(ui.current().kind, r.measures, ui.current()).map(item => item.text).join(''));
+}
+
+function pressBio(ui, key, value) {
+  const board = boards.get(ui.current().kind); board.scene = ui.current();
+  const control = board.controls.find(c => c.key === key), choice = control.choices.find(c => c.value === value);
+  const group = ui.find(el => el.className === 'seg' && el.attributes['aria-label'] === control.label);
+  const button = group.children.find(el => el.tagName === 'button' && el.textContent.replace(/^✓ /, '') === choice.label);
+  assert.equal(button.disabled, false, control.label + ': ' + choice.label);
+  button.dispatch('click');
+  assert.equal(ui.current().options[key], value);
+  assert.equal(button.attributes['aria-pressed'], 'true');
+  checkBioPicture(ui);
+}
+
+function selectBio(ui, options) {
+  const set = (key, value) => { if (ui.current().options[key] !== value) pressBio(ui, key, value); };
+  if (ui.current().kind === 'bio-plants') {
+    // 無効なボタンを押さず、別の分類でも保存される選択値を有効な配置で変える。
+    if (ui.current().options.organs !== options.organs) { set('reproduce', 'spore'); set('organs', options.organs); }
+    if (ui.current().options.cotyledon !== options.cotyledon) {
+      set('reproduce', 'seed'); set('ovule', 'in'); set('cotyledon', options.cotyledon);
+    }
+    if (ui.current().options.ovule !== options.ovule) { set('reproduce', 'seed'); set('ovule', options.ovule); }
+    set('reproduce', options.reproduce);
+  } else Object.entries(options).forEach(([key, value]) => set(key, value));
+  assert.deepEqual(ui.current().options, options);
+}
+
+function bioSnapshot(ui) {
+  const snapshot = el => ({ tag: el.tagName, attrs: { ...el.attributes }, text: el.textContent, children: el.children.map(snapshot) });
+  return elements(ui, el => el.tagName === 'text' || el.attributes['data-picture-below'] || ['image', 'tag', 'pin', 'ring'].some(kind => el.attributes['data-picture-' + kind])).map(snapshot);
+}
+
+test('419pxは下の説明、420pxは盤内の説明。700→300→700でも選択と達成を保つ', () => {
+  assert.match(fs.readFileSync(path.join(__dirname, '../css/app.css'), 'utf8'), /\.picture-below\s*\{[^}]*font-size:\s*16px/);
+  const ui = openBio('bio-animals', 700);
+  pressBio(ui, 'breath', 'lung'); pressBio(ui, 'skin', 'feather'); pressBio(ui, 'birth', 'egg-land');
+  const initial = bioSnapshot(ui), options = structuredClone(ui.current().options);
+  const completed = () => elements(ui, el => el.className.split(' ').includes('done')).map(el => el.textContent);
+  const done = completed(); assert.ok(done.length > 0);
+  for (const width of [300, 419, 420, 700]) {
+    ui.resize(width); checkBioPicture(ui);
+    const compact = width < 420;
+    assert.equal(elements(ui, el => el.attributes['data-picture-below']).length > 0, compact);
+    assert.equal(!!ui.find(el => el.attributes['data-picture-text'] === 'side-breath'), !compact);
+    assert.equal(elements(ui, el => el.attributes['data-picture-image']).length, 1);
+    assert.deepEqual(ui.current().options, options); assert.deepEqual(completed(), done);
+  }
+  assert.deepEqual(bioSnapshot(ui), initial);
+});
+
+test('説明中に幅を往復しても下の文が浮き上がり、pointはその行を指す', () => {
+  const { ui, board, renderer } = animationBoard('bio-animals', 700);
+  const state = drawing(board, 'side:breath', .5); renderer.setState(state);
+  ui.resize(300);
+  const row = ui.find(el => el.attributes['data-picture-below'] === 'side-breath');
+  assert.equal(row.hidden, false); assert.ok(Number(row.style.opacity) > 0 && Number(row.style.opacity) < 1);
+  assert.equal(ui.find(el => el.attributes['data-picture-text'] === 'side-breath'), null);
+  ui.resize(700);
+  assert.equal(elements(ui, el => el.attributes['data-picture-below']).length, 0);
+  assert.ok(visibleElements(ui, el => el.attributes['data-picture-text'] === 'side-breath').length);
+  renderer.destroy();
+  const plant = animationBoard('bio-plants', 200);
+  // 長い caption を盤の下へ出す分類で point も同じキーを使う。
+  plant.renderer.setScene(scene.setOption(plant.board.scene, 'ovule', 'naked'));
+  const target = 'caption:2', shown = drawing(plant.board, 'label:' + target, 1), pointed = drawing(plant.board, 'point:' + target, .5);
+  plant.renderer.setState({ ...shown, parts: [...shown.parts, ...pointed.parts] });
+  const caption = plant.ui.find(el => el.attributes['data-picture-below'] === target);
+  assert.ok(caption); assert.equal(caption.hidden, false);
+  assert.equal(caption.children[0].hasAttribute('display'), false);
+  plant.renderer.destroy();
+});
+
+const animalCases = [
+  ['fish', '魚類', 'gill', 'scale', 'egg-water'], ['amphibian', '両生類', 'both', 'moist', 'egg-water'],
+  ['reptile', 'は虫類', 'lung', 'scale', 'egg-land'], ['bird', '鳥類', 'lung', 'feather', 'egg-land'],
+  ['mammal', '哺乳類', 'lung', 'hair', 'live'],
+];
+for (const [group, name, breath, skin, birth] of animalCases) {
+  test(`動物: 魚類から${name}へクリックし、数・見出し・輪・下の値が一致する`, () => {
+    const ui = openBio('bio-animals');
+    for (const [key, value] of Object.entries({ breath, skin, birth })) pressBio(ui, key, value);
+    const text = key => ui.find(el => (el.attributes['data-picture-text'] || el.attributes['data-picture-below']) === key).textContent;
+    assert.equal(text('count-match'), name + ' 3 つ（ぜんぶ）');
+    assert.equal(text('title'), 'あてはまるなかま: ' + name);
+    assert.equal(ui.find(el => el.attributes['data-picture-ring']).attributes['data-picture-ring'], group);
+    assert.ok(ui.find(el => el.className === 'readout').textContent.includes('あてはまるなかま ' + name));
+    const matches = scene.trace(ui.current()).measures.matches, rest = animalCases.filter(row => row[0] !== group);
+    for (let i = 0; i < rest.length; i += 2) assert.equal(text('count:' + i), rest.slice(i, i + 2).map(row => row[1] + ' ' + matches[row[0]]).join('・'));
+  });
+}
+
+test('動物: 一致あり→なし→ありで緑の行・輪・〇が消えて正しく戻る', () => {
+  const ui = openBio('bio-animals');
+  pressBio(ui, 'breath', 'lung');
+  assert.equal(ui.find(el => (el.attributes['data-picture-text'] || el.attributes['data-picture-below']) === 'count-match'), null);
+  assert.equal(ui.find(el => el.attributes['data-picture-ring']), null);
+  assert.ok(elements(ui, el => el.tagName === 'text' || el.attributes['data-picture-below']).every(el => !el.textContent.includes('〇')));
+  pressBio(ui, 'skin', 'feather'); pressBio(ui, 'birth', 'egg-land');
+  assert.equal(ui.find(el => (el.attributes['data-picture-text'] || el.attributes['data-picture-below']) === 'count-match').textContent, '鳥類 3 つ（ぜんぶ）');
+  assert.equal(elements(ui, el => (el.tagName === 'text' || el.attributes['data-picture-below']) && el.textContent.startsWith('〇')).length, 3);
+  assert.equal(ui.find(el => el.attributes['data-picture-ring']).attributes['data-picture-ring'], 'bird');
+});
+
+for (const width of [279, 375, 700]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+  test(`${id}: ${width}pxの同じ画面で全組合せをクリックし、新規画面と全文字・色・位置・折り返し・画像・線・輪が一致する`, () => {
+    const ui = openBio(id, width), initial = bioSnapshot(ui);
+    const svg = ui.find(el => el.attributes.class === 'board-svg');
+    for (const current of bioVariants(id)) {
+      selectBio(ui, current.options); checkBioPicture(ui);
+      const fresh = openBio(id, width, current);
+      assert.deepEqual(bioSnapshot(ui), bioSnapshot(fresh), JSON.stringify(current.options));
+      assert.equal(ui.find(el => el.attributes.class === 'board-svg'), svg);
+    }
+    ui.button('はじめの配置にもどす').dispatch('click');
+    assert.deepEqual(bioSnapshot(ui), initial); checkBioPicture(ui);
+  });
+}
+
+test('植物: 画像3枚⇔1枚を往復して画像・文字・引き出し線が残らない', () => {
+  const ui = openBio('bio-plants'), initial = bioSnapshot(ui);
+  for (let i = 0; i < 2; i++) {
+    pressBio(ui, 'reproduce', 'spore');
+    assert.equal(elements(ui, el => el.attributes['data-picture-image']).length, 1);
+    assert.ok(elements(ui, el => el.attributes['data-picture-pin']).length > 0);
+    pressBio(ui, 'reproduce', 'seed');
+    assert.equal(elements(ui, el => el.attributes['data-picture-image']).length, 3);
+    assert.equal(elements(ui, el => el.attributes['data-picture-pin']).length, 0);
+    assert.deepEqual(bioSnapshot(ui), initial);
+  }
+});
+
+function pictureBox(el) {
+  const fontSize = Number(el.attributes['font-size']);
+  const lines = el.children.filter(t => t.tagName === 'tspan').map(t => t.textContent);
+  return view.labelBox({ x: Number(el.attributes.x), y: Number(el.attributes.y), fontSize,
+    anchor: el.attributes['text-anchor'], text: el.textContent, lines,
+    textLength: Math.max(...lines.map(t => view.pictureTextWidth(t, fontSize))) });
+}
+
+test('画像の折り返しは区切りだけ・2行まで。短い行や語の途中の切断は作らない', () => {
+  for (const text of ['めしべ 1 本', '花弁 4 枚', '根・茎・葉の区別がある。胞子でふえる',
+    '胚珠（むき出し）', '子房がなく、胚珠がむき出し', '空白で 区切る文', '語句(かっこ内)']) {
+    for (const width of [1, 20, 60, 100, 180, 560]) {
+      const rows = view.wrapPictureText(text, width, 19);
+      assert.equal(rows.join(''), text); assert.ok(rows.length <= 2);
+      if (rows.length === 2) {
+        assert.ok(rows.every(row => row.trim().length > 2));
+        assert.ok(/[\s・。、]$/.test(rows[0]) || /^[（(]/.test(rows[1]));
+        assert.ok(rows.every(row => view.pictureTextWidth(row, 19) <= width));
+      }
+    }
+  }
+  assert.deepEqual(view.wrapPictureText('めしべ', 19, 19), ['めしべ']);
+  assert.deepEqual(view.wrapPictureText('花弁 4 枚', 80, 19), ['花弁 4 枚']);
+  assert.equal(view.wrapPictureText('子房がなく、胚珠がむき出し', 180, 19).length, 2);
+});
+
+// 元画像の各部分が占める範囲。文字の配置データとは独立した期待値。
+const flowerAreas = { sepal: [30, 100, 128, 296], petal: [155, 75, 345, 310],
+  stamen: [365, 110, 544, 282], pistil: [576, 90, 614, 302] };
+for (const width of [279, 335, 419, 420, 700, 1100]) {
+  test(`アブラナの分けた図: ${width}px × 部分4通りで名前の位置・下の文・赤い輪を確認`, () => {
+    const ui = screen('', width), board = boards.get('bio-flower'), renderer = ui.api.boardView.create(ui.host, board);
+    for (const part of ['sepal', 'petal', 'stamen', 'pistil']) {
+      const current = { ...board.scene, options: { figure: 'abrana-parts', part } }; renderer.setScene(current);
+      const texts = elements(ui, el => el.attributes['data-picture-text']);
+      if (width >= 420) {
+        assert.equal(texts.length, 5); assert.equal(elements(ui, el => el.attributes['data-picture-below']).length, 0);
+        for (const [key, [left, , right]] of Object.entries(flowerAreas)) {
+          const el = texts.find(el => el.attributes['data-picture-text'] === key), box = pictureBox(el);
+          assert.equal(el.children.length, 1); assert.equal(Number(el.attributes.y), 350);
+          const center = 20 + (left + right) / 2 * .875, halfWidth = (right - left) / 2 * .875;
+          assert.ok(Math.abs((box.left + box.right) / 2 - center) <= halfWidth, key + ': 自分の絵の真下');
+          assert.ok(box.left >= 0 && box.right <= 600);
+          if (key === 'pistil') assert.equal(el.attributes['text-anchor'], 'end');
+        }
+        const order = texts.find(el => el.attributes['data-picture-text'] === 'order');
+        assert.equal(order.children.length, 1); assert.equal(Number(order.attributes.x), 300); assert.equal(Number(order.attributes.y), 35);
+      } else {
+        assert.equal(texts.length, 0);
+        const rows = elements(ui, el => el.attributes['data-picture-below']);
+        assert.equal(rows[0].textContent, '左から: がく 4 枚 → 花弁 4 枚 → おしべ 6 本 → めしべ 1 本（外側から内側の順）');
+        assert.equal(rows[1].textContent, '赤い輪 ＝ えらんだ部分（' + { sepal: 'がく', petal: '花弁', stamen: 'おしべ', pistil: 'めしべ' }[part] + '）');
+        const rings = elements(ui, el => el.attributes['data-picture-ring']); assert.equal(rings.length, 1);
+        const ring = rings[0].attributes, [left, top, right, bottom] = flowerAreas[part];
+        assert.equal(ring['data-picture-ring'], part); assert.equal(ring.stroke, require('../js/config.js').colors.redPen);
+        assert.ok(Number(ring.cx) - Number(ring.rx) <= 20 + left * .875);
+        assert.ok(Number(ring.cx) + Number(ring.rx) >= 20 + right * .875);
+        assert.ok(Number(ring.cy) - Number(ring.ry) <= top * .875);
+        assert.ok(Number(ring.cy) + Number(ring.ry) >= bottom * .875);
+      }
+    }
+    renderer.destroy();
+  });
+}
+
+test('シダ・コケ: 下の文は画像・名前・なかまの例に重ならない', () => {
+  for (const width of [279, 335, 419, 420, 700]) for (const organs of ['yes', 'no']) {
+    const current = boards.get('bio-plants').scene; current.options.reproduce = 'spore'; current.options.organs = organs;
+    const ui = openBio('bio-plants', width, current);
+    const below = ui.find(el => el.attributes['data-picture-below'] === 'caption:1');
+    if (below) { assert.match(below.textContent, /根・茎・葉の区別が[あな].+。胞子でふえる/); continue; }
+    const caption = pictureBox(ui.find(el => el.attributes['data-picture-text'] === 'caption:1'));
+    assert.equal(overlap(caption, { left: 60, right: 540, top: 60, bottom: 360 }), false);
+    for (const el of elements(ui, el => el.attributes['data-picture-text'] && el.attributes['data-picture-text'] !== 'caption:1')) {
+      assert.equal(overlap(caption, pictureBox(el)), false, el.textContent);
+    }
+  }
+});
+
+test('分けた図の説明中も、下の文・選択の説明・赤い輪が消えず、pointは下の文を指す', () => {
+  const { ui, board, renderer } = animationBoard('bio-flower', 700);
+  renderer.setScene({ ...board.scene, options: { figure: 'abrana-parts', part: 'stamen' } });
+  const image = drawing(board, 'image', 1), label = drawing(board, 'label:stamen', 1), point = drawing(board, 'point:stamen', .5);
+  renderer.setState({ ...label, parts: [...image.parts, ...label.parts, ...point.parts] });
+  ui.resize(300);
+  for (const key of ['order', 'selection']) {
+    const row = ui.find(el => el.attributes['data-picture-below'] === key);
+    assert.ok(row); assert.equal(row.hidden, false); assert.equal(row.children[0].hasAttribute('display'), false);
+  }
+  assert.equal(visibleElements(ui, el => el.attributes['data-picture-ring'] === 'stamen').length, 1);
+  ui.resize(700);
+  assert.equal(elements(ui, el => el.attributes['data-picture-below']).length, 0);
+  assert.equal(elements(ui, el => el.attributes['data-picture-ring']).length, 0);
+  assert.equal(visibleElements(ui, el => el.attributes['data-picture-text'] === 'stamen').length, 1);
+  renderer.destroy();
+});
+
+test('画像3盤の全68通り: 700→300→700で前の文字・輪を残さず元の配置へ戻す', () => {
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    const ui = screen('', 700), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    for (const current of bioVariants(id)) {
+      renderer.setScene(current); const initial = bioSnapshot(ui);
+      ui.resize(300);
+      const narrow = bioResult(ui, current);
+      assert.deepEqual(elements(ui, el => el.attributes['data-picture-text']).map(el => el.textContent),
+        narrow.marks.filter(m => !isBioBelow(narrow.picture, m.key)).map(m => m.text));
+      assert.deepEqual(elements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent), narrow.picture.below.map(row => row.text));
+      ui.resize(700); assert.deepEqual(bioSnapshot(ui), initial);
+    }
+    renderer.destroy();
+  }
+});
+
+test('700pxの全68通り: 指示書の名前・画像の題・下の文から40単位を超えて動かない', () => {
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    const ui = screen('', 700), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    for (const current of bioVariants(id)) {
+      renderer.setScene(current);
+      const original = scene.trace(current, { widthPx: 700 }), data = boardView.labelData(board, original, view.sizes(700));
+      const rendered = elements(ui, el => el.attributes['data-picture-text']), boxes = rendered.map(pictureBox);
+      for (const [index, el] of rendered.entries()) {
+        const label = data.labels.find(label => label.id === 'mark-' + el.attributes['data-picture-text']), own = view.labelBox(label);
+        const box = boxes[index], b = label.bounds;
+        const moved = Math.hypot(box.left - own.left, box.top - own.top);
+        if (moved < 1e-7) continue;
+        // 元の位置が空いているのに、盤全体を詰め直して動かすことはない。
+        assert.ok(own.left < 0 || own.right > 600 || own.top < 0 || own.bottom > 420 ||
+          b && (own.left < b.x || own.right > b.x + b.width || own.top < b.y || own.bottom > b.y + b.height) ||
+          boxes.some((other, j) => j !== index && overlap(own, other)) || data.obstacles.some(other => overlap(own, other)), el.textContent);
+      }
+      const expected = {};
+      if (id === 'bio-flower' && current.options.figure === 'abrana-section') {
+        Object.assign(expected, { stigma: [506, 68], ovary: [514, 306], ovule: [74, 336], stamen: [66, 106], petal: [516, 204], sepal: [70, 396] });
+      } else if (id === 'bio-animals') {
+        Object.entries({ fish: [105, 165], amphibian: [310, 170], reptile: [525, 170], bird: [120, 448], mammal: [475, 448] })
+          .forEach(([key, [x, y]]) => { expected[key] = [10 + x * .5625, 60 + y * .5625]; });
+      } else if (id === 'bio-plants' && current.options.reproduce === 'seed') {
+        const xs = current.options.ovule === 'naked' ? [156, 444] : [108, 300, 492];
+        xs.forEach((x, i) => { expected['heading:' + (i + 1)] = [x, 72]; expected['caption:' + (i + 1)] = [x, 365]; });
+      }
+      for (const [key, [x, y]] of Object.entries(expected)) {
+        const el = ui.find(el => el.attributes['data-picture-text'] === key); assert.ok(el, key);
+        const box = pictureBox(el);
+        assert.ok(Math.hypot((box.left + box.right) / 2 - x, Number(el.attributes.y) - y) <= 40,
+          id + ': ' + key + ' / ' + JSON.stringify(current.options));
+      }
+    }
+    renderer.destroy();
+  }
+});
+
+for (const width of [279, 335, 419, 420, 700, 1100]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+  test(`${id}: 盤幅${width}pxで全組合せの文字を16px以上・盤内・文字や輪との重なりなしで描く`, () => {
+    const ui = screen('', width), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board), size = view.sizes(width);
+    for (const current of bioVariants(id)) {
+      renderer.setScene(current);
+      const r = bioResult(ui, current), data = boardView.labelData(board, r, size);
+      const marks = r.marks.filter(mark => !isBioBelow(r.picture, mark.key));
+      assert.deepEqual(elements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent), r.picture.below.map(row => row.text));
+      for (const el of elements(ui, el => el.attributes['data-picture-below'])) {
+        const chunks = el.children.filter(child => child.className === 'picture-phrase').map(child => child.textContent);
+        assert.equal(chunks.join(''), el.textContent);
+        assert.ok(chunks.every(chunk => view.pictureTextWidth(chunk, 16) <= width), el.textContent + ': 下の文も盤幅に収まる');
+        if (chunks.length > 1) {
+          assert.ok(chunks.every(chunk => chunk.trim().length > 2));
+          chunks.slice(1).forEach((chunk, i) => assert.ok(/[\s・。、]$/.test(chunks[i]) || /^[（(]/.test(chunk)));
+        }
+      }
+      // 下へ移した文字も消えず、まとめた文には元の４つの名前が残る。
+      for (const mark of r.marks) if (isBioBelow(r.picture, mark.key) && mark.key !== 'order') {
+        assert.ok(r.picture.below.some(row => row.text.includes(mark.text)), mark.text);
+      }
+      const placed = view.placeLabels(data.labels, data.obstacles, size, []);
+      assert.ok(placed.every(p => !p.hidden), JSON.stringify(current.options) + placed.filter(p => p.hidden).map(p => p.id));
+      const rendered = elements(ui, el => el.attributes.class === 'picture-text');
+      assert.equal(rendered.length, marks.length);
+      const boxes = rendered.map((el, i) => {
+        assert.equal(el.textContent, marks[i].text);
+        const fontSize = Number(el.attributes['font-size']); assert.ok(fontSize / size.unitPerPx >= 16 - 1e-9);
+        const lines = el.children.filter(t => t.tagName === 'tspan').map(t => t.textContent);
+        assert.ok(lines.length <= 2, el.textContent + ': 2行まで');
+        if (lines.length > 1) {
+          assert.ok(lines.every(line => Array.from(line.trim()).length > 2), el.textContent + ': 短すぎる行なし');
+          assert.ok(/[\s・。、]$/u.test(lines[0]) || /^[（(]/u.test(lines[1]), el.textContent + ': 語の途中で切らない');
+        }
+        const box = view.labelBox({ x: Number(el.attributes.x), y: Number(el.attributes.y), fontSize,
+          anchor: el.attributes['text-anchor'], text: el.textContent, lines,
+          textLength: Math.max(...lines.map(t => view.pictureTextWidth(t, fontSize))) });
+        assert.ok(box.left >= -1e-8 && box.right <= 600 + 1e-8 && box.top >= -1e-8 && box.bottom <= 420 + 1e-8, el.textContent);
+        const bounds = marks[i].bounds;
+        if (bounds) assert.ok(box.top >= bounds.y - 1e-8 && box.bottom <= bounds.y + bounds.height + 1e-8,
+          el.textContent + ': 横に広げても縦の範囲を保つ');
+        if (marks[i].maxRows) assert.ok(lines.length <= marks[i].maxRows, el.textContent + ': 行数');
+        for (const ring of r.picture.rings) assert.ok(!overlap(box, { left: ring.cx - ring.rx, right: ring.cx + ring.rx,
+          top: ring.cy - ring.ry, bottom: ring.cy + ring.ry }), el.textContent);
+        return box;
+      });
+      boxes.forEach((a, i) => boxes.slice(i + 1).forEach(b => assert.ok(!overlap(a, b), JSON.stringify(current.options))));
+      if (id === 'bio-animals') {
+        const img = r.picture.images[0], region = ([left, top, right, bottom]) => ({
+          left: img.x + left * img.width / 640, right: img.x + right * img.width / 640,
+          top: img.y + top * img.height / 480, bottom: img.y + bottom * img.height / 480,
+        });
+        const areas = [[0, 0, 210, 225], [210, 0, 420, 225], [420, 0, 630, 225], [0, 225, 320, 480], [320, 225, 640, 480]];
+        areas.forEach((area, i) => {
+          const expected = region(area), box = boxes[i];
+          assert.ok(box.left >= expected.left - 1e-8 && box.right <= expected.right + 1e-8 &&
+            box.top >= expected.top - 1e-8 && box.bottom <= expected.bottom + 1e-8, animalCases[i][1]);
+        });
+        if (width < 420) {
+          const faces = [[0, 75, 55, 125], [210, 40, 300, 110], [415, 75, 475, 115], [218, 220, 280, 260], [520, 210, 607, 290]];
+          for (const box of boxes.slice(0, 5)) for (const face of faces) assert.ok(!overlap(box, region(face)), '顔をかくさない');
+        }
+      }
+      for (const el of elements(ui, el => el.attributes['data-picture-pin'])) {
+        const own = marks.findIndex(mark => mark.key === el.attributes['data-picture-pin']);
+        const points = el.tagName === 'path' ? [...el.attributes.d.matchAll(/[ML]([^ ]+) ([^ ML]+)/g)].map(m => ({ x: Number(m[1]), y: Number(m[2]) })) :
+          [{ x: Number(el.attributes.x1), y: Number(el.attributes.y1) }, { x: Number(el.attributes.x2), y: Number(el.attributes.y2) }];
+        assert.ok(points.length >= 2, el.attributes['data-picture-pin']);
+        points.slice(1).forEach((p, i) => boxes.forEach((box, j) => {
+          if (j !== own) assert.equal(crossesLine(box, { x1: points[i].x, y1: points[i].y, x2: p.x, y2: p.y }, 0), false,
+            el.attributes['data-picture-pin'] + ' / ' + marks[j].key);
+        }));
+      }
+      for (const el of elements(ui, () => true)) Object.values(el.attributes).forEach(value => assert.doesNotMatch(value, /NaN|Infinity|undefined/));
+      assert.equal(elements(ui, el => el.attributes.class === 'handle').length, 0);
+    }
+    renderer.destroy();
+  });
+}
+
+test('画像失敗は各置き場所に説明を出し、名前と引き出し線を残す。cropはSVGのviewBoxで切り出す', () => {
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    const ui = screen('', 335), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
+    for (const current of bioVariants(id)) {
+      renderer.setScene(current); const p = bioResult(ui, current).picture;
+      const images = elements(ui, el => el.tagName === 'image'); assert.equal(images.length, p.images.length);
+      images.forEach((el, i) => {
+        const img = p.images[i], c = img.crop || { x: 0, y: 0, width: 640, height: 480 };
+        assert.equal(el.attributes.href, img.src); assert.equal(el.parent.attributes.viewBox, `${c.x} ${c.y} ${c.width} ${c.height}`);
+        assert.equal(el.parent.attributes.overflow, 'hidden'); assert.equal(el.parent.attributes.preserveAspectRatio, 'none');
+        assert.doesNotThrow(() => el.dispatch('error'));
+      });
+      assert.equal(visibleElements(ui, el => el.textContent === '画像を読みこめませんでした' && el.tagName === 'text').length, images.length);
+      assert.equal(visibleElements(ui, el => el.attributes['data-picture-tag']).length, p.tags.length);
+      assert.equal(visibleElements(ui, el => el.attributes['data-picture-pin']).length, p.pins.length);
+      assert.match(ui.find(el => el.attributes.class === 'board-svg').attributes['aria-label'], /写真ふうの画像/);
+      if (current.options.figure?.startsWith('matsu') && ['petal', 'sepal'].includes(current.options.part)) {
+        assert.ok(visibleElements(ui, el => el.tagName === 'text' && el.textContent === 'マツの花には、花弁やがくがありません').length);
+        assert.equal(visibleElements(ui, el => el.attributes['data-picture-tag']).filter(el => el.children.some(t => t.attributes.fill === '#B23A36')).length, 0);
+      }
+    }
+    renderer.destroy();
+  }
+});
+
+test('植物の無効なボタンはdisabledと理由を表示し、押しても変化せず、戻すと値を復元する', () => {
+  const ui = screen('?board=bio-plants', 375); ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+  function group(name) { return elements(ui, el => el.className === 'seg' && el.attributes['aria-label'] === name)[0]; }
+  function press(name, label) { group(name).children.find(el => el.tagName === 'button' && el.textContent.replace(/^✓ /, '') === label).dispatch('click'); }
+  press('子葉', '1 枚'); press('胚珠', 'むき出し');
+  let disabled = group('子葉').children.filter(el => el.tagName === 'button'); assert.ok(disabled.every(el => el.disabled));
+  assert.ok(group('子葉').textContent.includes('子葉の数で分けるのは、被子植物です'));
+  press('ふえ方', '胞子');
+  for (const name of ['胚珠', '子葉']) {
+    const g = group(name), buttons = g.children.filter(el => el.tagName === 'button');
+    assert.ok(buttons.every(el => el.disabled && el.attributes['aria-describedby']));
+    const reason = g.children.find(el => el.className === 'seg-reason'); assert.equal(reason.hidden, false);
+    assert.equal(reason.textContent, '胞子でふえる植物には、胚珠や子葉がありません');
+    const before = ui.find(el => el.className === 'readout').textContent;
+    buttons.forEach(el => el.dispatch('click')); assert.equal(ui.find(el => el.className === 'readout').textContent, before);
+  }
+  press('根・茎・葉の区別', 'ない'); assert.match(ui.find(el => el.className === 'readout').textContent, /コケ植物/);
+  press('ふえ方', '種子'); assert.match(ui.find(el => el.className === 'readout').textContent, /裸子植物/);
+  assert.ok(group('根・茎・葉の区別').children.filter(el => el.tagName === 'button').every(el => el.disabled));
+  assert.match(group('根・茎・葉の区別').textContent, /種子でふえる植物には、根・茎・葉の区別があります/);
+  press('胚珠', '子房の中'); assert.match(ui.find(el => el.className === 'readout').textContent, /単子葉類/);
+  assert.ok(group('子葉').children.filter(el => el.tagName === 'button').every(el => !el.disabled));
+});
+
+test('生物の切り替えは375pxで折り返す構造、10個の動物ボタンと選択印・見出し、44pxの高さを持つ', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../css/app.css'), 'utf8');
+  assert.match(css, /\.seg\s*\{[^}]*flex-wrap:\s*wrap/); assert.match(css, /\.seg button\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.seg button\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere/);
+  assert.match(css, /\.seg button:disabled\s*\{[^}]*background:\s*var\(--disabled\)/);
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    const ui = screen('?board=' + id, 375); ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
+    const groups = elements(ui, el => el.className === 'seg');
+    const board = boards.get(id); assert.equal(groups.length, board.controls.length);
+    groups.forEach((g, i) => {
+      const control = board.controls[i]; assert.equal(g.attributes['aria-label'], control.label);
+      assert.equal(g.children.find(el => el.className === 'seg-name').textContent, control.label);
+      const buttons = g.children.filter(el => el.tagName === 'button');
+      buttons.forEach((el, i) => {
+        const selected = board.scene.options[control.key] === control.choices[i].value;
+        assert.equal(el.attributes['aria-pressed'], String(selected)); assert.equal(el.textContent.startsWith('✓ '), selected);
+      });
+    });
+    if (id === 'bio-animals') assert.equal(groups.flatMap(g => g.children.filter(el => el.tagName === 'button')).length, 10);
+  }
+});
+
+test('生物: 画像400ms・線と輪の途中描画・用語の切り抜き・最終状態・無効シーンの表示', () => {
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    const { ui, board, renderer } = animationBoard(id, 335), r = scene.trace(board.scene);
+    const timeline = explain.buildTimeline(scriptsBio1.BOARDS[id], board.scene, r, []);
+    const part = timeline.steps.flatMap(s => s.parts).find(p => p.items.some(i => i.type === 'picture'));
+    assert.equal(part.duration, 400);
+    const voiced = explain.buildTimeline(scriptsBio1.BOARDS[id], board.scene, r, [], {
+      clipSeconds: require('../content/voice-bio1.js').CLIPS[id].E.map(c => c[1]),
+    });
+    assert.ok(voiced.steps.flatMap(s => s.parts).filter(p => p.items.some(i => i.type === 'picture')).every(p => p.duration === 400));
+    const token = id === 'bio-plants' ? 'panel:1' : 'image';
+    renderer.setState(drawing(board, token, .5));
+    const img = visibleElements(ui, el => el.attributes['data-picture-image'])[0];
+    assert.ok(Number(img.attributes.opacity) > 0 && Number(img.attributes.opacity) < 1);
+    renderer.setState(drawing(board, id === 'bio-animals' ? 'ring' : id === 'bio-flower' ? 'label:sepal' : 'panel:1', .5));
+    if (id === 'bio-flower') {
+      const line = visibleElements(ui, el => el.attributes['data-picture-pin'] === 'sepal')[0];
+      assert.notEqual(Number(line.attributes.x2), r.picture.pins.find(p => p.key === 'sepal').to.x);
+      assert.ok(visibleElements(ui, el => el.tagName === 'text' && el.textContent === 'がく')[0].hasAttribute('clip-path'));
+    }
+    if (id === 'bio-animals') assert.ok(visibleElements(ui, el => el.tagName === 'ellipse')[0].hasAttribute('stroke-dasharray'));
+    renderer.setScene({ ...board.scene, options: null });
+    assert.equal(ui.find(el => el.className === 'board-error').hidden, false);
+    assert.match(ui.host.textContent, /この図は表示できません/);
+    renderer.destroy();
+  }
+});
+
 for (const [name, middle] of [['ease', .5], ['easeOut', .75]]) {
   test(`${name} は緩急を付け、範囲外・数でない進み具合を収める`, () => {
     for (const [input, expected] of [[0, 0], [.5, middle], [1, 1], [-1, 0], [2, 1],
@@ -276,8 +796,8 @@ test('長さ 0・40px 未満・破線・矢印なし指定では矢印を付け�
 function labelBoxes(labels, placed) {
   return placed.flatMap((p, i) => {
     if (p.hidden) return [];
-    const size = labels[i].fontSize, rows = labels[i].lines || [labels[i].text];
-    const width = labels[i].textLength || Math.max(...rows.map(text => Array.from(text).length)) * size;
+    const size = labels[i].fontSize, rows = p.lines || labels[i].lines || [labels[i].text];
+    const width = p.textLength || labels[i].textLength || Math.max(...rows.map(text => Array.from(text).length)) * size;
     const left = p.x - (p.anchor === 'end' ? width : p.anchor === 'middle' ? width / 2 : 0);
     return [{ id: p.id, left, right: left + width, top: p.y - size, bottom: p.y + size * (.2 + (rows.length - 1) * 1.2) }];
   });
@@ -692,7 +1212,7 @@ test('preferOwn は文字の左下を元の点に合わせ、はみ出し・先�
 
 test('光・音の盤の初期配置・幅 612px で、空いている marks は markBox を盤内へ寄せた位置を使う', () => {
   const overlap = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
-  for (const { id } of boards.list().filter(board => board.unit !== 'force')) {
+  for (const { id } of boards.list().filter(board => ['light', 'sound'].includes(board.unit))) {
     const board = boards.get(id), result = scene.trace(board.scene), s = view.sizes(612);
     const data = boardView.labelData(board, result, s), placed = view.placeLabels(data.labels, data.obstacles, s);
     let ownCount = 0;
@@ -785,7 +1305,7 @@ test('幅375pxのかたむける・右の焦点は、鏡の線とつまみの円
 for (const width of [264, 319, 375, 612, 1100]) {
   for (const { id } of boards.list()) {
     test(`${id}: 幅 ${width}px の初期配置で文字が線・円・文字に重ならず盤内に収まる`, () => {
-      const board = boards.get(id), result = scene.trace(board.scene), s = view.sizes(width);
+      const board = boards.get(id), result = scene.trace(board.scene, { compact: width < 420, widthPx: width }), s = view.sizes(width);
       const data = boardView.labelData(board, result, s);
       const lines = boardView.lineData(board.scene, result), before = structuredClone({ data, lines });
       const placed = view.placeLabels(data.labels, data.obstacles, s, lines);
@@ -824,7 +1344,7 @@ for (const width of [319, 612]) for (const { id } of boards.list()) {
       assert.deepEqual(scene.validateScene(board.scene), []);
       let data, lines, placed;
       assert.doesNotThrow(() => {
-        const result = scene.trace(board.scene);
+        const result = scene.trace(board.scene, { compact: width < 420, widthPx: width });
         data = boardView.labelData(board, result, s);
         lines = boardView.lineData(board.scene, result);
         placed = view.placeLabels(data.labels, data.obstacles, s, lines);
@@ -907,11 +1427,12 @@ function screen(search = '', width = 600, options = {}) {
   doc.defaultView = win;
   const host = new Element('main');
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
+    scriptsBio1: require('../content/scripts-bio1.js'), voiceDataBio1: require('../content/voice-bio1.js'),
     scriptsForce: require('../content/scripts-force.js'), voiceDataForce: require('../content/voice-force.js'),
     scriptsSound: require('../content/scripts-sound.js'), voiceDataSound: require('../content/voice-sound.js'),
     scripts: require('../content/scripts-light.js'), voiceData: options.voiceData || require('../content/voice-light.js'),
     explain: options.explain || require('../js/explain.js'), prefs: require('../js/prefs.js'), voice: options.voice || require('../js/voice.js'),
-    geometry: require('../js/geometry.js'), viewMath: options.viewMath || view, boards,
+    geometry: require('../js/geometry.js'), viewMath: options.viewMath || view, boards: options.boards || boards,
     scene: options.scene || scene, entry: require('../js/entry.js') } });
   for (const file of ['board-view', 'app']) vm.runInContext(fs.readFileSync(path.join(__dirname, '../js/' + file + '.js'), 'utf8'), context);
   function find(predicate, parent = host) {
@@ -937,7 +1458,7 @@ for (const { id } of boards.list()) {
     const ui = screen(), board = boards.get(id);
     const renderer = ui.api.boardView.create(ui.host, board);
     assert.equal(ui.find(el => el.tagName === 'svg').attributes.viewBox, '0 0 600 420');
-    assert.ok(ui.find(el => el.tagName === 'polygon'));
+    assert.ok(ui.find(el => el.tagName === (id.startsWith('bio-') ? 'image' : 'polygon')));
     for (const handle of scene.handles(board.scene)) {
       const knob = ui.find(el => el.attributes['data-element-id'] === handle.elementId && el.attributes['data-handle'] === handle.handle);
       assert.equal(knob.attributes.tabindex, '0');
@@ -964,12 +1485,12 @@ test('9 盤の見出し・吹き出し・SVG をカード内にこの順で描�
 
 test('描画した文字は配置計算の位置・大きさと一致し、ふち取りの倍率を固定する', () => {
   for (const width of [319, 375, 612]) for (const { id } of boards.list()) {
-    const ui = screen('', width), board = boards.get(id), s = view.sizes(width), result = scene.trace(board.scene);
+    const ui = screen('', width), board = boards.get(id), s = view.sizes(width), result = scene.trace(board.scene, { compact: width < 420, widthPx: width });
     ui.api.boardView.create(ui.host, board);
     const data = boardView.labelData(board, result, s);
     const placed = view.placeLabels(data.labels, data.obstacles, s, boardView.lineData(board.scene, result));
     const rendered = [];
-    function collect(el) { if (el.tagName === 'text' && el.attributes.class !== 'knob-mark') rendered.push(el); el.children.forEach(collect); }
+    function collect(el) { if (el.tagName === 'text' && !['knob-mark', 'picture-error'].includes(el.attributes.class)) rendered.push(el); el.children.forEach(collect); }
     collect(ui.host);
     assert.equal(rendered.length, placed.filter(p => !p.hidden).length);
     let index = 0;
@@ -1274,7 +1795,8 @@ test('file:// の履歴変更を拒む環境でも、盤の URL に移動する'
 const scripts = require('../content/scripts-light.js');
 const scriptsSound = require('../content/scripts-sound.js');
 const scriptsForce = require('../content/scripts-force.js');
-const boardScripts = id => id.startsWith('force-') ? scriptsForce : id.startsWith('sound-') ? scriptsSound : scripts;
+const scriptsBio1 = require('../content/scripts-bio1.js');
+const boardScripts = id => id.startsWith('bio-') ? scriptsBio1 : id.startsWith('force-') ? scriptsForce : id.startsWith('sound-') ? scriptsSound : scripts;
 const explain = require('../js/explain.js');
 const voiceData = require('../content/voice-light.js');
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
@@ -1350,7 +1872,7 @@ test('手が進んでも弧・文字・矢印・強調の印は用意済みの�
     assertNoStructureChanges(ui);
     assert.ok(elements(ui, () => true).every((el, index) => el === nodes[index]));
     assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
-    assert.ok(visibleElements(ui, el => el.tagName === 'line').length > 0);
+    assert.ok(visibleElements(ui, el => el.tagName === (id.startsWith('bio-') ? 'image' : 'line')).length > 0);
   }
 });
 
@@ -1497,10 +2019,11 @@ test('start・end・middle の文字の切り抜きは箱の左端から始ま�
   for (const { id } of boards.list()) {
     const { ui } = animationBoard(id);
     const rects = elements(ui, el => el.tagName === 'clipPath' && el.attributes.id.includes('-text-')).map(el => el.children[0]);
-    for (const [index, text] of elements(ui, el => el.tagName === 'text').entries()) {
+    for (const [index, text] of elements(ui, el => el.tagName === 'text' && el.attributes.class !== 'picture-error').entries()) {
       const anchor = text.attributes['text-anchor']; anchors.add(anchor);
       const size = Number(text.attributes['font-size']), rows = text.children.filter(el => el.tagName === 'tspan').map(el => el.textContent);
-      const width = Number(text.attributes.textLength) || Math.max(...(rows.length ? rows : [text.textContent]).map(row => Array.from(row).length)) * size;
+      const width = text.attributes.class === 'picture-text' ? Math.max(...(rows.length ? rows : [text.textContent]).map(row => view.pictureTextWidth(row, size))) :
+        Number(text.attributes.textLength) || Math.max(...(rows.length ? rows : [text.textContent]).map(row => Array.from(row).length)) * size;
       const left = Number(text.attributes.x) - width * (anchor === 'end' ? 1 : anchor === 'middle' ? .5 : 0);
       assert.equal(Number(rects[index].attributes.x), left - 4);
     }
@@ -2000,7 +2523,7 @@ for (const { id } of boards.list()) {
     const seen = new Set([currentWords(ui)]), readoutStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
     const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
     const forceToken = { 'force-spring': 'label:force', 'force-arrow': 'magnitude', 'force-balance': 'label:state' }[id];
-    const firstReadout = forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) : readoutStep >= 0 ? readoutStep : labelStep >= 0 ? labelStep : steps.length - 1;
+    const firstReadout = id.startsWith('bio-') ? steps.length - 2 : forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) : readoutStep >= 0 ? readoutStep : labelStep >= 0 ? labelStep : steps.length - 1;
     const limit = timeline.total + steps.length * 100;
     for (let time = 0; time <= limit && !ui.find(el => el.className === 'explain-controls').hidden; time += 100) {
       assert.equal(ui.find(el => el.attributes.class === 'handle'), null);
@@ -2470,11 +2993,13 @@ for (const width of [319, 375, 768, 1100]) for (const { id } of boards.list().fi
   });
 }
 
-for (const id of ['sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']) for (const teacher of scripts.TEACHERS) {
+for (const id of ['sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance', 'bio-flower', 'bio-plants', 'bio-animals']) for (const teacher of scripts.TEACHERS) {
   test(`${id}・先生${teacher.id}: 全手を16ms刻みで描き、ペンが有限で最後は操作時と同じ絵になる`, () => {
     const { ui, board, renderer, calls } = animationBoard(id, 319), steps = boardScripts(id).BOARDS[id];
-    const timeline = explain.buildTimeline(steps, board.scene, scene.trace(board.scene), scene.handles(board.scene), {
-      clipSeconds: require('../content/voice-' + (id.startsWith('force-') ? 'force' : 'sound') + '.js').CLIPS[id][teacher.id].map(clip => clip[1]),
+    const result = scene.trace(board.scene, { compact: true, widthPx: 319 });
+    for (const step of steps) for (const token of step.draw) assert.ok(explain.resolve(token, board.scene, result, scene.handles(board.scene)).items.length, token);
+    const timeline = explain.buildTimeline(steps, board.scene, result, scene.handles(board.scene), {
+      clipSeconds: require('../content/voice-' + (id.startsWith('bio-') ? 'bio1' : id.startsWith('force-') ? 'force' : 'sound') + '.js').CLIPS[id][teacher.id].map(clip => clip[1]),
     });
     ui.mutations.length = 0;
     for (const step of timeline.steps) for (let time = 0; time <= step.duration; time += 16) {
@@ -2486,7 +3011,7 @@ for (const id of ['sound-wave', 'sound-string', 'sound-speed', 'force-spring', '
     assertNoStructureChanges(ui);
     assert.deepEqual(calls, { trace: 1, handles: 1, sizes: 1, placeLabels: 1, change: 1 });
     function artSnapshot() {
-      return visibleElements(ui, el => ['path', 'line', 'rect', 'polygon', 'circle', 'text'].includes(el.tagName) &&
+      return visibleElements(ui, el => ['path', 'line', 'rect', 'polygon', 'circle', 'ellipse', 'text', 'image'].includes(el.tagName) && el.attributes.class !== 'pen' &&
         !el.parent?.attributes['data-handle'] && el.parent?.tagName !== 'clipPath').map(el => {
         const attrs = { ...el.attributes };
         if (attrs.filter) attrs.filter = 'sketch';
@@ -2495,8 +3020,10 @@ for (const id of ['sound-wave', 'sound-string', 'sound-speed', 'force-spring', '
       });
     }
     const final = artSnapshot();
+    const below = visibleElements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent);
     renderer.setState(null);
     assert.deepEqual(artSnapshot(), final);
+    assert.deepEqual(visibleElements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent), below);
     assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
   });
 }

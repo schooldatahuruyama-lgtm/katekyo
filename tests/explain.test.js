@@ -6,7 +6,7 @@ const explain = require('../js/explain.js');
 const scene = require('../js/scene.js');
 const boards = require('../js/boards.js');
 const scripts = { BOARDS: { ...require('../content/scripts-light.js').BOARDS, ...require('../content/scripts-sound.js').BOARDS,
-  ...require('../content/scripts-force.js').BOARDS } };
+  ...require('../content/scripts-force.js').BOARDS, ...require('../content/scripts-bio1.js').BOARDS } };
 
 function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
 function setup(id = 'reflect') {
@@ -17,6 +17,21 @@ function timeline(draws, options = {}, id = 'reflect') {
   const { s, result, handles } = setup(id);
   return explain.buildTimeline(draws.map(draw => ({ draw })), s, result, handles, options);
 }
+
+test('画像の名前・2本の引き出し線・captionのキーを描画参照に直す', () => {
+  const s = boards.get('bio-flower').scene; s.options.figure = 'matsu-scale';
+  const r = scene.trace(s), items = explain.resolve('label:ovule', s, r, []).items;
+  assert.equal(items.filter(i => i.type === 'line').length, 2);
+  assert.equal(items.filter(i => i.type === 'text').length, 1);
+  const plant = setup('bio-plants');
+  for (const key of ['caption:1', 'caption:2', 'caption:3']) {
+    assert.deepEqual(explain.resolve('point:' + key, plant.s, plant.result, []).items,
+      [{ type: 'point', ref: { source: 'marks', key, part: 'highlight' } }]);
+    assert.deepEqual(explain.resolve('label:' + key, plant.s, plant.result, []).items,
+      [{ type: 'text', ref: { source: 'marks', key, field: 'text' } }]);
+  }
+  assert.equal(explain.parseDraw('point:caption:4'), null);
+});
 
 test('力の複合描画は形・ラベル・切り替えを解決する', () => {
   const cases = [
@@ -145,7 +160,7 @@ test('音の複合参照は形とラベルをそろえ、弧は内から外へ�
 test('draw の種類と引数を読み取り、知らない指定や文字列以外を拒む', () => {
   assert.deepEqual(explain.DRAW_KINDS, ['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
     'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label',
-    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line']);
+    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line', 'panel', 'title', 'side', 'ring']);
   assert.deepEqual(explain.parseDraw('ray:incident'), { kind: 'ray', arg: 'incident' });
   assert.deepEqual(explain.parseDraw('normal'), { kind: 'normal', arg: null });
   for (const token of ['', 'nope', 12, null, undefined, {}, 'ray', 'ray:', 'ray:unknown',
@@ -155,7 +170,7 @@ test('draw の種類と引数を読み取り、知らない指定や文字列以
 });
 
 function checkRef(item, s, result, handles) {
-  assert.ok(['element', 'line', 'text', 'arc', 'image', 'shadow', 'point', 'handles', 'controls'].includes(item.type));
+  assert.ok(['element', 'line', 'text', 'arc', 'image', 'shadow', 'point', 'handles', 'controls', 'picture'].includes(item.type));
   const ref = item.ref;
   if (ref.source === 'elements') assert.ok(s.elements.some(e => e.id === ref.id));
   else if (ref.source === 'rays' || ref.source === 'images') assert.ok(result[ref.source][ref.index]);
@@ -166,6 +181,7 @@ function checkRef(item, s, result, handles) {
     assert.ok(result.sound[ref.key]);
     if (ref.index !== undefined) assert.ok(result.sound[ref.key][ref.index]);
   }
+  else if (ref.source === 'picture') assert.ok(result.picture[ref.key][ref.index]);
   else if (ref.source === 'force') {
     let shape = result.force[ref.key];
     assert.ok(shape);
@@ -369,6 +385,9 @@ function displayedText(item, result, handles) {
 }
 
 const keyWords = {
+  'bio-flower': [[], ['がく'], ['花弁'], ['おしべ'], ['柱頭'], ['子房'], ['胚珠'], [], []],
+  'bio-plants': [[], [], [], [], [], [], [], [], []],
+  'bio-animals': [[], [], [], [], [], [], [], [], []],
   'force-spring': [[], [], [], [], [], [], [], [], []],
   'force-arrow': [[], ['作用点'], [], ['力の向き'], [], [], [], []],
   'force-balance': [[], [], [], [], [], [], [], [], []],

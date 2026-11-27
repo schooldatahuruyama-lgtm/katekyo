@@ -30,10 +30,15 @@ test('HTML の読み込み順と PRECACHE が一致し、全ファイルが実�
   assert.ok(cache.includes('./') && cache.includes('index.html'));
   assert.ok(cache.includes('assets/mascots/mascot_E.svg'));
   assert.ok(cache.includes('assets/pen.svg'));
-  for (const file of ['js/force.js', 'content/scripts-force.js', 'content/voice-force.js']) {
+  for (const file of ['js/force.js', 'content/scripts-force.js', 'content/voice-force.js',
+    'js/picture.js', 'content/scripts-bio1.js', 'content/voice-bio1.js']) {
     assert.ok(files.includes(file)); assert.ok(cache.includes(file));
   }
   assert.ok(files.indexOf('js/force.js') < files.indexOf('js/scene.js'));
+  assert.ok(files.indexOf('js/picture.js') < files.indexOf('js/scene.js'));
+  const pictures = fs.readdirSync(path.join(base, 'assets/images/bio1'));
+  assert.equal(pictures.length, 10);
+  pictures.forEach(file => assert.ok(cache.includes('assets/images/bio1/' + file), file));
   assert.ok(files.indexOf('content/scripts-light.js') < files.indexOf('content/scripts-force.js'));
   assert.ok(cache.every(file => !file.endsWith('.mp3')));
   assert.equal(new Set(cache).size, cache.length);
@@ -146,6 +151,11 @@ test('HTML の順で全 JS を読むと音の3盤・台本・音声を利用で�
     assert.equal(context.Hikari.voiceDataSound.CLIPS[id].E.length, 9);
   }
   assert.equal(context.Hikari.voiceDataSound.BASE, 'assets/audio/sound/');
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+    assert.equal(context.Hikari.scene.trace(context.Hikari.boards.get(id).scene).picture.kind, id);
+    assert.equal(context.Hikari.scriptsBio1.BOARDS[id].length, 9);
+    assert.equal(context.Hikari.voiceDataBio1.CLIPS[id].E.length, 9);
+  }
 });
 
 test('音の音声も専用キャッシュに保存し、保存済みなら通信しない', async () => {

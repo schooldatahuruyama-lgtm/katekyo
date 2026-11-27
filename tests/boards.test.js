@@ -146,8 +146,8 @@ test('6 種類が指定の順序・名前・問いかけでそろう', () => {
 
 test('単元の順・盤の重複・空の単元・list との一致と独立した写し', () => {
   const units = boards.units(), all = boards.list();
-  assert.deepEqual(units.map(u => u.id), ['light', 'sound', 'force']);
-  assert.deepEqual(units.map(u => u.title), ['中 1 光の世界', '中 1 音の世界', '中 1 力の世界']);
+  assert.deepEqual(units.map(u => u.id), ['light', 'sound', 'force', 'bio1']);
+  assert.deepEqual(units.map(u => u.title), ['中 1 光の世界', '中 1 音の世界', '中 1 力の世界', '中 1 生物の観察と分類']);
   assert.ok(units.every(u => u.teacher === 'E' && !Object.hasOwn(u, 'voice') && u.boards.length > 0));
   assert.equal(new Set(all.map(b => b.id)).size, all.length);
   assert.deepEqual(all.map(b => b.id), scene.KINDS);
@@ -322,7 +322,7 @@ test('屈折の切り替えは水・ガラスに合わせたラベルになる',
   board.scene = scene.setOption(board.scene, 'medium', 'glass');
   assert.deepEqual(board.controls[0].choices.map(c => c.label), ['空気 → ガラス', 'ガラス → 空気']);
   assert.deepEqual(boards.get('refract').controls[0].choices.map(c => c.label), ['空気 → 水', '水 → 空気']);
-  for (const id of scene.KINDS.filter(id => !['refract', 'sound-string', 'force-spring', 'force-balance'].includes(id))) assert.deepEqual(boards.get(id).controls, []);
+  for (const id of scene.KINDS.filter(id => !['refract', 'sound-string', 'force-spring', 'force-balance', 'bio-flower', 'bio-plants', 'bio-animals'].includes(id))) assert.deepEqual(boards.get(id).controls, []);
 });
 
 test('表示だけで角度を四捨五入する', () => {
@@ -438,7 +438,7 @@ test('像の倍率が 50 倍以上なら上限の文を出す', () => {
 
 test('DOM なしのブラウザ名前空間でも Node と同じ結果を返す', () => {
   const context = vm.createContext({ URLSearchParams });
-  for (const file of ['config', 'geometry', 'optics', 'sound', 'force', 'scene', 'boards', 'entry']) {
+  for (const file of ['config', 'geometry', 'optics', 'sound', 'force', 'picture', 'scene', 'boards', 'entry']) {
     vm.runInContext(fs.readFileSync(path.join(__dirname, '..', 'js', file + '.js'), 'utf8'), context);
   }
   assert.deepEqual(JSON.parse(JSON.stringify(context.Hikari.boards.list())), boards.list());

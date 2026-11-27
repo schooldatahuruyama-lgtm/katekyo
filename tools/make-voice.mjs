@@ -18,7 +18,7 @@ const VOICES = {
   D: { speaker: '男声2', speed: 1.03 }, E: { speaker: '男声3', speed: 0.99 }, F: { speaker: '男声1', speed: 0.79 },
 };
 const SET = opt('--set', 'light');
-if (!/^[a-z]+$/.test(SET) || !fs.existsSync(path.join(root, 'content', 'scripts-' + SET + '.js'))) throw new Error('単元の台本がありません: ' + SET);
+if (!/^[a-z][a-z0-9]*$/.test(SET) || !fs.existsSync(path.join(root, 'content', 'scripts-' + SET + '.js'))) throw new Error('単元の台本がありません: ' + SET);
 const scripts = createRequire(import.meta.url)(path.join(root, 'content', 'scripts-' + SET + '.js'));
 // アプリの中での名前。光は voiceData、ほかは voiceData + 単元の名前（例: voiceDataSound）
 const GLOBAL = SET === 'light' ? 'voiceData' : 'voiceData' + SET[0].toUpperCase() + SET.slice(1);

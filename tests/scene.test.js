@@ -277,7 +277,7 @@ function valid(s) {
   const result = scene.trace(s);
   finite(result);
   inside(result);
-  assert.ok(result.rays.length > 0 || result.sound || result.force);
+  assert.ok(result.rays.length > 0 || result.sound || result.force || result.picture);
   if (!s.kind.startsWith('sound-')) assert.equal(result.sound, null);
   if (!s.kind.startsWith('force-')) assert.equal(result.force, null);
   return result;
