@@ -10,6 +10,7 @@
   const geometry = node ? require('./geometry.js') : root.Hikari.geometry;
   const C = config.colors, W = config.width, H = config.height;
   const NS = 'http://www.w3.org/2000/svg';
+  const pictureColor = tone => C[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray' }[tone] || 'text'];
   let serial = 0;
 
   // 描画とテストで同じ文字・障害物を使う。角度以外の座標は付けたい相手の位置。
@@ -18,6 +19,25 @@
     const labels = [];
     const obstacles = handles.map(handle => ({ x: handle.x, y: handle.y, r: size.knobRadius }));
     const padding = 3 * size.unitPerPx;
+    if (result.picture) {
+      result.picture.rings.forEach(r => obstacles.push({ left: r.cx - r.rx - padding, right: r.cx + r.rx + padding,
+        top: r.cy - r.ry - padding, bottom: r.cy + r.ry + padding }));
+      result.picture.pins.forEach(pin => obstacles.push({ left: pin.to.x - padding * 2, right: pin.to.x + padding * 2,
+        top: pin.to.y - padding * 2, bottom: pin.to.y + padding * 2 }));
+      result.marks.forEach(mark => {
+        if (result.picture.below.some(row => row.key === mark.key || row.keys?.includes(mark.key))) return;
+        const tag = result.picture.tags.some(t => t.key === mark.key);
+        const fontSize = Math.max(size.textSize, mark.size || 19);
+        const side = mark.key.startsWith('side-') || mark.key.startsWith('count');
+        const maxWidth = mark.bounds?.width || (side ? (size.textSize > 30 ? 296 : 206) : tag && mark.text.length < 18 ? 270 : 560);
+        const lines = mark.maxRows === 1 ? [mark.text] : math.wrapPictureText(mark.text, maxWidth, fontSize);
+        labels.push({ id: 'mark-' + mark.key, text: mark.text, lines, x: mark.x, y: mark.y, anchor: mark.anchor,
+          fontSize, priority: 4, textLength: Math.max(...lines.map(t => math.pictureTextWidth(t, fontSize))),
+          bounds: mark.bounds, maxRows: mark.maxRows || 2,
+          color: pictureColor(mark.tone), bold: mark.key === 'title', picture: true, tag, preferOwn: true, searchBoard: true });
+      });
+      return { labels, obstacles };
+    }
     if (result.force) {
       const shapes = result.force, small = size.textSize > 22;
       // つまみのつかむ範囲と、ばね・おもり・箱の面を空ける。
@@ -186,6 +206,8 @@
     const error = doc.createElement('div');
     error.className = 'board-error'; error.setAttribute('role', 'status'); error.hidden = true;
     host.appendChild(error);
+    const below = doc.createElement('div'); below.className = 'picture-below'; below.hidden = true;
+    host.appendChild(below);
 
     function refKey(ref) {
       return [ref.source, ref.id, ref.index, ref.key, ref.elementId, ref.handle, ref.part, ref.field].join('|');
@@ -219,6 +241,7 @@
         const dependency = entry.keys.map(key => progress.get(key)?.p || 0).join('|');
         if (p !== entry.previous || key !== entry.key || dependency !== entry.dependency) {
           attribute(entry.element, 'display', entry.visible(p) ? null : 'none');
+          if (entry.element.hasAttribute('data-picture-below')) entry.element.hidden = !entry.visible(p);
           entry.pen = entry.update(p, key, progress);
           entry.dependency = dependency;
           entry.previous = p; entry.key = key;
@@ -493,6 +516,56 @@
       }
     }
 
+    function drawPicture(shapes, s, data, places) {
+      const ref = (key, index) => ({ source: 'picture', key, index });
+      shapes.images.forEach((img, index) => {
+        const group = svgNode('g', { 'data-picture-image': img.key }, art);
+        const crop = img.crop || { x: 0, y: 0, width: config.picture.sourceWidth, height: config.picture.sourceHeight };
+        const frame = svgNode('svg', { x: img.x, y: img.y, width: img.width, height: img.height,
+          viewBox: `${crop.x} ${crop.y} ${crop.width} ${crop.height}`, preserveAspectRatio: 'none', overflow: 'hidden' }, group);
+        const el = svgNode('image', { href: img.src, x: 0, y: 0, width: config.picture.sourceWidth, height: config.picture.sourceHeight,
+          preserveAspectRatio: 'none' }, frame);
+        svgNode('rect', { x: img.x, y: img.y, width: img.width, height: img.height, fill: 'none',
+          class: 'picture-frame', 'stroke-width': 1, 'vector-effect': 'non-scaling-stroke' }, group);
+        const fallback = svgNode('g', { display: 'none', 'data-picture-error': img.key }, group);
+        svgNode('rect', { x: img.x, y: img.y, width: img.width, height: img.height, fill: C.paper }, fallback);
+        const rows = math.wrapPictureText('画像を読みこめませんでした', img.width - 12, s.textSize);
+        const message = svgNode('text', { x: img.x + img.width / 2, y: img.y + img.height / 2 - (rows.length - 1) * s.textSize * .6,
+          'text-anchor': 'middle', 'font-size': s.textSize, fill: C.text, class: 'picture-error' }, fallback);
+        rows.forEach((row, i) => svgNode('tspan', { x: img.x + img.width / 2, dy: i ? s.textSize * 1.2 : 0 }, message, row));
+        el.addEventListener('error', () => { attribute(el, 'display', 'none'); attribute(fallback, 'display', null); });
+        animate(group, [ref('images', index)], p => { attribute(group, 'opacity', p === 1 ? null : math.easeOut(p)); });
+      });
+      shapes.pins.forEach((pin, index) => {
+        const i = data.labels.findIndex(label => label.id === 'mark-' + pin.key), place = places[i];
+        const from = place && !place.hidden ? { x: place.x, y: place.y } : pin.from;
+        const boxes = places.flatMap((p, j) => j === i || p.hidden ? [] : [math.labelBox({ ...data.labels[j], ...p })]);
+        let route = math.pictureLeader(from, pin.to, boxes, 2 * s.unitPerPx);
+        if (!route.length && place && !place.hidden) {
+          const box = math.labelBox({ ...data.labels[i], ...place });
+          route = math.pictureLeader({ x: (box.left + box.right) / 2, y: (box.top + box.bottom) / 2 }, pin.to, boxes, 2 * s.unitPerPx);
+        }
+        if (route.length === 2) {
+          growingLine(ref('pins', index), route[0], pin.to, pictureColor(pin.tone), s.thinWidth, false, { 'data-picture-pin': pin.key });
+        } else {
+          const d = route.map((p, j) => (j ? 'L' : 'M') + p.x + ' ' + p.y).join(' ');
+          const el = svgNode('path', { d, fill: 'none', stroke: pictureColor(pin.tone), 'stroke-width': s.thinWidth,
+            pathLength: 1, 'data-picture-pin': pin.key }, art);
+          animate(el, [ref('pins', index)], p => {
+            attribute(el, 'stroke-dasharray', p === 1 ? null : `${math.ease(p)} 1`);
+          });
+        }
+      });
+      shapes.rings.forEach((ring, index) => {
+        const el = svgNode('ellipse', { cx: ring.cx, cy: ring.cy, rx: ring.rx, ry: ring.ry, fill: 'none',
+          stroke: pictureColor(ring.tone), 'stroke-width': 3, pathLength: 1, 'vector-effect': 'non-scaling-stroke', 'data-picture-ring': ring.key }, art);
+        animate(el, [ref('rings', index), ...(shapes.kind === 'bio-flower' ? [ref('images', 0)] : [])], p => {
+          attribute(el, 'stroke-dasharray', p === 1 ? null : `${math.ease(p)} 1`);
+          return { x: ring.cx + ring.rx * Math.cos(2 * Math.PI * math.ease(p)), y: ring.cy + ring.ry * Math.sin(2 * Math.PI * math.ease(p)) };
+        });
+      });
+    }
+
     function draw() {
       if (disposed) return;
       let width = svg.getBoundingClientRect().width;
@@ -509,6 +582,7 @@
       svg.hidden = invalid; svg.style.display = invalid ? 'none' : '';
       error.hidden = !invalid;
       error.replaceChildren();
+      below.replaceChildren(); below.hidden = true;
       if (invalid) {
         release(); artRoot.replaceChildren(); labels.replaceChildren(); knobs.replaceChildren(); handleNodes.clear();
         ['この図は表示できません', errors[0]].forEach(note => {
@@ -518,13 +592,52 @@
       }
       // エラーから復帰したときは、SVG を表示してから実際の幅を測る。
       width = svg.getBoundingClientRect().width;
-      const result = scene.trace(board.scene);
+      const layout = { compact: width > 0 && width < config.picture.compactBelowPx, widthPx: width };
+      let result = scene.trace(board.scene, layout);
       const s = math.sizes(width), f = s.textSize / 16;
       const rawHandles = scene.handles(board.scene), handles = math.forceHandles(rawHandles, result, s);
       art = artRoot; artRoot.replaceChildren(); labels.replaceChildren();
+      let data = labelData(board, result, s, rawHandles);
+      let places = math.placeLabels(data.labels, data.obstacles, s, lineData(board.scene, result));
+      if (result.picture && places.some(place => place.hidden)) {
+        if (places.some(place => place.hidden)) {
+          layout.belowKeys = places.flatMap((place, i) => place.hidden ? [data.labels[i].id.slice(5)] : []);
+          result = scene.trace(board.scene, layout);
+          // 収まった文字の位置は保つ。下へ移した文だけ盤から取り除く。
+          const keep = data.labels.map((label, i) => ({ label, place: places[i] })).filter(item => !item.place.hidden);
+          data.labels = keep.map(item => item.label); places = keep.map(item => item.place);
+        }
+      }
+      if (result.picture) {
+        below.hidden = result.picture.below.length === 0;
+        result.picture.below.forEach(row => {
+          const el = doc.createElement('p');
+          el.setAttribute('data-picture-below', row.key); el.setAttribute('data-tone', row.tone);
+          below.appendChild(el);
+          const keys = row.keys ? [...row.keys, ...(row.key === 'order' ? [row.key] : [])] : [row.key];
+          animate(el, keys.map(key => key.startsWith('reason:') ? { source: 'options', key: key.slice(7) } :
+            { source: 'marks', key, field: 'text' }), p => {
+            el.style.opacity = p === 1 ? '' : String(math.easeOut(p));
+            el.style.transform = p === 1 ? '' : `translateY(${6 * (1 - math.easeOut(p))}px)`;
+          });
+          const highlight = doc.createElement('span'); highlight.className = 'picture-below-highlight';
+          highlight.setAttribute('display', 'none'); el.appendChild(highlight);
+          math.pictureTextChunks(row.text).forEach((chunk, index) => {
+            if (index) el.appendChild(doc.createElement('wbr'));
+            const span = doc.createElement('span'); span.className = 'picture-phrase'; span.textContent = chunk;
+            el.appendChild(span);
+          });
+          animate(highlight, keys.map(key => ({ source: 'marks', key, part: 'highlight' })), p => {
+            highlight.style.opacity = String(1 - p);
+          }, p => p > 0 && p < 1);
+        });
+      }
+      svg.setAttribute('aria-label', board.title + 'のホワイトボード' + (result.picture ? '。写真ふうの画像（本物の写真ではありません）。' +
+        result.marks.map(m => m.text).join('。') + '。' + result.picture.description : ''));
+      if (result.picture) drawPicture(result.picture, s, data, places);
 
       // 部品の外形は配置データ、光の道すじと像は trace の結果をそのまま描く。
-      for (const e of (result.sound || result.force ? [] : board.scene.elements)) {
+      for (const e of (result.sound || result.force || result.picture ? [] : board.scene.elements)) {
         if (e.type === 'lens') growingLine({ source: 'elements', id: e.id, part: 'axis' },
           { x: 20, y: e.y }, { x: W - 20, y: e.y }, C.normal, s.thinWidth);
         pop({ source: 'elements', id: e.id, part: 'body' }, { x: e.x ?? W / 2, y: e.y }, () => {
@@ -694,7 +807,6 @@
           animate(el, [{ source: 'marks', key: mark.key, part: 'dot' }]);
         }
       });
-      const data = labelData(board, result, s, rawHandles);
       function textRefs(label) {
         if (label.id.startsWith('tick-')) return [{ source: 'force', key: 'graph', part: 'axes' }];
         const ref = label.id.startsWith('angle-name-') ? { source: 'angles', key: label.id.slice(11), field: 'name' } :
@@ -710,20 +822,35 @@
           ...(mark ? [{ source: 'marks', key: mark.key, field: 'text' }] : [])];
       }
       // 完成時の位置で、重要語句は切り抜き、それ以外は浮き上がるように出す。
-      math.placeLabels(data.labels, data.obstacles, s, lineData(board.scene, result)).forEach((place, index) => {
+      places.forEach((place, index) => {
         if (place.hidden) return;
-        const label = data.labels[index];
+        const label = { ...data.labels[index], ...place };
         if (label.id === 'mark-application' && result.force?.application) {
           const box = math.labelBox({ ...label, ...place }), point = result.force.application;
           const end = { x: Math.max(box.left, Math.min(box.right, point.x)), y: Math.max(box.top, Math.min(box.bottom, point.y)) };
           if (Math.hypot(place.x - point.x, place.y - point.y) > 60)
             growingLine({ source: 'marks', key: 'application', field: 'text' }, point, end, C.redPen, 1, false, { 'data-force': 'application-leader' });
         }
+        const labelGroup = label.tag ? svgNode('g', { 'data-picture-tag': label.id.slice(5) }, labels) : labels;
+        if (result.picture && label.id === 'mark-side-counts') {
+          const box = math.labelBox({ ...label, ...place });
+          const divider = svgNode('line', { x1: box.left, y1: box.top, x2: box.right, y2: box.top,
+            class: 'picture-frame', 'stroke-width': 1 }, labels);
+          animate(divider, textRefs(label));
+        }
+        if (label.tag) {
+          const box = math.labelBox({ ...label, ...place });
+          svgNode('rect', { x: box.left, y: box.top, width: box.right - box.left, height: box.bottom - box.top,
+            rx: 4, fill: 'white', 'fill-opacity': .94, stroke: label.color, 'stroke-width': 1 }, labelGroup);
+          animate(labelGroup, textRefs(label));
+        }
         const el = svgNode('text', { x: place.x, y: place.y, 'text-anchor': place.anchor, fill: label.color,
           'font-size': label.fontSize, 'font-weight': label.bold ? 700 : 400,
-          ...(label.textLength ? { textLength: label.textLength, lengthAdjust: 'spacingAndGlyphs' } : {}) }, labels, label.lines ? undefined : label.text);
+          ...(label.picture ? { class: 'picture-text', 'data-picture-text': label.id.slice(5) } : {}),
+          ...(!label.picture && label.textLength ? { textLength: label.textLength, lengthAdjust: 'spacingAndGlyphs' } : {}) }, labelGroup, label.lines ? undefined : label.text);
         if (label.lines) label.lines.forEach((text, index) => svgNode('tspan', {
-          x: place.x, dy: index ? label.fontSize * 1.2 : 0 }, el, text));
+          x: place.x, dy: index ? label.fontSize * 1.2 : 0,
+          ...(label.picture ? { textLength: math.pictureTextWidth(text, label.fontSize), lengthAdjust: 'spacingAndGlyphs' } : {}) }, el, text));
         if (drawingState === null) return;
         const box = math.labelBox({ ...label, ...place }), left = box.left - 4, width = box.right - box.left + 8;
         const clipId = filterId + '-text-' + index;
@@ -760,8 +887,12 @@
             return Number.isFinite(target?.x) && Number.isFinite(target?.y) ?
               [{ target, ref: { source: 'force', key, part: 'highlight' } }] : [];
           }),
-          ...result.marks.map(target => ({ target, ref: { source: 'marks', key: target.key, part: 'highlight' } })),
-          ...(['refract', 'sound-string', 'force-spring', 'force-balance'].includes(board.scene.kind) ? Object.keys(board.scene.options).map(key => ({
+          ...result.marks.filter(target => !result.picture?.below.some(row => row.key === target.key || row.keys?.includes(target.key))).map(target => {
+            const place = result.picture && places[data.labels.findIndex(label => label.id === 'mark-' + target.key)];
+            return { target: place && !place.hidden ? { ...target, x: place.x, y: place.y } : target,
+              ref: { source: 'marks', key: target.key, part: 'highlight' } };
+          }),
+          ...(['refract', 'sound-string', 'force-spring', 'force-balance'].includes(board.scene.kind) || result.picture ? Object.keys(board.scene.options).map(key => ({
             target: { x: W / 2, y: H - 25 }, ref: { source: 'options', key, part: 'highlight' },
           })) : []),
         ];
@@ -816,7 +947,7 @@
         release(); disposed = true;
         if (observer) observer.disconnect();
         win.removeEventListener('resize', draw);
-        svg.remove(); error.remove();
+        svg.remove(); error.remove(); below.remove();
       },
     };
   }

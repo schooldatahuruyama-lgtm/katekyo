@@ -10,12 +10,14 @@
   const force = typeof module === 'object' && module.exports ? require('./force.js') : root.Hikari.force;
   const S = config.sound;
   const F = config.force;
+  const picture = typeof module === 'object' && module.exports ? require('./picture.js') : root.Hikari.picture;
   const KINDS = Object.freeze(['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image',
-    'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance']);
+    'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance', 'bio-flower', 'bio-plants', 'bio-animals']);
   const W = config.width, H = config.height, M = config.motion.margin, GAP = config.motion.gap;
   const EPS = config.criticalEpsilon;
   const DEG = 180 / Math.PI;
   const roles = {
+    'bio-flower': ['picture'], 'bio-plants': ['picture'], 'bio-animals': ['picture'],
     straight: ['source', 'blocker', 'screen'], reflect: ['source', 'mirror'],
     'mirror-image': ['object', 'eye', 'mirror'], refract: ['source', 'boundary'],
     lens: ['source', 'lens'], 'lens-image': ['object', 'lens', 'screen'],
@@ -23,6 +25,7 @@
     'force-spring': ['stand', 'spring', 'weights'], 'force-arrow': ['box', 'force'], 'force-balance': ['card', 'pull'],
   };
   const fields = {
+    picture: [],
     source: [], blocker: ['height'], screen: ['height'], object: ['height'], eye: [],
     mirror: ['length', 'tiltDeg'], boundary: [], lens: ['focalLength'],
     'tuning-fork': [], wave: ['frequencyHz', 'amplitude'], string: ['lengthPercent', 'pluck'], firework: [], listener: ['distance'],
@@ -66,11 +69,12 @@
       if (typeof e.type !== 'string' || !Object.hasOwn(fields, e.type)) {
         errors.push('知らない部品の type です'); continue;
       }
+      const picturePart = e.type === 'picture';
       const soundPart = ['tuning-fork', 'wave', 'string', 'firework', 'listener'].includes(e.type);
       const forcePart = ['stand', 'spring', 'weights', 'box', 'force', 'card', 'pull'].includes(e.type);
-      const allowed = ['id', 'type', ...(soundPart || forcePart ? [] : ['x', 'y']), ...fields[e.type]];
+      const allowed = ['id', 'type', ...(soundPart || forcePart || picturePart ? [] : ['x', 'y']), ...fields[e.type]];
       if (Object.keys(e).some(key => !allowed.includes(key))) errors.push(`${e.id}: 知らない項目があります`);
-      if (!soundPart && !forcePart && (!between(e.x, M, W - M) || !between(e.y, M, H - M))) errors.push(`${e.id}: 座標を盤の操作範囲内の数値にしてください`);
+      if (!soundPart && !forcePart && !picturePart && (!between(e.x, M, W - M) || !between(e.y, M, H - M))) errors.push(`${e.id}: 座標を盤の操作範囲内の数値にしてください`);
       for (const key of fields[e.type]) {
         if (!['direction', 'side'].includes(key) && !number(e[key])) errors.push(`${e.id}: ${key} を有限の数値にしてください`);
       }
@@ -98,7 +102,9 @@
     if (scene.kind === 'force-balance' && ['left', 'right'].some(side =>
       scene.elements.filter(e => record(e) && e.type === 'pull' && e.side === side).length !== 1)) errors.push('左右の力を1つずつ入れてください');
     if (scene.elements.some(e => record(e) && !roles[scene.kind].includes(e.type))) errors.push('この盤では使えない部品があります');
-    if (scene.kind === 'refract') {
+    if (picture.isKind(scene.kind)) {
+      if (!picture.validOptions(scene.kind, scene.options)) errors.push('画像の図・特徴を決められた値から選んでください');
+    } else if (scene.kind === 'refract') {
       if (!record(scene.options) || !['air-to-medium', 'medium-to-air'].includes(scene.options.direction) ||
           !['water', 'glass'].includes(scene.options.medium) || Object.keys(scene.options).some(k => !['direction', 'medium'].includes(k))) {
         errors.push('屈折の direction・medium を選んでください');
@@ -162,7 +168,7 @@
     return errors;
   }
 
-  function empty() { return { rays: [], angles: [], images: [], marks: [], notes: [], measures: {}, sound: null, force: null }; }
+  function empty() { return { rays: [], angles: [], images: [], marks: [], notes: [], measures: {}, sound: null, force: null, picture: null }; }
 
   // 線分も半直線も盤の四辺で切る。始点が盤の外でも、見える部分だけを返す。
   function ray(result, start, dir, end = Infinity, style = 'solid', role) {
@@ -530,10 +536,11 @@
     forceLabel(result, 'scale', { x: 360, y: 400 }, '1 目もり ＝ 1 N');
   }
 
-  function trace(scene) {
+  function trace(scene, layout) {
     const result = empty();
     const errors = validateScene(scene);
     if (errors.length) { result.notes.push('この図は表示できません', ...errors); return result; }
+    if (picture.isKind(scene.kind)) { picture.trace(scene, result, layout); return result; }
     const tracers = { straight: traceStraight, reflect: traceReflect, 'mirror-image': traceMirrorImage,
       refract: traceRefract, lens: traceLens, 'lens-image': traceLensImage,
       'sound-wave': traceSoundWave, 'sound-string': traceSoundString, 'sound-speed': traceSoundSpeed,
@@ -716,6 +723,11 @@
   }
 
   function setOption(scene, key, value) {
+    if (!validateScene(scene).length && picture.isKind(scene.kind)) {
+      const control = picture.controls(scene.kind, scene.options).find(c => c.key === key);
+      if (!control?.enabled || !control.choices.some(c => c.value === value) || scene.options[key] === value) return scene;
+      const next = copy(scene); next.options[key] = value; return next;
+    }
     if (!validateScene(scene).length && ['force-spring', 'force-balance'].includes(scene.kind)) {
       const choices = scene.kind === 'force-spring' ? { weights: [0, 1, 2, 3, 4, 5], spring: ['A', 'B'] } : { line: ['same', 'offset'] };
       if (!Object.hasOwn(choices, key) || !choices[key].includes(value)) return scene;

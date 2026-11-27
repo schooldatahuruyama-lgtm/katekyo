@@ -6,19 +6,25 @@
   const C = config.explain;
   const DRAW_KINDS = Object.freeze(['el', 'normal', 'axis', 'focus', 'shadow', 'image', 'image-label',
     'ray', 'angle', 'point', 'handles', 'controls', 'grid', 'wave', 'amplitude', 'period', 'vibration', 'sound-waves', 'distance', 'label',
-    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line']);
+    'stretch', 'graph', 'graph-point', 'graph-line', 'application', 'force', 'direction', 'magnitude', 'pull', 'line', 'panel', 'title', 'side', 'ring']);
   const ELEMENTS = ['source', 'blocker', 'screen', 'object', 'eye', 'mirror', 'boundary', 'lens',
     'tuning-fork', 'string', 'bridge', 'firework', 'listener', 'stand', 'spring', 'weights', 'box', 'card'];
   const ARGS = {
     el: ELEMENTS,
     ray: ['edge', 'incident', 'reflected', 'refracted', 'to-mirror', 'to-eye', 'extension',
       'to-lens', 'to-focus', 'beyond-focus', 'ray1', 'ray2', 'ray3', 'light'],
-    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance', 'graph', 'force', 'pulls', 'state'],
-    label: ['frequency', 'time', 'speed', 'force', 'scale', 'state'], pull: ['left', 'right'],
+    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance', 'graph', 'force', 'pulls', 'state',
+      'title', 'stigma', 'ovary', 'ovule', 'sepal', 'petal', 'stamen', 'pistil', 'female', 'male', 'cone', 'female-scale', 'male-scale', 'pollen',
+      'leaf', 'stem', 'root', 'fish', 'amphibian', 'reptile', 'bird', 'mammal'],
+    label: ['frequency', 'time', 'speed', 'force', 'scale', 'state', 'classes', 'stigma', 'ovary', 'ovule', 'sepal', 'petal', 'stamen', 'pistil',
+      'female', 'male', 'cone', 'female-scale', 'male-scale', 'pollen', 'leaf', 'stem', 'root', 'fish', 'amphibian', 'reptile', 'bird', 'mammal'],
+    panel: ['1', '2', '3'], side: ['breath', 'skin', 'birth', 'counts'], pull: ['left', 'right'],
   };
 
   function parseDraw(token) {
     if (typeof token !== 'string') return null;
+    const caption = /^(point|label):(caption:[1-3])$/.exec(token);
+    if (caption) return { kind: caption[1], arg: caption[2] };
     const [kind, arg, extra] = token.split(':');
     if (!DRAW_KINDS.includes(kind) || extra !== undefined) return null;
     if (Object.hasOwn(ARGS, kind)) return ARGS[kind].includes(arg) ? { kind, arg } : null;
@@ -38,10 +44,43 @@
     const options = scene?.options ? scene.kind === 'refract' ? ['direction', 'medium'] :
       scene.kind === 'sound-string' ? ['thickness', 'tension'] :
       scene.kind === 'force-spring' && result.force ? ['weights', 'spring'] :
-      scene.kind === 'force-balance' && result.force ? ['line'] : [] : [];
+      scene.kind === 'force-balance' && result.force ? ['line'] : result.picture ? Object.keys(scene.options) : [] : [];
     const add = (type, ref) => items.push({ type, ref });
     const markText = m => add('text', { source: 'marks', key: m.key, field: 'text' });
     const handleRef = h => ({ source: 'handles', elementId: h.elementId, handle: h.handle });
+
+    if (result.picture) {
+      const p = result.picture;
+      const shape = (list, type, predicate = () => true) => p[list].forEach((item, index) => {
+        if (predicate(item, index)) add(type, { source: 'picture', key: list, index });
+      });
+      const label = key => marks.filter(m => m.key === key).forEach(markText);
+      if (kind === 'image') {
+        shape('images', 'picture');
+        if (p.kind === 'bio-flower') shape('rings', 'arc');
+        if (p.kind === 'bio-animals') ['side-heading', 'legend', 'examples'].forEach(label);
+      }
+      if (kind === 'panel') {
+        shape('images', 'picture', (_, i) => i === Number(arg) - 1);
+        label('heading:' + arg); label('caption:' + arg);
+      }
+      if (kind === 'label') {
+        const keys = arg === 'classes' ? marks.filter(m => ['fish', 'amphibian', 'reptile', 'bird', 'mammal'].includes(m.key)).map(m => m.key) : [arg];
+        shape('pins', 'line', item => keys.includes(item.key));
+        marks.filter(t => keys.includes(t.key)).forEach(markText);
+      }
+      if (kind === 'title') { label('title'); label('examples'); }
+      if (kind === 'side') {
+        label('side-' + arg);
+        if (arg === 'counts') marks.filter(m => m.key.startsWith('count')).forEach(markText);
+      }
+      if (kind === 'ring') { shape('rings', 'arc'); label('title'); }
+      if (kind === 'point' && arg !== 'controls') marks.filter(m => m.key === arg).forEach(m =>
+        add('point', { source: 'marks', key: m.key, part: 'highlight' }));
+      if (kind === 'point' && arg === 'controls') options.forEach(key => add('point', { source: 'options', key, part: 'highlight' }));
+      if (kind === 'controls') options.forEach(key => add('controls', { source: 'options', key }));
+      return { kind, arg, items };
+    }
 
     if (result.force) {
       const shapes = result.force;
@@ -194,6 +233,7 @@
   }
 
   function itemDuration(item, result, handles) {
+    if (item.type === 'picture') return C.textFadeMs;
     if (item.type === 'text') {
       return item.key ? Math.max(C.textMinMs, Array.from(itemText(item, result, handles)).length * C.textCharMs) : C.textFadeMs;
     }
@@ -239,7 +279,7 @@
       let drawDuration = 0;
       for (const part of parts) {
         part.start = drawDuration;
-        part.duration *= stretch / rate;
+        part.duration *= (part.items.some(item => item.type === 'picture') ? 1 : stretch) / rate;
         drawDuration += part.duration;
       }
       const reading = Array.isArray(options.readMs) && options.readMs.length === steps.length &&

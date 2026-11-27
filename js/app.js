@@ -14,14 +14,19 @@
   const voiceDataSound = node ? require('../content/voice-sound.js') : root.Hikari.voiceDataSound;
   const scriptsForce = node ? require('../content/scripts-force.js') : root.Hikari.scriptsForce;
   const voiceDataForce = node ? require('../content/voice-force.js') : root.Hikari.voiceDataForce;
+  const scriptsBio1 = node ? require('../content/scripts-bio1.js') : root.Hikari.scriptsBio1;
+  const voiceDataBio1 = node ? require('../content/voice-bio1.js') : root.Hikari.voiceDataBio1;
   const content = { light: { scripts, voiceData }, sound: { scripts: scriptsSound, voiceData: voiceDataSound },
-    force: { scripts: scriptsForce, voiceData: voiceDataForce } };
+    force: { scripts: scriptsForce, voiceData: voiceDataForce }, bio1: { scripts: scriptsBio1, voiceData: voiceDataBio1 } };
   const explain = node ? require('./explain.js') : root.Hikari.explain;
   const prefs = node ? require('./prefs.js') : root.Hikari.prefs;
   const voice = node ? require('./voice.js') : root.Hikari.voice;
   const config = node ? require('./config.js') : root.Hikari.config;
   const credit = '音声: VOICEVOX Nemo（女声 2・3・4、男声 1・2・3）';
   const instructions = {
+    'bio-flower': '下のボタンで、図と部分を切り替えられるよ。',
+    'bio-plants': '下のボタンで、特徴をえらべるよ。',
+    'bio-animals': '下のボタンで、3 つの特徴をえらべるよ。',
     straight: 'オレンジの丸（光源）と白い丸（ついたて）は指で動かせるよ。',
     reflect: 'オレンジの丸（光源）を動かしたり、白い丸で鏡をかたむけたりできるよ。',
     'mirror-image': '白い丸で物体や見る人を動かし、像の位置を確かめよう。',
@@ -448,7 +453,7 @@
         const angleStep = steps.findIndex(step => step.draw.some(token => token.startsWith('angle:')));
         const labelStep = steps.findIndex(step => step.draw.some(token => token.startsWith('label:') || token === 'distance'));
         const forceToken = { 'force-spring': 'label:force', 'force-arrow': 'magnitude', 'force-balance': 'label:state' }[board.id];
-        const first = forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) :
+        const first = board.id.startsWith('bio-') ? steps.length - 2 : forceToken ? steps.findIndex(step => step.draw.includes(forceToken)) :
           angleStep >= 0 ? angleStep : labelStep >= 0 ? labelStep : steps.length - 1;
         const hidden = invalidScene || mode === 'start' || (mode === 'explain' && stepIndex < first);
         if (readout.hidden !== hidden) readout.hidden = hidden;
@@ -488,20 +493,31 @@
         if (!controlNodes.size) currentControls.forEach(control => {
           const group = element('div', 'seg', undefined, controls);
           group.setAttribute('role', 'group');
-          group.setAttribute('aria-label', { direction: '光の進む向き', medium: '物質', thickness: '弦の太さ', tension: '弦の張り',
+          group.setAttribute('aria-label', control.label || { direction: '光の進む向き', medium: '物質', thickness: '弦の太さ', tension: '弦の張り',
             weights: 'おもりの数', spring: 'ばね', line: '2 つの力' }[control.key]);
-          if (board.id === 'sound-string' || board.id.startsWith('force-')) element('span', 'seg-name', group.getAttribute('aria-label'), group);
+          if (control.label) element('span', 'seg-name', group.getAttribute('aria-label'), group);
+          if (board.id.startsWith('bio-')) {
+            const reason = element('span', 'seg-reason', '', group);
+            reason.id = board.id + '-' + control.key + '-reason';
+            controlNodes.set(control.key + ':reason', reason);
+          }
           control.choices.forEach(choice => {
             const el = button('', choice.label, group, () => view.setScene(scene.setOption(board.scene, control.key, choice.value)));
             controlNodes.set(control.key + ':' + choice.value, el);
           });
         });
-        currentControls.forEach(control => control.choices.forEach(choice => {
+        currentControls.forEach(control => {
+          const reason = controlNodes.get(control.key + ':reason');
+          if (reason) { reason.textContent = control.reason; reason.hidden = !control.reason; }
+          control.choices.forEach(choice => {
           const el = controlNodes.get(control.key + ':' + choice.value);
           const selected = board.scene.options[control.key] === choice.value;
-          el.textContent = ((board.id === 'sound-string' || board.id.startsWith('force-')) && selected ? '✓ ' : '') + choice.label;
+          el.textContent = (control.label && selected ? '✓ ' : '') + choice.label;
           el.setAttribute('aria-pressed', String(selected));
-        }));
+          el.disabled = control.enabled === false;
+          if (reason && control.reason) el.setAttribute('aria-describedby', reason.id);
+          else el.removeAttribute('aria-describedby');
+        }); });
       }
       if (mode === 'start') buildTimeline();
       view = boardView.create(stage, board, update, validate, mode === 'start' ? explain.finalState(timeline) : null);

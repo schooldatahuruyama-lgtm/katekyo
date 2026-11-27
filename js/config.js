@@ -50,6 +50,15 @@
         balance: Object.freeze({ x: 300, y: 210, cell: 32, cardSize: 100, offset: 30 }),
       }),
     }),
+    picture: Object.freeze({
+      compactBelowPx: 420,
+      sourceWidth: 640, sourceHeight: 480,
+      full: Object.freeze({ x: 20, y: 0, width: 560, height: 420 }),
+      triple: Object.freeze({ x: 20, y: 84, width: 176, height: 250 }), tripleStep: 192,
+      double: Object.freeze({ x: 20, y: 84, width: 272, height: 250 }), doubleStep: 288,
+      single: Object.freeze({ x: 60, y: 60, width: 480, height: 300 }),
+      animals: Object.freeze({ x: 10, y: 60, width: 360, height: 270 }),
+    }),
     explain: Object.freeze({
       elementMs: 350, lineMs: 800, textCharMs: 90, textMinMs: 300, textFadeMs: 400, arcMs: 600, pointMs: 600,
       penSizePx: 36, penTransferMs: 150, penFadeMs: 200, penMaxDeltaMs: 1000,
