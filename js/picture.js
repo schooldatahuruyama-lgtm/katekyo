@@ -4,6 +4,14 @@
   const config = typeof module === 'object' && module.exports ? require('./config.js') : root.Hikari.config;
   const L = config.picture;
   const choices = {
+    'bio-photosynthesis': { light: ['光', ['on', '当たる所'], ['off', 'はくでおおった所']],
+      part: ['葉の部分', ['green', '緑色の部分'], ['white', 'ふ（白い部分）']] },
+    'bio-digestion': { nutrient: ['栄養分', ['starch', 'デンプン'], ['protein', 'タンパク質'], ['fat', '脂肪']],
+      stage: ['見る所', ['digest', '消化（分解）'], ['absorb', '吸収（柔毛）']] },
+    'bio-circulation': { route: ['循環', ['body', '体循環'], ['lung', '肺循環']],
+      flow: ['血液の向き', ['out', '心臓から出る'], ['back', '心臓にもどる']] },
+    'bio-reflex': { kind: ['反応', ['reflex', '反射'], ['conscious', '意識して起こる反応']],
+      spot: ['たどる所', ['skin', '皮ふ'], ['sensory', '感覚神経'], ['spinal', 'せきずい'], ['brain', '脳'], ['motor', '運動神経'], ['muscle', '筋肉']] },
     'bio-flower': { figure: ['図', ['abrana-section', 'アブラナ（たてに切る）'], ['abrana-parts', 'アブラナ（分けてならべる）'],
       ['matsu-branch', 'マツ（枝）'], ['matsu-scale', 'マツ（りん片）']],
     part: ['部分', ['pistil', 'めしべ'], ['stamen', 'おしべ'], ['petal', '花弁'], ['sepal', 'がく']] },
@@ -32,7 +40,10 @@
       'plants-2-c2.jpg': '雌花・雄花・まつかさのあるマツの枝', 'plants-2-r1.jpg': 'マツの雌花と雄花のりん片',
       'plants-3-c1.jpg': '双子葉類と単子葉類の芽ばえ', 'plants-3-c2.jpg': '網状脈と平行脈の葉', 'plants-3-c3.jpg': '主根と側根、ひげ根',
       'plants-4-c1.jpg': 'シダ植物の葉・地下茎・根', 'plants-4-c2.jpg': 'コケ植物の雌株と雄株',
-      'animals-1-c2.jpg': 'メダカ・カエル・トカゲ・ハト・イヌ' };
+      'animals-1-c2.jpg': 'メダカ・カエル・トカゲ・ハト・イヌ',
+      'body-2-c2.jpg': '実験前のふ入りの葉と、脱色してヨウ素液につけた葉', 'digestion.svg': '消化器官の模式図',
+      'villus.svg': '小腸の柔毛を大きくした模式図', 'heart.svg': '心臓の部屋と血管の模式図',
+      'reflex.svg': '反射の信号の通り道の模式図', 'conscious.svg': '意識して起こる反応の信号の通り道の模式図' };
     return picture.images.map(img => names[img.src.split('/').pop()]).join('。');
   }
 
@@ -51,7 +62,10 @@
         if (options.reproduce === 'seed' && key === 'organs') reason = '種子でふえる植物には、根・茎・葉の区別があります';
         if (options.reproduce === 'seed' && options.ovule === 'naked' && key === 'cotyledon') reason = '子葉の数で分けるのは、被子植物です';
       }
-      return { key, label, choices: values.map(([value, label]) => ({ value, label })), enabled: !reason, reason };
+      const brainDisabled = kind === 'bio-reflex' && options.kind === 'reflex' && key === 'spot';
+      return { key, label, choices: values.map(([value, label]) => ({ value, label,
+        ...(brainDisabled && value === 'brain' ? { enabled: false } : {}) })), enabled: !reason,
+        reason: brainDisabled ? '反射では、命令はせきずいから出ます（脳で考える前に反応します）' : reason };
     });
   }
   function plantGroup(o) {
@@ -62,7 +76,8 @@
     const compact = layout?.compact === true;
     const o = scene.options, p = { kind: scene.kind, compact, images: [], pins: [], tags: [], rings: [], texts: [], below: [] };
     function image(file, box, crop = null) {
-      const item = { key: 'panel:' + (p.images.length + 1), src: 'assets/images/bio1/' + file, ...box, crop };
+      const unit = ['bio-flower', 'bio-plants', 'bio-animals'].includes(scene.kind) ? 'bio1' : 'bio2';
+      const item = { key: 'panel:' + (p.images.length + 1), src: 'assets/images/' + unit + '/' + file, ...box, crop };
       p.images.push(item); return item;
     }
     function text(key, text, x, y, tone = 'ink', size = 19, anchor = 'start') {
@@ -79,7 +94,88 @@
       const label = p.tags.find(t => t.key === key);
       p.pins.push({ key, from: { x: label.x, y: label.y }, to: point(img, x, y), tone: label.tone });
     }
-    if (scene.kind === 'bio-flower') {
+    function ring(key, img, x, y, radius, tone) {
+      const center = point(img, x, y);
+      p.rings.push({ key, cx: center.x, cy: center.y, rx: radius * img.width / L.sourceWidth,
+        ry: radius * img.height / L.sourceHeight, tone });
+    }
+    function organ(img, key, name, tx, ty, x, y, tone = 'ink') {
+      tag(key, name, x, y, tone); pin(key, img, tx, ty);
+    }
+    if (scene.kind === 'bio-photosynthesis') {
+      const starch = o.light === 'on' && o.part === 'green';
+      const reason = starch ? null : o.light === 'off' ? o.part === 'white' ? 'both' : 'no-light' : 'no-chloroplast';
+      result.measures = { ...o, starch, reason };
+      const img = image('body-2-c2.jpg', L.full), tone = starch ? 'green' : 'red';
+      const positions = o.part === 'green' ? o.light === 'on' ? [[150, 255], [480, 255]] : [[160, 175], [480, 180]] :
+        o.light === 'on' ? [[62, 96], [360, 130]] : [[45, 175], [355, 185]];
+      positions.forEach(([x, y], i) => ring('leaf:' + i, img, x, y, 40, tone));
+      text('title', starch ? 'デンプンができる（青紫色になる）' : 'デンプンができない（色が変わらない）', 300, 30, tone, 19, 'middle');
+      organ(img, 'fu', 'ふ（白い部分）', 62, 96, 110, 62);
+      const foil = point(img, 156, 176), under = point(img, 480, 182), iodine = point(img, 320, 400);
+      tag('foil', 'アルミニウムはく', foil.x, foil.y);
+      tag('under', 'はくの下', under.x, under.y);
+      text('iodine', '脱色して、ヨウ素液につける →', iodine.x, iodine.y, 'gray', 19, 'middle');
+      const right = point(img, ...positions[1]);
+      tag('result', starch ? '青紫色' : '変わらない', right.x, right.y + 64, tone);
+    } else if (scene.kind === 'bio-digestion') {
+      const product = { starch: 'ブドウ糖', protein: 'アミノ酸', fat: '脂肪酸とモノグリセリド' }[o.nutrient];
+      result.measures = { ...o, product, into: o.nutrient === 'fat' ? 'lymph' : 'capillary' };
+      if (o.stage === 'digest') {
+        const img = image('digestion.svg', L.full), active = o.nutrient === 'starch' ? ['mouth', 'pancreas', 'small'] :
+          o.nutrient === 'protein' ? ['stomach', 'pancreas', 'small'] : ['pancreas'];
+        const juices = { mouth: 'だ液', stomach: '胃液', pancreas: 'すい液', small: 'かべの消化酵素', liver: '胆汁をつくる', gall: '胆汁をためる' };
+        const rows = [['mouth', '口', 308, 92, 108, 88], ['esophagus', '食道', 320, 140, 492, 106],
+          ['stomach', '胃', 358, 214, 492, 174], ['liver', '肝臓', 266, 200, 108, 174],
+          ['gall', '胆のう', 282, 226, 108, 244], ['pancreas', 'すい臓', 364, 262, 492, 244],
+          ['small', '小腸', 360, 334, 492, 324], ['large', '大腸', 260, 330, 108, 324]];
+        rows.forEach(([key, name, ...pos]) => {
+          const bile = o.nutrient === 'fat' && ['liver', 'gall'].includes(key), red = active.includes(key);
+          organ(img, key, name + (red || bile ? '（' + juices[key] + '）' : ''), ...pos, bile ? 'orange' : red ? 'red' : 'ink');
+        });
+        text('title', { starch: 'デンプン', protein: 'タンパク質', fat: '脂肪' }[o.nutrient] + ' → ' + product, 300, 30, 'red', 19, 'middle');
+        text('enzyme', '赤い文字 ＝ 消化酵素がはたらく所', 20, 380, 'gray');
+        if (o.nutrient === 'fat') text('bile', 'だいだいの文字 ＝ 胆汁（消化酵素をふくまないが、脂肪の分解を助ける）', 20, 408, 'gray');
+      } else {
+        const img = image('villus.svg', L.full);
+        [['villus', '柔毛', 320, 125, 300, 74], ['capillary', '毛細血管', 262, 280, 110, 220],
+          ['lymph', 'リンパ管', 320, 330, 490, 294], ['wall', '小腸のかべ', 120, 430, 110, 340]].forEach(([key, name, ...pos]) =>
+          organ(img, key, name, ...pos, key === result.measures.into ? 'red' : 'ink'));
+        text('title', o.nutrient === 'fat' ? '脂肪酸とモノグリセリドは、柔毛で再び脂肪になって、リンパ管に入る' :
+          product + 'は、柔毛の毛細血管に入る', 300, 30, 'red', 19, 'middle');
+      }
+    } else if (scene.kind === 'bio-circulation') {
+      const routes = { 'body:out': ['lv', 'aorta', 'arterial', '左心室 → 大動脈 → 全身', '全身へ'],
+        'body:back': ['ra', 'vena', 'venous', '全身 → 大静脈 → 右心房', '全身から'],
+        'lung:out': ['rv', 'pa', 'venous', '右心室 → 肺動脈 → 肺', '肺へ'],
+        'lung:back': ['la', 'pv', 'arterial', '肺 → 肺静脈 → 左心房', '肺から'] };
+      const [chamber, vessel, blood, path, direction] = routes[o.route + ':' + o.flow];
+      result.measures = { ...o, chamber, vessel, blood };
+      const img = image('heart.svg', L.full), tone = blood === 'arterial' ? 'red' : 'blue';
+      [['ra', '右心房', 270, 200, 100, 220], ['rv', '右心室', 262, 290, 100, 300],
+        ['la', '左心房', 370, 200, 500, 220], ['lv', '左心室', 368, 290, 500, 300],
+        ['vena', '大静脈', 252, 100, 100, 80], ['pa', '肺動脈', 200, 130, 100, 144],
+        ['pv', '肺静脈', 448, 196, 500, 150], ['aorta', '大動脈', 440, 74, 500, 74]].forEach(([key, name, ...pos]) =>
+        organ(img, key, name + (key === vessel ? '（' + direction + '）' : ''), ...pos, [chamber, vessel].includes(key) ? tone : 'ink'));
+      text('title', (o.route === 'body' ? '体循環: ' : '肺循環: ') + path, 300, 30, tone, 19, 'middle');
+      text('venous', '青 ＝ 静脈血（酸素が少ない）', 20, 362, 'blue');
+      text('arterial', '赤 ＝ 動脈血（酸素が多い）', 20, 388, 'red');
+      text('orientation', '図の左が、体の右', 580, 410, 'gray', 19, 'end');
+    } else if (scene.kind === 'bio-reflex') {
+      const reflex = o.kind === 'reflex', spot = reflex && o.spot === 'brain' ? 'spinal' : o.spot;
+      const order = reflex ? ['skin', 'sensory', 'spinal', 'motor', 'muscle'] : ['skin', 'sensory', 'spinal', 'brain', 'spinal', 'motor', 'muscle'];
+      result.measures = { kind: o.kind, spot, order: order.indexOf(spot) + 1, steps: order.length };
+      const img = image(reflex ? 'reflex.svg' : 'conscious.svg', L.full);
+      [['skin', '皮ふ（感覚器官）', 40, 250, 112, 316], ['sensory', '感覚神経', 250, 180, 200, 104],
+        ['spinal', 'せきずい', 500, 340, 530, 340], ['brain', '脳', 500, 80, 330, 64],
+        ['motor', '運動神経', 360, 326, 310, 346], ['muscle', '筋肉', 190, 300, 130, 362]].forEach(([key, name, tx, ty, x, y]) => {
+        organ(img, key, name, tx, ty, x, y, key === spot ? 'green' : 'ink');
+        if (key === spot) ring(key, img, tx, ty, 24, 'green');
+      });
+      text('title', reflex ? '反射: 脳で考える前に、せきずいから命令が出る' :
+        '意識して起こる反応: 脳で判断して、命令を出す', 300, 28, 'ink', 19, 'middle');
+      text('order', '信号が通る順: 皮ふ → 感覚神経 → せきずい → ' + (reflex ? '' : '脳 → せきずい → ') + '運動神経 → 筋肉', 20, 410, 'gray');
+    } else if (scene.kind === 'bio-flower') {
       const matsu = o.figure.startsWith('matsu');
       result.measures = { figure: o.figure, part: o.part, plant: matsu ? 'matsu' : 'abrana', ovule: matsu ? 'naked' : 'in-ovary' };
       const files = { 'abrana-section': 'plants-1-c2.jpg', 'abrana-parts': 'plants-1-c1.jpg',
@@ -169,6 +265,15 @@
     const bound = (mark, x, y, width, height, maxRows) => Object.assign(mark, {
       bounds: { x, y, width, height }, ...(maxRows ? { maxRows } : {}),
     });
+    if (p.images[0].src.includes('/bio2/')) {
+      // 題と凡例は上下の帯、引き出し線のない名前は指す相手の近くに置く。
+      p.texts.forEach(mark => bound(mark, 20, mark.key === 'title' ? 0 : mark.y - 24, 560,
+        mark.key === 'title' ? 44 : 30, 2));
+      if (scene.kind === 'bio-photosynthesis') p.tags.filter(mark => mark.key !== 'fu').forEach(mark =>
+        bound(mark, Math.max(20, mark.x - 125), Math.max(44, mark.y - 35), Math.min(250, 580 - Math.max(20, mark.x - 125)), 70, 2));
+      if (scene.kind === 'bio-circulation' || scene.kind === 'bio-digestion' && o.stage === 'digest')
+        p.tags.forEach(mark => bound(mark, mark.x < 300 ? 20 : 390, 48, 190, 304, 2));
+    }
     if (scene.kind === 'bio-animals') {
       const img = p.images[0];
       p.tags.forEach((mark, i) => {
@@ -202,6 +307,12 @@
     }
     const marks = [...p.tags, ...p.texts];
     function below(mark) { p.below.push({ key: mark.key, text: mark.text, tone: mark.tone }); }
+    if (p.images[0].src.includes('/bio2/')) {
+      const width = Number.isFinite(layout?.widthPx) && layout.widthPx > 0 ? layout.widthPx : compact ? 279 : 700;
+      const font = Math.max(19, config.minTextPx * config.width / width);
+      p.texts.filter(mark => Array.from(mark.text).reduce((n, c) => n + (/^[\x20-\x7e]$/.test(c) ? .6 : 1), 0) * font > 560)
+        .forEach(below);
+    }
     if (compact) {
       if (o.figure === 'abrana-parts') {
         const keys = ['sepal', 'petal', 'stamen', 'pistil'];

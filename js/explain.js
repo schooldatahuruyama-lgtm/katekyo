@@ -13,10 +13,10 @@
     el: ELEMENTS,
     ray: ['edge', 'incident', 'reflected', 'refracted', 'to-mirror', 'to-eye', 'extension',
       'to-lens', 'to-focus', 'beyond-focus', 'ray1', 'ray2', 'ray3', 'light'],
-    angle: ['in', 'out'], point: [...ELEMENTS, 'focus', 'controls', 'wave', 'distance', 'graph', 'force', 'pulls', 'state',
+    angle: ['in', 'out'], point: ['fu', 'foil', 'iodine', 'under', 'result', 'mouth', 'esophagus', 'stomach', 'liver', 'gall', 'pancreas', 'small', 'large', 'villus', 'capillary', 'lymph', 'wall', 'ra', 'rv', 'la', 'lv', 'vena', 'pa', 'pv', 'aorta', 'skin', 'sensory', 'spinal', 'brain', 'motor', 'muscle', ...ELEMENTS, 'focus', 'controls', 'wave', 'distance', 'graph', 'force', 'pulls', 'state',
       'title', 'stigma', 'ovary', 'ovule', 'sepal', 'petal', 'stamen', 'pistil', 'female', 'male', 'cone', 'female-scale', 'male-scale', 'pollen',
       'leaf', 'stem', 'root', 'fish', 'amphibian', 'reptile', 'bird', 'mammal'],
-    label: ['frequency', 'time', 'speed', 'force', 'scale', 'state', 'classes', 'stigma', 'ovary', 'ovule', 'sepal', 'petal', 'stamen', 'pistil',
+    label: ['fu', 'foil', 'iodine', 'under', 'result', 'mouth', 'esophagus', 'stomach', 'liver', 'gall', 'pancreas', 'small', 'large', 'villus', 'capillary', 'lymph', 'wall', 'ra', 'rv', 'la', 'lv', 'vena', 'pa', 'pv', 'aorta', 'skin', 'sensory', 'spinal', 'brain', 'motor', 'muscle', 'chambers', 'frequency', 'time', 'speed', 'force', 'scale', 'state', 'classes', 'stigma', 'ovary', 'ovule', 'sepal', 'petal', 'stamen', 'pistil',
       'female', 'male', 'cone', 'female-scale', 'male-scale', 'pollen', 'leaf', 'stem', 'root', 'fish', 'amphibian', 'reptile', 'bird', 'mammal'],
     panel: ['1', '2', '3'], side: ['breath', 'skin', 'birth', 'counts'], pull: ['left', 'right'],
   };
@@ -59,22 +59,32 @@
         shape('images', 'picture');
         if (p.kind === 'bio-flower') shape('rings', 'arc');
         if (p.kind === 'bio-animals') ['side-heading', 'legend', 'examples'].forEach(label);
+        if (p.kind === 'bio-photosynthesis') label('under');
+        if (p.kind === 'bio-circulation') ['title', 'venous', 'arterial', 'orientation'].forEach(label);
+        if (p.kind === 'bio-reflex') shape('rings', 'arc');
       }
       if (kind === 'panel') {
         shape('images', 'picture', (_, i) => i === Number(arg) - 1);
         label('heading:' + arg); label('caption:' + arg);
       }
       if (kind === 'label') {
-        const keys = arg === 'classes' ? marks.filter(m => ['fish', 'amphibian', 'reptile', 'bird', 'mammal'].includes(m.key)).map(m => m.key) : [arg];
+        const keys = arg === 'chambers' ? ['ra', 'rv', 'la', 'lv'] : arg === 'classes' ? marks.filter(m => ['fish', 'amphibian', 'reptile', 'bird', 'mammal'].includes(m.key)).map(m => m.key) : [arg];
         shape('pins', 'line', item => keys.includes(item.key));
         marks.filter(t => keys.includes(t.key)).forEach(markText);
       }
-      if (kind === 'title') { label('title'); label('examples'); }
+      if (kind === 'label' && p.kind === 'bio-digestion' && arg === 'liver') {
+        label('gall'); shape('pins', 'line', item => item.key === 'gall');
+      }
+      if (kind === 'title') {
+        label('title'); label('examples');
+        if (p.kind === 'bio-digestion') { label('enzyme'); label('bile'); }
+        if (p.kind === 'bio-reflex') label('order');
+      }
       if (kind === 'side') {
         label('side-' + arg);
         if (arg === 'counts') marks.filter(m => m.key.startsWith('count')).forEach(markText);
       }
-      if (kind === 'ring') { shape('rings', 'arc'); label('title'); }
+      if (kind === 'ring') { shape('rings', 'arc'); label('title'); if (p.kind === 'bio-photosynthesis') label('result'); }
       if (kind === 'point' && arg !== 'controls') marks.filter(m => m.key === arg).forEach(m =>
         add('point', { source: 'marks', key: m.key, part: 'highlight' }));
       if (kind === 'point' && arg === 'controls') options.forEach(key => add('point', { source: 'options', key, part: 'highlight' }));

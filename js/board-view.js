@@ -10,7 +10,7 @@
   const geometry = node ? require('./geometry.js') : root.Hikari.geometry;
   const C = config.colors, W = config.width, H = config.height;
   const NS = 'http://www.w3.org/2000/svg';
-  const pictureColor = tone => C[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray' }[tone] || 'text'];
+  const pictureColor = tone => C[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray', blue: 'bluePen' }[tone] || 'text'];
   let serial = 0;
 
   // 描画とテストで同じ文字・障害物を使う。角度以外の座標は付けたい相手の位置。
@@ -632,7 +632,7 @@
           }, p => p > 0 && p < 1);
         });
       }
-      svg.setAttribute('aria-label', board.title + 'のホワイトボード' + (result.picture ? '。写真ふうの画像（本物の写真ではありません）。' +
+      svg.setAttribute('aria-label', board.title + 'のホワイトボード' + (result.picture ? (result.picture.images.some(img => img.src.endsWith('.svg')) ? '。やわらかい色の模式図。' : '。写真ふうの画像（本物の写真ではありません）。') +
         result.marks.map(m => m.text).join('。') + '。' + result.picture.description : ''));
       if (result.picture) drawPicture(result.picture, s, data, places);
 
