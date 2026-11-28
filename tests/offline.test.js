@@ -31,13 +31,16 @@ test('HTML の読み込み順と PRECACHE が一致し、全ファイルが実�
   assert.ok(cache.includes('assets/mascots/mascot_E.svg'));
   assert.ok(cache.includes('assets/pen.svg'));
   for (const file of ['js/force.js', 'content/scripts-force.js', 'content/voice-force.js',
-    'js/picture.js', 'content/scripts-bio1.js', 'content/voice-bio1.js']) {
+    'js/picture.js', 'content/scripts-bio1.js', 'content/voice-bio1.js', 'content/scripts-bio2.js', 'content/voice-bio2.js']) {
     assert.ok(files.includes(file)); assert.ok(cache.includes(file));
   }
   assert.ok(files.indexOf('js/force.js') < files.indexOf('js/scene.js'));
   assert.ok(files.indexOf('js/picture.js') < files.indexOf('js/scene.js'));
   const pictures = fs.readdirSync(path.join(base, 'assets/images/bio1'));
   assert.equal(pictures.length, 10);
+  const bio2 = fs.readdirSync(path.join(base, 'assets/images/bio2'));
+  assert.equal(bio2.length, 6);
+  bio2.forEach(file => assert.ok(cache.includes('assets/images/bio2/' + file), file));
   pictures.forEach(file => assert.ok(cache.includes('assets/images/bio1/' + file), file));
   assert.ok(files.indexOf('content/scripts-light.js') < files.indexOf('content/scripts-force.js'));
   assert.ok(cache.every(file => !file.endsWith('.mp3')));

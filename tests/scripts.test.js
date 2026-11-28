@@ -8,10 +8,10 @@ const explain = require('../js/explain.js');
 const config = require('../js/config.js');
 const soundScripts = require('../content/scripts-sound.js');
 const forceScripts = require('../content/scripts-force.js');
-const allScripts = { ...scripts.BOARDS, ...soundScripts.BOARDS, ...forceScripts.BOARDS, ...require('../content/scripts-bio1.js').BOARDS };
+const allScripts = { ...scripts.BOARDS, ...soundScripts.BOARDS, ...forceScripts.BOARDS, ...require('../content/scripts-bio1.js').BOARDS, ...require('../content/scripts-bio2.js').BOARDS };
 const scene = require('../js/scene.js');
 
-test('光・音・力・生物の15の盤と6体の先生がそろい、基本の台本はE', () => {
+test('光・音・力・生物の19の盤と6体の先生がそろい、基本の台本はE', () => {
   assert.deepEqual(Object.keys(allScripts), boards.list().map(b => b.id));
   assert.deepEqual(scripts.TEACHERS.map(t => t.id), ['A', 'B', 'C', 'D', 'E', 'F']);
   assert.equal(scripts.DEFAULT_TEACHER, 'E');

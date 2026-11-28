@@ -16,6 +16,58 @@ function bioVariants(id) {
     .map(options => ({ ...boards.get(id).scene, options }));
 }
 
+test('中2生物: 反射の脳は理由つきで無効、保存値と実効値を区別し、課題は実際の選択で達成', () => {
+  const ui = openBio('bio-reflex', 375);
+  pressBio(ui, 'kind', 'conscious'); pressBio(ui, 'spot', 'brain'); pressBio(ui, 'kind', 'reflex');
+  const group = ui.find(el => el.className === 'seg' && el.attributes['aria-label'] === 'たどる所');
+  const brain = group.children.find(el => el.tagName === 'button' && el.textContent === '脳');
+  const spinal = group.children.find(el => el.tagName === 'button' && el.textContent === '✓ せきずい');
+  const reason = group.children.find(el => el.className === 'seg-reason');
+  assert.equal(brain.disabled, true); assert.equal(spinal.disabled, false);
+  assert.equal(reason.hidden, false); assert.equal(brain.attributes['aria-describedby'], reason.id);
+  assert.equal(reason.textContent, '反射では、命令はせきずいから出ます（脳で考える前に反応します）');
+  assert.equal(ui.current().options.spot, 'brain');
+  assert.equal(scene.trace(ui.current()).measures.spot, 'spinal');
+  const before = bioSnapshot(ui); brain.dispatch('click'); assert.deepEqual(bioSnapshot(ui), before);
+  const achieved = () => elements(ui, el => el.className.split(' ').includes('done')).map(el => el.textContent);
+  const task = boards.get('bio-reflex').prompts[2].text;
+  assert.ok(!achieved().some(text => text.includes(task)));
+  pressBio(ui, 'kind', 'conscious'); assert.equal(scene.trace(ui.current()).measures.spot, 'brain');
+  assert.equal(brain.disabled, false); assert.equal(brain.attributes['aria-pressed'], 'true');
+  assert.equal(reason.hidden, true);
+  pressBio(ui, 'kind', 'reflex'); pressBio(ui, 'spot', 'spinal');
+  assert.ok(achieved().some(text => text.includes(task)));
+});
+
+test('中2生物: 375pxで4盤のボタンとホームの見出しを折り返せる、反応は8個・高さ44px以上', () => {
+  const css = fs.readFileSync(path.join(__dirname, '../css/app.css'), 'utf8');
+  assert.match(css, /\.seg\s*\{[^}]*flex-wrap:\s*wrap/);
+  assert.match(css, /\.seg button\s*\{[^}]*min-height:\s*44px/);
+  assert.match(css, /\.seg button\s*\{[^}]*max-width:\s*100%;[^}]*overflow-wrap:\s*anywhere/);
+  const home = screen('', 375); home.api.app.start(home.host);
+  const heading = home.find(el => el.tagName === 'h2' && el.textContent.startsWith('中 2'));
+  assert.equal(heading.textContent, boards.units().find(u => u.id === 'bio2').title + ' ― ボードをえらぶ');
+  assert.equal(heading.parent.className, 'list');
+  assert.doesNotMatch(css.match(/\.list h2\s*\{[^}]*\}/)[0], /nowrap|width:\s*\d+px/);
+  for (const { id } of boards.units().find(u => u.id === 'bio2').boards) {
+    const ui = openBio(id, 375), board = boards.get(id);
+    const buttons = elements(ui, el => el.className === 'seg').flatMap(group => group.children.filter(el => el.tagName === 'button'));
+    assert.equal(buttons.length, id === 'bio-reflex' ? 8 : board.controls.reduce((sum, c) => sum + c.choices.length, 0));
+    assert.ok(buttons.every(el => el.textContent.length > 0)); checkBioPicture(ui);
+  }
+});
+
+test('中2生物: 説明の最後から2つ目の手で盤の下の値を出しはじめる', () => {
+  for (const { id } of boards.units().find(u => u.id === 'bio2').boards) {
+    const ui = screen('?board=' + id, 375); startLesson(ui);
+    const steps = require('../content/scripts-bio2.js').BOARDS[id];
+    for (let i = 0; i < steps.length; i++) {
+      assert.equal(ui.find(el => el.className === 'readout').hidden, i < steps.length - 2);
+      if (i < steps.length - 1) { ui.button('次へ').dispatch('click'); ui.button('次へ').dispatch('click'); }
+    }
+  }
+});
+
 test('動物: appのクリックで魚類から鳥類にすると合う特徴の数も鳥類になる', () => {
   const ui = screen('?board=bio-animals', 375);
   ui.api.app.start(ui.host); ui.button('説明をとばして、すぐ動かす').dispatch('click');
@@ -54,7 +106,7 @@ function isBioBelow(picture, key) { return picture.below.some(row => row.key ===
 function checkBioPicture(ui) {
   const r = bioResult(ui), p = r.picture;
   const colors = require('../js/config.js').colors;
-  const color = tone => colors[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray' }[tone]];
+  const color = tone => colors[{ ink: 'text', red: 'redPen', green: 'green', gray: 'normal', orange: 'ray', blue: 'bluePen' }[tone]];
   const texts = elements(ui, el => el.attributes['data-picture-text']);
   const marks = r.marks.filter(mark => !isBioBelow(p, mark.key));
   assert.deepEqual(texts.map(el => el.textContent), marks.map(mark => mark.text));
@@ -92,6 +144,9 @@ function selectBio(ui, options) {
     }
     if (ui.current().options.ovule !== options.ovule) { set('reproduce', 'seed'); set('ovule', options.ovule); }
     set('reproduce', options.reproduce);
+  } else if (ui.current().kind === 'bio-reflex') {
+    if (options.spot === 'brain') set('kind', 'conscious');
+    set('spot', options.spot); set('kind', options.kind);
   } else Object.entries(options).forEach(([key, value]) => set(key, value));
   assert.deepEqual(ui.current().options, options);
 }
@@ -172,7 +227,7 @@ test('動物: 一致あり→なし→ありで緑の行・輪・〇が消えて
   assert.equal(ui.find(el => el.attributes['data-picture-ring']).attributes['data-picture-ring'], 'bird');
 });
 
-for (const width of [279, 375, 700]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+for (const width of [279, 375, 700]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals', 'bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex']) {
   test(`${id}: ${width}pxの同じ画面で全組合せをクリックし、新規画面と全文字・色・位置・折り返し・画像・線・輪が一致する`, () => {
     const ui = openBio(id, width), initial = bioSnapshot(ui);
     const svg = ui.find(el => el.attributes.class === 'board-svg');
@@ -351,7 +406,7 @@ test('700pxの全68通り: 指示書の名前・画像の題・下の文から40
   }
 });
 
-for (const width of [279, 335, 419, 420, 700, 1100]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+for (const width of [279, 335, 419, 420, 700, 1100]) for (const id of ['bio-flower', 'bio-plants', 'bio-animals', 'bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex']) {
   test(`${id}: 盤幅${width}pxで全組合せの文字を16px以上・盤内・文字や輪との重なりなしで描く`, () => {
     const ui = screen('', width), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board), size = view.sizes(width);
     for (const current of bioVariants(id)) {
@@ -432,7 +487,7 @@ for (const width of [279, 335, 419, 420, 700, 1100]) for (const id of ['bio-flow
 }
 
 test('画像失敗は各置き場所に説明を出し、名前と引き出し線を残す。cropはSVGのviewBoxで切り出す', () => {
-  for (const id of ['bio-flower', 'bio-plants', 'bio-animals']) {
+  for (const id of ['bio-flower', 'bio-plants', 'bio-animals', 'bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex']) {
     const ui = screen('', 335), board = boards.get(id), renderer = ui.api.boardView.create(ui.host, board);
     for (const current of bioVariants(id)) {
       renderer.setScene(current); const p = bioResult(ui, current).picture;
@@ -446,7 +501,7 @@ test('画像失敗は各置き場所に説明を出し、名前と引き出し�
       assert.equal(visibleElements(ui, el => el.textContent === '画像を読みこめませんでした' && el.tagName === 'text').length, images.length);
       assert.equal(visibleElements(ui, el => el.attributes['data-picture-tag']).length, p.tags.length);
       assert.equal(visibleElements(ui, el => el.attributes['data-picture-pin']).length, p.pins.length);
-      assert.match(ui.find(el => el.attributes.class === 'board-svg').attributes['aria-label'], /写真ふうの画像/);
+      assert.match(ui.find(el => el.attributes.class === 'board-svg').attributes['aria-label'], p.images[0].src.endsWith('.svg') ? /模式図/ : /写真ふうの画像/);
       if (current.options.figure?.startsWith('matsu') && ['petal', 'sepal'].includes(current.options.part)) {
         assert.ok(visibleElements(ui, el => el.tagName === 'text' && el.textContent === 'マツの花には、花弁やがくがありません').length);
         assert.equal(visibleElements(ui, el => el.attributes['data-picture-tag']).filter(el => el.children.some(t => t.attributes.fill === '#B23A36')).length, 0);
@@ -1427,6 +1482,7 @@ function screen(search = '', width = 600, options = {}) {
   doc.defaultView = win;
   const host = new Element('main');
   const context = vm.createContext({ document: doc, URL, Hikari: { config: require('../js/config.js'),
+    scriptsBio2: require('../content/scripts-bio2.js'), voiceDataBio2: require('../content/voice-bio2.js'),
     scriptsBio1: require('../content/scripts-bio1.js'), voiceDataBio1: require('../content/voice-bio1.js'),
     scriptsForce: require('../content/scripts-force.js'), voiceDataForce: require('../content/voice-force.js'),
     scriptsSound: require('../content/scripts-sound.js'), voiceDataSound: require('../content/voice-sound.js'),
@@ -1796,7 +1852,8 @@ const scripts = require('../content/scripts-light.js');
 const scriptsSound = require('../content/scripts-sound.js');
 const scriptsForce = require('../content/scripts-force.js');
 const scriptsBio1 = require('../content/scripts-bio1.js');
-const boardScripts = id => id.startsWith('bio-') ? scriptsBio1 : id.startsWith('force-') ? scriptsForce : id.startsWith('sound-') ? scriptsSound : scripts;
+const scriptsBio2 = require('../content/scripts-bio2.js');
+const boardScripts = id => Object.hasOwn(scriptsBio2.BOARDS, id) ? scriptsBio2 : id.startsWith('bio-') ? scriptsBio1 : id.startsWith('force-') ? scriptsForce : id.startsWith('sound-') ? scriptsSound : scripts;
 const explain = require('../js/explain.js');
 const voiceData = require('../content/voice-light.js');
 const settle = async () => { for (let i = 0; i < 16; i++) await Promise.resolve(); };
@@ -3637,3 +3694,39 @@ test('力の線は起点から先へ伸び、重要語句は書き進め、通�
     a.renderer.destroy();
   }
 });
+
+for (const width of [279, 700]) for (const id of ['bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex']) for (const teacher of scripts.TEACHERS) {
+  test(`${id}・先生${teacher.id}・${width}px: 全手を16ms刻みで描き、ペンが有限で最後は操作時と同じ絵になる`, () => {
+    const { ui, board, renderer, calls } = animationBoard(id, width), steps = boardScripts(id).BOARDS[id];
+    const result = bioResult(ui, board.scene);
+    for (const step of steps) for (const token of step.draw) assert.ok(explain.resolve(token, board.scene, result, scene.handles(board.scene)).items.length, token);
+    const timeline = explain.buildTimeline(steps, board.scene, result, scene.handles(board.scene), {
+      clipSeconds: require('../content/voice-bio2.js').CLIPS[id][teacher.id].map(clip => clip[1]),
+    });
+    const before = { ...calls };
+    ui.mutations.length = 0;
+    for (const step of timeline.steps) for (let time = 0; time <= step.duration; time += 16) {
+      assert.doesNotThrow(() => renderer.setState(explain.stateAt(timeline, step.index, time), step.start + time));
+      const pen = ui.find(el => el.attributes.class === 'pen');
+      if (pen.hasAttribute('transform')) assert.ok(penTip(ui).every(Number.isFinite));
+    }
+    renderer.setState(explain.finalState(timeline), timeline.total);
+    assertNoStructureChanges(ui);
+    assert.deepEqual(calls, before);
+    function artSnapshot() {
+      return visibleElements(ui, el => ['path', 'line', 'rect', 'polygon', 'circle', 'ellipse', 'text', 'image'].includes(el.tagName) && el.attributes.class !== 'pen' &&
+        !el.parent?.attributes['data-handle'] && el.parent?.tagName !== 'clipPath').map(el => {
+        const attrs = { ...el.attributes };
+        if (attrs.filter) attrs.filter = 'sketch';
+        delete attrs.display;
+        return { tag: el.tagName, text: el.textContent, attrs };
+      });
+    }
+    const final = artSnapshot();
+    const below = visibleElements(ui, el => el.attributes['data-picture-below'] && !el.hidden).map(el => el.textContent);
+    renderer.setState(null);
+    assert.deepEqual(artSnapshot(), final);
+    assert.deepEqual(visibleElements(ui, el => el.attributes['data-picture-below']).map(el => el.textContent), below);
+    assert.equal(!!ui.find(el => el.attributes.class === 'handle'), scene.handles(board.scene).length > 0);
+  });
+}

@@ -6,7 +6,7 @@ const explain = require('../js/explain.js');
 const scene = require('../js/scene.js');
 const boards = require('../js/boards.js');
 const scripts = { BOARDS: { ...require('../content/scripts-light.js').BOARDS, ...require('../content/scripts-sound.js').BOARDS,
-  ...require('../content/scripts-force.js').BOARDS, ...require('../content/scripts-bio1.js').BOARDS } };
+  ...require('../content/scripts-force.js').BOARDS, ...require('../content/scripts-bio1.js').BOARDS, ...require('../content/scripts-bio2.js').BOARDS } };
 
 function near(a, b) { assert.ok(Math.abs(a - b) < 1e-7, `${a} ≈ ${b}`); }
 function setup(id = 'reflect') {
@@ -385,6 +385,10 @@ function displayedText(item, result, handles) {
 }
 
 const keyWords = {
+  'bio-photosynthesis': [[], [], [], [], [], [], [], [], []],
+  'bio-digestion': [[], [], [], [], [], [], [], [], []],
+  'bio-circulation': [[], [], [], [], [], [], [], [], []],
+  'bio-reflex': [[], ['感覚神経'], ['せきずい'], ['運動神経'], [], [], [], [], []],
   'bio-flower': [[], ['がく'], ['花弁'], ['おしべ'], ['柱頭'], ['子房'], ['胚珠'], [], []],
   'bio-plants': [[], [], [], [], [], [], [], [], []],
   'bio-animals': [[], [], [], [], [], [], [], [], []],

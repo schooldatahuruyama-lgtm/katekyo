@@ -16,14 +16,21 @@
   const voiceDataForce = node ? require('../content/voice-force.js') : root.Hikari.voiceDataForce;
   const scriptsBio1 = node ? require('../content/scripts-bio1.js') : root.Hikari.scriptsBio1;
   const voiceDataBio1 = node ? require('../content/voice-bio1.js') : root.Hikari.voiceDataBio1;
+  const scriptsBio2 = node ? require('../content/scripts-bio2.js') : root.Hikari.scriptsBio2;
+  const voiceDataBio2 = node ? require('../content/voice-bio2.js') : root.Hikari.voiceDataBio2;
   const content = { light: { scripts, voiceData }, sound: { scripts: scriptsSound, voiceData: voiceDataSound },
-    force: { scripts: scriptsForce, voiceData: voiceDataForce }, bio1: { scripts: scriptsBio1, voiceData: voiceDataBio1 } };
+    force: { scripts: scriptsForce, voiceData: voiceDataForce }, bio1: { scripts: scriptsBio1, voiceData: voiceDataBio1 },
+    bio2: { scripts: scriptsBio2, voiceData: voiceDataBio2 } };
   const explain = node ? require('./explain.js') : root.Hikari.explain;
   const prefs = node ? require('./prefs.js') : root.Hikari.prefs;
   const voice = node ? require('./voice.js') : root.Hikari.voice;
   const config = node ? require('./config.js') : root.Hikari.config;
   const credit = '音声: VOICEVOX Nemo（女声 2・3・4、男声 1・2・3）';
   const instructions = {
+    'bio-photosynthesis': '下のボタンで、葉のどこをしらべるかをえらべるよ。',
+    'bio-digestion': '下のボタンで、栄養分と見る所を切り替えられるよ。',
+    'bio-circulation': '下のボタンで、循環と血液の向きを切り替えられるよ。',
+    'bio-reflex': '下のボタンで、反応の種類と、たどる所を切り替えられるよ。',
     'bio-flower': '下のボタンで、図と部分を切り替えられるよ。',
     'bio-plants': '下のボタンで、特徴をえらべるよ。',
     'bio-animals': '下のボタンで、3 つの特徴をえらべるよ。',
@@ -511,10 +518,11 @@
           if (reason) { reason.textContent = control.reason; reason.hidden = !control.reason; }
           control.choices.forEach(choice => {
           const el = controlNodes.get(control.key + ':' + choice.value);
-          const selected = board.scene.options[control.key] === choice.value;
+          const selectedValue = board.id === 'bio-reflex' && control.key === 'spot' ? result.measures.spot : board.scene.options[control.key];
+          const selected = selectedValue === choice.value;
           el.textContent = (control.label && selected ? '✓ ' : '') + choice.label;
           el.setAttribute('aria-pressed', String(selected));
-          el.disabled = control.enabled === false;
+          el.disabled = control.enabled === false || choice.enabled === false;
           if (reason && control.reason) el.setAttribute('aria-describedby', reason.id);
           else el.removeAttribute('aria-describedby');
         }); });

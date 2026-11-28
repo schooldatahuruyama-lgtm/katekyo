@@ -13,6 +13,7 @@
     { id: 'sound', title: '中 1 音の世界', teacher: 'E', boards: ['sound-wave', 'sound-string', 'sound-speed'] },
     { id: 'force', title: '中 1 力の世界', teacher: 'E', boards: ['force-spring', 'force-arrow', 'force-balance'] },
     { id: 'bio1', title: '中 1 生物の観察と分類', teacher: 'E', boards: ['bio-flower', 'bio-plants', 'bio-animals'] },
+    { id: 'bio2', title: '中 2 生物の体のつくりとはたらき', teacher: 'E', boards: ['bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex'] },
   ];
 
   function record(value) { return value !== null && typeof value === 'object' && !Array.isArray(value); }
@@ -236,6 +237,67 @@
       ] }
   );
 
+  data.push(
+    { id: 'bio-photosynthesis', title: '光合成', question: '植物は、何を使って何をつくる？', heading: '光合成に必要なものをしらべよう',
+      intro: 'ふ入りの葉の一部をアルミニウムはくでおおい、光を当ててから、ヨウ素液でデンプンがあるかをしらべます。',
+      scene: { id: 'bio-photosynthesis-basic', kind: 'bio-photosynthesis', elements: [{ id: 'picture', type: 'picture' }],
+        options: { light: 'on', part: 'green' } }, controls: [],
+      prompts: [
+        { id: 'photosynthesis-dark', text: '光を「はくでおおった所」にして、色が変わらないことをたしかめよう。', when: { all: [
+          { measure: 'light', op: 'is', value: 'off' }, { measure: 'part', op: 'is', value: 'green' },
+        ] } },
+        { id: 'photosynthesis-white', text: '葉の部分を「ふ」にして、光が当たっても色が変わらないことをたしかめよう。', when: { all: [
+          { measure: 'light', op: 'is', value: 'on' }, { measure: 'part', op: 'is', value: 'white' },
+        ] } },
+        { id: 'photosynthesis-both', text: 'はくでおおった「ふ」の所もしらべよう。', when: { all: [
+          { measure: 'light', op: 'is', value: 'off' }, { measure: 'part', op: 'is', value: 'white' },
+        ] } },
+      ] },
+    { id: 'bio-digestion', title: '消化と吸収', question: '食べ物は、体の中でどう変わる？', heading: '栄養分が分解されるようすをたどろう',
+      intro: '食べ物の栄養分は、消化液にふくまれる消化酵素のはたらきで、吸収されやすい物質に分解されます。',
+      scene: { id: 'bio-digestion-basic', kind: 'bio-digestion', elements: [{ id: 'picture', type: 'picture' }],
+        options: { nutrient: 'starch', stage: 'digest' } }, controls: [],
+      prompts: [
+        { id: 'digestion-protein', text: '栄養分を「タンパク質」にして、胃液がはたらくことを見よう。', when: { all: [
+          { measure: 'nutrient', op: 'is', value: 'protein' }, { measure: 'stage', op: 'is', value: 'digest' },
+        ] } },
+        { id: 'digestion-fat', text: '栄養分を「脂肪」にして、胆汁をつくる所を見つけよう。', when: { all: [
+          { measure: 'nutrient', op: 'is', value: 'fat' }, { measure: 'stage', op: 'is', value: 'digest' },
+        ] } },
+        { id: 'digestion-absorb', text: '見る所を「吸収」にして、脂肪がリンパ管に入ることをたしかめよう。', when: { all: [
+          { measure: 'nutrient', op: 'is', value: 'fat' }, { measure: 'stage', op: 'is', value: 'absorb' },
+        ] } },
+      ] },
+    { id: 'bio-circulation', title: '血液の循環', question: '血液は、体の中をどうめぐる？', heading: '血液の通り道をたどろう',
+      intro: '血液は、心臓から出て肺や全身をめぐり、また心臓にもどります。心臓の 4 つの部屋と血管をたどりましょう。',
+      scene: { id: 'bio-circulation-basic', kind: 'bio-circulation', elements: [{ id: 'picture', type: 'picture' }],
+        options: { route: 'body', flow: 'out' } }, controls: [],
+      prompts: [
+        { id: 'circulation-pa', text: '「肺循環」の「心臓から出る」にして、肺動脈に静脈血が流れることをたしかめよう。', when: { all: [
+          { measure: 'route', op: 'is', value: 'lung' }, { measure: 'flow', op: 'is', value: 'out' },
+        ] } },
+        { id: 'circulation-pv', text: '「肺循環」の「心臓にもどる」にして、肺静脈に動脈血が流れることをたしかめよう。', when: { all: [
+          { measure: 'route', op: 'is', value: 'lung' }, { measure: 'flow', op: 'is', value: 'back' },
+        ] } },
+        { id: 'circulation-back', text: '「体循環」の「心臓にもどる」にして、血液がもどる部屋を見つけよう。', when: { all: [
+          { measure: 'route', op: 'is', value: 'body' }, { measure: 'flow', op: 'is', value: 'back' },
+        ] } },
+      ] },
+    { id: 'bio-reflex', title: '刺激と反応', question: '熱いものにふれると、なぜすぐ手を引っこめる？', heading: '信号が伝わる道すじをたどろう',
+      intro: '刺激の信号は、神経を通って伝わります。意識して起こる反応と反射で、信号の通り道をくらべましょう。',
+      scene: { id: 'bio-reflex-basic', kind: 'bio-reflex', elements: [{ id: 'picture', type: 'picture' }],
+        options: { kind: 'reflex', spot: 'skin' } }, controls: [],
+      prompts: [
+        prompt('reflex-conscious', '反応を「意識して起こる反応」にして、通り道のちがいを見よう。', 'kind', 'is', 'conscious'),
+        { id: 'reflex-brain', text: '意識して起こる反応で「脳」をえらんで、命令を出す所をたしかめよう。', when: { all: [
+          { measure: 'kind', op: 'is', value: 'conscious' }, { measure: 'spot', op: 'is', value: 'brain' },
+        ] } },
+        { id: 'reflex-spinal', text: '反射で「せきずい」をえらんで、命令を出す所をたしかめよう。', when: { options: { spot: 'spinal' }, all: [
+          { measure: 'kind', op: 'is', value: 'reflex' }, { measure: 'spot', op: 'is', value: 'spinal' },
+        ] } },
+      ] }
+  );
+
   function list() {
     return UNITS.flatMap(unit => unit.boards.map(id => data.find(board => board.id === id)).filter(Boolean)
       .map(({ id, title, question }) => ({ id, title, question, unit: unit.id })));
@@ -301,6 +363,8 @@
   function checkPrompt(prompt, measures, currentScene) {
     if (!record(prompt) || !record(prompt.when) || !record(measures) ||
         (currentScene !== undefined && scene.validateScene(currentScene).length)) return false;
+    if (Object.hasOwn(prompt.when, 'options') && (!record(prompt.when.options) || !record(currentScene?.options) ||
+        !Object.entries(prompt.when.options).every(([key, value]) => currentScene.options[key] === value))) return false;
     if (Object.hasOwn(prompt.when, 'all')) return Array.isArray(prompt.when.all) && prompt.when.all.length > 0 &&
       prompt.when.all.every(when => checkPrompt({ when }, measures));
     const { measure, op, value, tol = 0 } = prompt.when;
@@ -334,6 +398,33 @@
       return Number.isFinite(result) ? result : null;
     }
     const elements = currentScene?.elements || [];
+    if (id === 'bio-photosynthesis' && typeof measures.starch === 'boolean') {
+      const m = measures, reason = { 'no-light': '光が当たらない', 'no-chloroplast': '葉緑体がない', both: '光が当たらず、葉緑体もない' }[m.reason];
+      text('しらべた所 ' + (m.part === 'green' ? '緑色で' : 'ふで') + (m.light === 'on' ? '光が当たった所' : 'はくの下'));
+      text('ヨウ素液 ' + (m.starch ? '青紫色になる' : '色が変わらない'));
+      text('デンプン ' + (m.starch ? 'できている' : 'できていない（' + reason + '）'));
+    }
+    if (id === 'bio-digestion' && ['starch', 'protein', 'fat'].includes(measures.nutrient)) {
+      text('栄養分 ' + { starch: 'デンプン', protein: 'タンパク質', fat: '脂肪' }[measures.nutrient]);
+      text('できる物質 ' + measures.product);
+      text('吸収される所 柔毛の' + (measures.into === 'lymph' ? 'リンパ管' : '毛細血管'));
+    }
+    if (id === 'bio-circulation' && ['arterial', 'venous'].includes(measures.blood)) {
+      const names = { ra: '右心房', rv: '右心室', la: '左心房', lv: '左心室', vena: '大静脈', aorta: '大動脈', pa: '肺動脈', pv: '肺静脈' };
+      text((measures.route === 'body' ? '体循環' : '肺循環') + ' ' + (measures.flow === 'out' ? '心臓から出る' : '心臓にもどる'));
+      const path = [names[measures.chamber], names[measures.vessel]];
+      text('通る所 ' + (measures.flow === 'out' ? path : path.reverse()).join(' → '));
+      text('流れる血液 ' + (measures.blood === 'arterial' ? '動脈血（酸素が多い）' : '静脈血（酸素が少ない）'));
+    }
+    if (id === 'bio-reflex' && ['reflex', 'conscious'].includes(measures.kind)) {
+      const names = { skin: '皮ふ', sensory: '感覚神経', spinal: 'せきずい', brain: '脳', motor: '運動神経', muscle: '筋肉' };
+      const work = { skin: '刺激を受けとる', sensory: '信号を、せきずいへ伝える',
+        spinal: measures.kind === 'reflex' ? '命令を出す' : '信号を、脳へ伝える', brain: '判断して、命令を出す',
+        motor: '命令を、筋肉へ伝える', muscle: 'ちぢんで、手を動かす' };
+      text(measures.kind === 'reflex' ? '反射' : '意識して起こる反応');
+      text('えらんだ所 ' + names[measures.spot] + '（' + measures.order + ' 番目）');
+      text('はたらき ' + work[measures.spot]);
+    }
     if (id === 'bio-flower') {
       const m = measures, names = { pistil: 'めしべ', stamen: 'おしべ', petal: '花弁', sepal: 'がく' };
       if (Object.hasOwn(names, m.part) && ['abrana', 'matsu'].includes(m.plant)) {

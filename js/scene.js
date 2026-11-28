@@ -12,11 +12,12 @@
   const F = config.force;
   const picture = typeof module === 'object' && module.exports ? require('./picture.js') : root.Hikari.picture;
   const KINDS = Object.freeze(['straight', 'reflect', 'mirror-image', 'refract', 'lens', 'lens-image',
-    'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance', 'bio-flower', 'bio-plants', 'bio-animals']);
+    'sound-wave', 'sound-string', 'sound-speed', 'force-spring', 'force-arrow', 'force-balance', 'bio-flower', 'bio-plants', 'bio-animals', 'bio-photosynthesis', 'bio-digestion', 'bio-circulation', 'bio-reflex']);
   const W = config.width, H = config.height, M = config.motion.margin, GAP = config.motion.gap;
   const EPS = config.criticalEpsilon;
   const DEG = 180 / Math.PI;
   const roles = {
+    'bio-photosynthesis': ['picture'], 'bio-digestion': ['picture'], 'bio-circulation': ['picture'], 'bio-reflex': ['picture'],
     'bio-flower': ['picture'], 'bio-plants': ['picture'], 'bio-animals': ['picture'],
     straight: ['source', 'blocker', 'screen'], reflect: ['source', 'mirror'],
     'mirror-image': ['object', 'eye', 'mirror'], refract: ['source', 'boundary'],
@@ -725,7 +726,7 @@
   function setOption(scene, key, value) {
     if (!validateScene(scene).length && picture.isKind(scene.kind)) {
       const control = picture.controls(scene.kind, scene.options).find(c => c.key === key);
-      if (!control?.enabled || !control.choices.some(c => c.value === value) || scene.options[key] === value) return scene;
+      if (!control?.enabled || !control.choices.some(c => c.value === value && c.enabled !== false) || scene.options[key] === value) return scene;
       const next = copy(scene); next.options[key] = value; return next;
     }
     if (!validateScene(scene).length && ['force-spring', 'force-balance'].includes(scene.kind)) {

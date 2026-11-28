@@ -26,7 +26,7 @@ test('compact は true のときだけ有効で、不正な引数では通常配
     assert.equal(scene.trace(current, { compact: true }).picture.compact, true);
     assert.deepEqual(normal.picture.below, []);
   }
-  for (const board of boards.list().filter(b => b.unit !== 'bio1')) {
+  for (const board of boards.list().filter(b => !['bio1', 'bio2'].includes(b.unit))) {
     const current = boards.get(board.id).scene;
     assert.deepEqual(scene.trace(current, { compact: true }), scene.trace(current));
   }
@@ -210,5 +210,5 @@ test('配置設定は凍結、cropは指示書の数そのまま、画像モジ�
     assert.deepEqual(scene.trace(s).picture.images.map(i => Object.values(i.crop)), crops);
   }
   assert.equal(picture.validOptions('unknown', {}), false); assert.deepEqual(picture.controls('bio-plants', null), []);
-  for (const b of boards.list().filter(b => b.unit !== 'bio1')) assert.equal(scene.trace(boards.get(b.id).scene).picture, null);
+  for (const b of boards.list().filter(b => !['bio1', 'bio2'].includes(b.unit))) assert.equal(scene.trace(boards.get(b.id).scene).picture, null);
 });

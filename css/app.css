@@ -160,6 +160,8 @@ button:hover { filter: brightness(.97); }
 .picture-below p { position: relative; margin: .35em 0; }
 .picture-below [data-tone="green"] { color: var(--green, #23734d); }
 .picture-below [data-tone="red"] { color: #B23A36; }
+.picture-below [data-tone="blue"] { color: #176AA3; }
+.picture-below [data-tone="orange"] { color: #B45C00; }
 .picture-below [data-tone="gray"] { color: #5b6268; }
 .picture-below-highlight { position: absolute; inset: 0; border: 2px solid #1A5CFF; border-radius: 4px; pointer-events: none; }
 .picture-below-highlight[display="none"] { display: none; }
